@@ -1,0 +1,341 @@
+/* ═══════════════════════════════════════════════════════════════
+   Session Store — Zustand + Immer
+   Central state for: session lifecycle, knowledge graph,
+   presentation progress, voice, RL policy, and interrupts.
+   ═══════════════════════════════════════════════════════════════ */
+
+import { create } from 'zustand';
+import { produce } from 'immer';
+import { AudioPlaybackManager } from '../audio/AudioPlaybackManager';
+
+// Inline types to avoid import resolution issues in Vite
+type SessionState = 'IDLE' | 'LISTENING' | 'REASONING' | 'BUILDING_GRAPH' | 'PRESENTING' | 'INTERRUPTED' | 'COMPLETED';
+type DataType = 'CONCEPT' | 'RELATIONSHIP' | 'EXAMPLE' | 'ANALOGY' | 'DEFINITION' | 'PROCESS' | 'RESOURCE' | 'COUNTERPOINT';
+type EdgeType = 'REQUIRES' | 'CONTAINS' | 'RELATES_TO' | 'EXEMPLIFIES' | 'CONTRADICTS' | 'LEADS_TO' | 'DEEPENS';
+
+export interface KGNode {
+  id: string;
+  label: string;
+  type: DataType;
+  depth: number;
+  content: string;
+  narration: string;
+  visual: {
+    elementType: string;
+    x: number; y: number;
+    width: number; height: number;
+    style: Record<string, any>;
+    animation: { type: string; duration: number; delay: number };
+    icon?: string;
+  };
+  rlRelevanceScore: number;
+  isExpanded: boolean;
+  isPresented: boolean;
+  parentId: string | null;
+  metadata: Record<string, any>;
+}
+
+export interface KGEdge {
+  id: string;
+  sourceId: string;
+  targetId: string;
+  label: string;
+  type: EdgeType;
+  weight: number;
+  isPresented: boolean;
+}
+
+export interface PresentationScene {
+  id: string;
+  nodeIds: string[];
+  edgeIds: string[];
+  narration: string;
+  focusNodeId: string;
+  viewport: { x: number; y: number; zoom: number };
+  visualCommands: any[];
+  durationEstimate: number;
+}
+
+export interface PresentationBookmark {
+  sceneId: string;
+  nodeId: string;
+  wordOffset: number;
+  traversalIndex: number;
+  timestamp: number;
+}
+
+export interface ChatMessage {
+  role: 'user' | 'agent';
+  text: string;
+  timestamp: number;
+}
+
+export interface RLPolicy {
+  explanationStrategy: string;
+  pace: number;
+  visualDensity: string;
+  comprehensionCheckFrequency: number;
+}
+
+// ── Store Interface ──────────────────────────────────────────
+interface SessionStore {
+  // Session
+  sessionState: SessionState;
+  sessionId: string | null;
+  topic: string;
+  ws: WebSocket | null;
+
+  // Knowledge Graph
+  nodes: Record<string, KGNode>;
+  edges: Record<string, KGEdge>;
+
+  // Presentation
+  currentScene: PresentationScene | null;
+  narrationText: string;
+  sceneHistory: PresentationScene[];
+  bookmark: PresentationBookmark | null;
+
+  // Voice
+  voiceEnabled: boolean;
+  isListening: boolean;
+  isSpeaking: boolean;
+
+  // RL
+  rlPolicy: RLPolicy | null;
+
+  // Chat (text fallback)
+  chatMessages: ChatMessage[];
+
+  // Visual command animation
+  revealedNodeIds: string[];
+  visualCommandQueue: Array<{ type: string; targetId: string; params?: any }>;
+
+  // UI
+  sidebarTab: 'info' | 'graph' | 'chat';
+  showMinimap: boolean;
+
+  // Actions
+  setSessionState: (state: SessionState) => void;
+  connectWS: (url: string, onReady?: () => void) => void;
+  disconnectWS: () => void;
+  sendMessage: (msg: any) => void;
+  startSession: (topic: string) => void;
+
+  addNode: (node: KGNode) => void;
+  addEdge: (edge: KGEdge) => void;
+  updateNode: (id: string, updates: Partial<KGNode>) => void;
+
+  setCurrentScene: (scene: PresentationScene) => void;
+  setNarration: (text: string) => void;
+  setBookmark: (bookmark: PresentationBookmark | null) => void;
+
+  setVoiceEnabled: (enabled: boolean) => void;
+  stopAudio: () => void;
+  sendBinaryAudio: (data: ArrayBuffer) => void;
+  setSidebarTab: (tab: 'info' | 'graph' | 'chat') => void;
+  setRLPolicy: (policy: RLPolicy) => void;
+
+  enqueueVisualCommand: (cmd: { type: string; targetId: string; params?: any }) => void;
+  dequeueVisualCommand: () => void;
+  revealNode: (id: string) => void;
+
+  addChatMessage: (msg: ChatMessage) => void;
+  sendTextInput: (text: string) => void;
+  sendCommand: (cmd: string) => void;
+
+  reset: () => void;
+}
+
+// ── Initial State ────────────────────────────────────────────
+const initialState = {
+  sessionState: 'IDLE' as SessionState,
+  sessionId: null as string | null,
+  topic: '',
+  ws: null as WebSocket | null,
+  nodes: {} as Record<string, KGNode>,
+  edges: {} as Record<string, KGEdge>,
+  currentScene: null as PresentationScene | null,
+  narrationText: '',
+  sceneHistory: [] as PresentationScene[],
+  bookmark: null as PresentationBookmark | null,
+  voiceEnabled: true,
+  isListening: false,
+  isSpeaking: false,
+  rlPolicy: null as RLPolicy | null,
+  revealedNodeIds: [] as string[],
+  visualCommandQueue: [] as Array<{ type: string; targetId: string; params?: any }>,
+  chatMessages: [] as ChatMessage[],
+  sidebarTab: 'info' as const,
+  showMinimap: true,
+};
+
+// ── Store ────────────────────────────────────────────────────
+export const useSessionStore = create<SessionStore>((set, get) => ({
+  ...initialState,
+
+  setSessionState: (state) => set({ sessionState: state }),
+
+  connectWS: (url: string, onReady?: () => void) => {
+    get().disconnectWS();
+    const ws = new WebSocket(url);
+
+    ws.onopen = () => {
+      console.log('[WS] Connected');
+      onReady?.();
+    };
+
+    ws.onmessage = (event) => {
+      // Binary data = TTS audio from backend → play via AudioPlaybackManager
+      if (event.data instanceof Blob) {
+        if (get().voiceEnabled) {
+          event.data.arrayBuffer().then(buffer => {
+            AudioPlaybackManager.getInstance().play(buffer);
+          });
+        }
+        return;
+      }
+
+      try {
+        const msg = JSON.parse(event.data);
+        const store = get();
+
+        switch (msg.type) {
+          case 'state_change':
+            set({ sessionState: msg.to });
+            break;
+
+          case 'graph_update':
+            if (msg.mutation.type === 'add_node') {
+              store.addNode(msg.mutation.data);
+            } else if (msg.mutation.type === 'add_edge') {
+              store.addEdge(msg.mutation.data);
+            } else if (msg.mutation.type === 'update_node') {
+              store.updateNode(msg.mutation.data.id, msg.mutation.data.updates);
+            }
+            break;
+
+          case 'scene_change':
+            // Clear visual command queue for new scene
+            set({ visualCommandQueue: [] });
+            store.setCurrentScene(msg.scene);
+            break;
+
+          case 'visual_command':
+            store.enqueueVisualCommand(msg.command);
+            break;
+
+          case 'narration_text':
+            store.setNarration(msg.text);
+            store.addChatMessage({ role: 'agent', text: msg.text, timestamp: Date.now() });
+            break;
+
+          case 'agent_audio_meta':
+            // Informational — audio binary follows immediately
+            break;
+
+          case 'bookmark_created':
+            store.setBookmark(msg.bookmark);
+            break;
+
+          case 'bookmark_resumed':
+            store.setBookmark(null);
+            break;
+
+          case 'rl_update':
+            store.setRLPolicy(msg.policy);
+            break;
+
+          case 'error':
+            console.error('[WS] Server error:', msg.message);
+            break;
+        }
+      } catch (err) {
+        console.warn('[WS] Parse error:', err);
+      }
+    };
+
+    ws.onclose = () => console.log('[WS] Disconnected');
+    ws.onerror = (err) => console.error('[WS] Error:', err);
+
+    set({ ws });
+  },
+
+  disconnectWS: () => {
+    AudioPlaybackManager.getInstance().stop();
+    get().ws?.close();
+    set({ ws: null });
+  },
+
+  sendMessage: (msg: any) => {
+    const ws = get().ws;
+    if (ws?.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify(msg));
+    }
+  },
+
+  startSession: (topic: string) => {
+    set({ topic, sessionState: 'LISTENING' });
+    get().sendMessage({ type: 'start_session', topic });
+  },
+
+  addNode: (node: KGNode) => set(produce((s: SessionStore) => { s.nodes[node.id] = node; })),
+  addEdge: (edge: KGEdge) => set(produce((s: SessionStore) => { s.edges[edge.id] = edge; })),
+  updateNode: (id, updates) => set(produce((s: SessionStore) => {
+    if (s.nodes[id]) Object.assign(s.nodes[id], updates);
+  })),
+
+  setCurrentScene: (scene) => set(produce((s: SessionStore) => {
+    s.currentScene = scene;
+    s.sceneHistory.push(scene);
+  })),
+
+  setNarration: (text) => set({ narrationText: text }),
+  setBookmark: (bookmark) => set({ bookmark }),
+  setVoiceEnabled: (enabled) => {
+    if (!enabled) {
+      // Stop any currently playing audio immediately
+      AudioPlaybackManager.getInstance().stop();
+    }
+    set({ voiceEnabled: enabled });
+  },
+  stopAudio: () => {
+    AudioPlaybackManager.getInstance().stop();
+  },
+  sendBinaryAudio: (data: ArrayBuffer) => {
+    const ws = get().ws;
+    if (ws?.readyState === WebSocket.OPEN) {
+      ws.send(data);
+    }
+  },
+  setSidebarTab: (tab) => set({ sidebarTab: tab }),
+  setRLPolicy: (policy) => set({ rlPolicy: policy }),
+
+  enqueueVisualCommand: (cmd) => set(produce((s: SessionStore) => {
+    s.visualCommandQueue.push(cmd);
+  })),
+  dequeueVisualCommand: () => set(produce((s: SessionStore) => {
+    s.visualCommandQueue.shift();
+  })),
+  revealNode: (id) => set(produce((s: SessionStore) => {
+    if (!s.revealedNodeIds.includes(id)) {
+      s.revealedNodeIds.push(id);
+    }
+  })),
+
+  addChatMessage: (msg) => set(produce((s: SessionStore) => { s.chatMessages.push(msg); })),
+
+  sendTextInput: (text: string) => {
+    const store = get();
+    store.addChatMessage({ role: 'user', text, timestamp: Date.now() });
+    store.sendMessage({ type: 'text_input', text });
+  },
+
+  sendCommand: (cmd: string) => {
+    get().sendMessage({ type: 'user_command', command: cmd });
+  },
+
+  reset: () => {
+    AudioPlaybackManager.getInstance().destroy();
+    set({ ...initialState });
+  },
+}));

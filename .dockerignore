@@ -1,0 +1,29 @@
+# Dependencies and build outputs
+**/node_modules
+**/dist
+**/.npm
+**/coverage
+
+# Git and IDE
+.git
+.gitignore
+.cursor
+.vscode
+*.swp
+*.swo
+
+# Environment and secrets (use env_file at runtime)
+.env
+.env.local
+.env.*.local
+
+# Logs and temp files
+*.log
+*.tmp
+.DS_Store
+
+# Frontend not needed for backend build
+frontend
+
+# Docs and plans (optional, reduces context)
+*.plan.md
