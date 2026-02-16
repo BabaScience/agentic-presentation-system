@@ -26,7 +26,7 @@ export enum EdgeType {
 }
 
 // ── Visual Specification ─────────────────────────────────────
-export type ElementType = 'box' | 'circle' | 'arrow' | 'text' | 'code' | 'split_panel' | 'flow_sequence' | 'callout';
+export type ElementType = 'box' | 'circle' | 'arrow' | 'text' | 'code' | 'split_panel' | 'flow_sequence' | 'callout' | 'icon';
 
 export interface Style {
   fill?: string;
@@ -138,6 +138,8 @@ export interface PresentationScene {
   viewport: { x: number; y: number; zoom: number };
   visualCommands: VisualCommand[];
   durationEstimate: number;
+  illustrations?: IllustrationSpec[]; // Legacy support
+  visualScript?: VisualScript; // New frame-based system
 }
 
 export interface VisualCommand {
@@ -145,6 +147,72 @@ export interface VisualCommand {
   targetId: string;
   wordTrigger?: number;
   params?: Record<string, any>;
+}
+
+// ── Illustration Specification ──────────────────────────────────
+export interface IllustrationSpec {
+  id: string;
+  type: 'shape' | 'icon' | 'diagram';
+  elementType: ElementType;
+  position: { x: number; y: number }; // Percentage-based (0-100)
+  size: { width: number; height: number };
+  style: Style;
+  animation: Animation;
+  content?: string;
+  appearTimingMs: number;
+}
+
+// ── Frame-Based Visual Narrative System ─────────────────────────
+
+// Visual entity types (semantic understanding)
+export type VisualEntityType =
+  | 'User' | 'Server' | 'Database' | 'Container' | 'Pod'
+  | 'Cloud' | 'Network' | 'Device' | 'Arrow' | 'DataFlow'
+  | 'Process' | 'Queue' | 'Cache' | 'LoadBalancer' | 'Service';
+
+// Visual entity instance
+export interface VisualEntity {
+  id: string;
+  type: VisualEntityType;
+  position: { x: number; y: number }; // Canvas coordinates (0-100%)
+  size: { width: number; height: number };
+  label?: string;
+  color?: string;
+  highlight?: boolean;
+  animation?: {
+    type: 'fadeIn' | 'slideIn' | 'scaleIn' | 'pulse' | 'flow' | 'none';
+    duration: number;
+    delay: number;
+  };
+  metadata?: Record<string, any>;
+}
+
+// Entity transition between frames
+export interface EntityTransition {
+  entityId: string;
+  from: Partial<VisualEntity>;
+  to: Partial<VisualEntity>;
+  duration: number;
+  easing?: 'linear' | 'ease-in' | 'ease-out' | 'ease-in-out';
+}
+
+// Single frame in visual narrative
+export interface IllustrationFrame {
+  id: string;
+  startTime: number; // milliseconds
+  endTime: number;
+  entities: VisualEntity[];
+  transitions?: EntityTransition[];
+  narrationSegment: string; // What's being said during this frame
+  description: string; // Visual description for debugging
+}
+
+// Complete visual script for a scene
+export interface VisualScript {
+  sceneId: string;
+  frames: IllustrationFrame[];
+  totalDuration: number;
+  entities: Record<string, VisualEntity>; // All entities referenced
 }
 
 // ── Traversal Path ───────────────────────────────────────────
@@ -276,7 +344,7 @@ export type WSServerEvent =
   | { type: 'bookmark_resumed'; bookmark: PresentationBookmark }
   | { type: 'scene_change'; scene: PresentationScene }
   | { type: 'narration_text'; text: string; sceneId: string }
-  | { type: 'agent_audio_meta'; durationMs: number; sceneId: string }
+  | { type: 'agent_audio_meta'; durationMs: number; sceneId: string; wordTimestamps?: WordTimestamp[] }
   | { type: 'rl_update'; policy: RLPolicy; learnerState: Partial<LearnerState> }
   | { type: 'error'; message: string; code: string }
   | { type: 'pong' };
@@ -301,3 +369,1017 @@ export const BOOKMARK_RESUME_MS = 500;
 export const RL_UPDATE_INTERVAL_MS = 50;
 export const VOICE_SAMPLE_RATE = 16000;
 export const VOICE_CHUNK_SIZE = 4096;
+
+// ══════════════════════════════════════════════════════════════════
+// ADVANCED FEATURES — Types for Enhanced Capabilities
+// ══════════════════════════════════════════════════════════════════
+
+// ── Code Execution & Visualization ───────────────────────────────
+export enum CodeLanguage {
+  JAVASCRIPT = 'javascript',
+  PYTHON = 'python',
+  GO = 'go',
+  RUST = 'rust',
+  JAVA = 'java',
+  TYPESCRIPT = 'typescript',
+  CPP = 'cpp',
+  BASH = 'bash',
+}
+
+export interface CodeExecutionRequest {
+  code: string;
+  language: CodeLanguage;
+  stdin?: string;
+  timeout?: number; // milliseconds
+  memoryLimit?: number; // MB
+}
+
+export interface CodeExecutionResult {
+  stdout: string;
+  stderr: string;
+  exitCode: number;
+  executionTime: number; // ms
+  memoryUsed: number; // bytes
+  error?: string;
+}
+
+export interface DebugStep {
+  line: number;
+  variables: Record<string, any>;
+  stack: string[];
+  heap: Record<string, any>;
+  timestamp: number;
+}
+
+export interface CodeVisualization {
+  sceneId: string;
+  code: string;
+  language: CodeLanguage;
+  steps: DebugStep[];
+  output: CodeExecutionResult;
+  complexity: {
+    time: string; // e.g., "O(n²)"
+    space: string; // e.g., "O(n)"
+  };
+  visualizations: {
+    dataStructures: DataStructureViz[];
+    memoryLayout?: MemoryViz;
+    executionFlow?: ExecutionFlowViz;
+  };
+}
+
+export interface DataStructureViz {
+  type: 'array' | 'tree' | 'graph' | 'stack' | 'queue' | 'heap' | 'linkedlist';
+  data: any;
+  highlights?: number[]; // indices to highlight
+  label?: string;
+  position: { x: number; y: number };
+}
+
+export interface MemoryViz {
+  stack: StackFrame[];
+  heap: HeapObject[];
+  totalSize: number;
+}
+
+export interface StackFrame {
+  function: string;
+  variables: Record<string, { value: any; type: string; address: string }>;
+  line: number;
+}
+
+export interface HeapObject {
+  address: string;
+  type: string;
+  value: any;
+  size: number;
+  reachable: boolean;
+}
+
+export interface ExecutionFlowViz {
+  nodes: FlowNode[];
+  edges: FlowEdge[];
+  currentNode?: string;
+}
+
+export interface FlowNode {
+  id: string;
+  label: string;
+  type: 'start' | 'end' | 'process' | 'decision' | 'loop';
+  line: number;
+}
+
+export interface FlowEdge {
+  from: string;
+  to: string;
+  label?: string;
+  executed: boolean;
+}
+
+// ── Data Visualization ───────────────────────────────────────────
+export enum ChartType {
+  LINE = 'line',
+  BAR = 'bar',
+  SCATTER = 'scatter',
+  PIE = 'pie',
+  HEATMAP = 'heatmap',
+  TREEMAP = 'treemap',
+  SUNBURST = 'sunburst',
+  NETWORK = 'network',
+  SANKEY = 'sankey',
+  TIMESERIES = 'timeseries',
+  CANDLESTICK = 'candlestick',
+  BOX = 'box',
+  VIOLIN = 'violin',
+}
+
+export interface DataVisualization {
+  id: string;
+  type: ChartType;
+  data: any; // Chart-specific data format
+  config: ChartConfig;
+  title?: string;
+  description?: string;
+  position: { x: number; y: number };
+  size: { width: number; height: number };
+  animation?: Animation;
+}
+
+export interface ChartConfig {
+  xAxis?: AxisConfig;
+  yAxis?: AxisConfig;
+  legend?: LegendConfig;
+  colors?: string[];
+  interactive?: boolean;
+  zoomable?: boolean;
+  tooltips?: boolean;
+}
+
+export interface AxisConfig {
+  label?: string;
+  scale?: 'linear' | 'log' | 'time' | 'category';
+  domain?: [number, number];
+  ticks?: number;
+}
+
+export interface LegendConfig {
+  show: boolean;
+  position: 'top' | 'bottom' | 'left' | 'right';
+}
+
+// ── AI-Generated Illustrations ───────────────────────────────────
+export interface AIIllustrationRequest {
+  prompt: string;
+  style?: 'technical' | 'artistic' | 'minimal' | 'realistic' | 'cartoon';
+  aspectRatio?: '1:1' | '16:9' | '4:3';
+  colorPalette?: string[];
+  referenceImages?: string[]; // URLs or base64
+}
+
+export interface AIIllustrationResult {
+  id: string;
+  imageUrl: string;
+  imageData?: string; // base64
+  svgData?: string; // converted SVG if possible
+  prompt: string;
+  style: string;
+  metadata: {
+    generatedAt: number;
+    model: string;
+    revisedPrompt?: string;
+  };
+}
+
+// ── 3D Visualizations ────────────────────────────────────────────
+export interface ThreeDVisualization {
+  id: string;
+  type: '3d_network' | '3d_architecture' | '3d_model' | '3d_flow';
+  objects: ThreeDObject[];
+  camera: CameraConfig;
+  lighting: LightConfig[];
+  animations?: ThreeDAnimation[];
+}
+
+export interface ThreeDObject {
+  id: string;
+  type: 'box' | 'sphere' | 'cylinder' | 'custom';
+  position: { x: number; y: number; z: number };
+  rotation: { x: number; y: number; z: number };
+  scale: { x: number; y: number; z: number };
+  material: MaterialConfig;
+  label?: string;
+  metadata?: Record<string, any>;
+}
+
+export interface CameraConfig {
+  position: { x: number; y: number; z: number };
+  target: { x: number; y: number; z: number };
+  fov: number;
+  animatePath?: { x: number; y: number; z: number }[];
+}
+
+export interface LightConfig {
+  type: 'ambient' | 'directional' | 'point' | 'spot';
+  position?: { x: number; y: number; z: number };
+  intensity: number;
+  color: string;
+}
+
+export interface MaterialConfig {
+  color: string;
+  opacity: number;
+  metalness?: number;
+  roughness?: number;
+  emissive?: string;
+}
+
+export interface ThreeDAnimation {
+  objectId: string;
+  property: 'position' | 'rotation' | 'scale' | 'opacity';
+  from: any;
+  to: any;
+  duration: number;
+  easing?: string;
+}
+
+// ── Mathematical Visualization ───────────────────────────────────
+export interface MathVisualization {
+  id: string;
+  type: 'equation' | 'function' | 'geometric' | 'calculus' | 'linear_algebra';
+  latex?: string;
+  components: MathComponent[];
+  interactive?: boolean;
+}
+
+export interface MathComponent {
+  type: 'equation' | 'graph' | 'shape' | 'vector' | 'matrix' | 'integral';
+  data: any;
+  position: { x: number; y: number };
+  animation?: MathAnimation;
+}
+
+export interface MathAnimation {
+  type: 'transform' | 'highlight' | 'draw' | 'solve_step';
+  steps: any[];
+  duration: number;
+}
+
+export interface FunctionPlot {
+  expression: string;
+  domain: [number, number];
+  range?: [number, number];
+  points?: { x: number; y: number }[];
+  derivative?: boolean;
+  integral?: {
+    from: number;
+    to: number;
+    showArea: boolean;
+  };
+}
+
+// ── Live System Integration ──────────────────────────────────────
+export interface LiveSystemConnection {
+  id: string;
+  type: 'kubernetes' | 'aws' | 'azure' | 'gcp' | 'prometheus' | 'database' | 'api';
+  credentials: {
+    type: 'oauth' | 'token' | 'basic' | 'certificate';
+    data: Record<string, string>; // Encrypted
+  };
+  status: 'connected' | 'disconnected' | 'error';
+  lastSync: number;
+}
+
+export interface LiveMetric {
+  name: string;
+  value: number;
+  unit: string;
+  timestamp: number;
+  source: string;
+  labels?: Record<string, string>;
+}
+
+export interface LiveSystemVisualization {
+  connectionId: string;
+  metrics: LiveMetric[];
+  visualization: DataVisualization;
+  refreshInterval: number; // ms
+  autoRefresh: boolean;
+}
+
+// ── Advanced Animation System ─────────────────────────────────────
+export type AnimationType = 'fadeIn' | 'scaleIn' | 'slideIn' | 'pulse' | 'dashFlow' | 'none'
+  | 'morph' | 'particle' | 'spring' | 'cinematic';
+
+export interface AdvancedAnimation {
+  type: AnimationType;
+  duration: number;
+  delay: number;
+  easing?: string;
+  morphTarget?: any; // Target shape for morph
+  particleConfig?: ParticleConfig;
+  springConfig?: SpringConfig;
+  cinematicPath?: CinematicPath;
+}
+
+export interface ParticleConfig {
+  count: number;
+  lifetime: number;
+  speed: { min: number; max: number };
+  size: { min: number; max: number };
+  color: string[];
+  emitter: { x: number; y: number };
+  gravity?: { x: number; y: number };
+}
+
+export interface SpringConfig {
+  stiffness: number;
+  damping: number;
+  mass: number;
+  velocity: number;
+}
+
+export interface CinematicPath {
+  keyframes: CameraKeyframe[];
+  easing: string;
+  totalDuration: number;
+}
+
+export interface CameraKeyframe {
+  time: number;
+  position: { x: number; y: number };
+  zoom: number;
+  rotation?: number;
+  focusTarget?: string; // entity ID
+}
+
+// ── Intelligent Visual Adaptation ─────────────────────────────────
+export interface VisualComplexity {
+  level: 'minimal' | 'simple' | 'moderate' | 'detailed' | 'complex';
+  entityCount: number;
+  animationIntensity: 'low' | 'medium' | 'high';
+  labelDensity: 'sparse' | 'moderate' | 'dense';
+  colorComplexity: 'monochrome' | 'limited' | 'full';
+}
+
+export interface LearningStyle {
+  type: 'visual' | 'textual' | 'kinesthetic' | 'balanced';
+  confidence: number; // 0-1
+  indicators: string[];
+}
+
+export interface ExpertiseLevel {
+  level: 'beginner' | 'intermediate' | 'advanced' | 'expert';
+  domain: string;
+  confidence: number;
+  inferredFrom: string[];
+}
+
+export interface AdaptationMetrics {
+  confusionRate: number;
+  interruptFrequency: number;
+  questionComplexity: number;
+  acknowledgmentRate: number;
+  pauseDuration: number;
+  revisitPatterns: string[];
+}
+
+// ── Multimodal Input ──────────────────────────────────────────────
+export interface ImageAnalysisRequest {
+  image: string; // base64 or URL
+  prompt: string;
+  analysisType: 'diagram' | 'screenshot' | 'sketch' | 'whiteboard';
+}
+
+export interface ImageAnalysisResult {
+  description: string;
+  entities: DetectedEntity[];
+  relationships: DetectedRelationship[];
+  suggestedNodes: Partial<KGNode>[];
+  enhancedImage?: string; // cleaned/annotated
+}
+
+export interface DetectedEntity {
+  type: string;
+  label: string;
+  boundingBox: { x: number; y: number; width: number; height: number };
+  confidence: number;
+}
+
+export interface DetectedRelationship {
+  from: string;
+  to: string;
+  type: string;
+  confidence: number;
+}
+
+// ── Scene Composition ─────────────────────────────────────────────
+export interface SceneLayout {
+  type: 'force-directed' | 'hierarchical' | 'circular' | 'grid' | 'flow';
+  entities: LayoutEntity[];
+  constraints?: LayoutConstraint[];
+  aestheticScore?: number;
+}
+
+export interface LayoutEntity {
+  id: string;
+  position: { x: number; y: number };
+  size: { width: number; height: number };
+  fixed?: boolean;
+  weight?: number; // importance
+}
+
+export interface LayoutConstraint {
+  type: 'alignment' | 'spacing' | 'proximity' | 'ordering';
+  entities: string[];
+  value?: number;
+}
+
+export interface CompositionRule {
+  name: string;
+  enabled: boolean;
+  weight: number;
+  evaluate: (scene: any) => number; // 0-1 score
+}
+
+// ── Collaborative Features ────────────────────────────────────────
+export interface CollaborativeSession {
+  sessionId: string;
+  participants: Participant[];
+  presenter: string; // userId
+  sharedState: any;
+  annotations: Annotation[];
+  recording?: RecordingState;
+}
+
+export interface Participant {
+  userId: string;
+  name: string;
+  role: 'presenter' | 'co-presenter' | 'viewer';
+  status: 'active' | 'idle' | 'disconnected';
+  cursor?: { x: number; y: number };
+}
+
+export interface Annotation {
+  id: string;
+  userId: string;
+  type: 'arrow' | 'circle' | 'highlight' | 'text' | 'laser';
+  position: { x: number; y: number };
+  data: any;
+  timestamp: number;
+  persist: boolean;
+  fadeAfter?: number; // ms
+}
+
+export interface RecordingState {
+  isRecording: boolean;
+  startTime: number;
+  frames: RecordedFrame[];
+  audioTrack?: any; // MediaStreamTrack (browser API)
+}
+
+export interface RecordedFrame {
+  timestamp: number;
+  sceneSnapshot: PresentationScene;
+  annotations: Annotation[];
+  audioOffset: number;
+}
+
+// ── Context-Aware Assets ──────────────────────────────────────────
+export interface AssetLibrary {
+  logos: LogoAsset[];
+  icons: IconAsset[];
+  illustrations: IllustrationAsset[];
+  cached: Map<string, CachedAsset>;
+}
+
+export interface LogoAsset {
+  name: string;
+  keywords: string[];
+  url: string;
+  svg?: string;
+  color?: string;
+  category: string;
+}
+
+export interface IconAsset {
+  name: string;
+  category: string;
+  svg: string;
+  keywords: string[];
+}
+
+export interface IllustrationAsset {
+  id: string;
+  url: string;
+  keywords: string[];
+  style: string;
+  category: string;
+}
+
+export interface CachedAsset {
+  url: string;
+  data: string;
+  contentType: string;
+  cachedAt: number;
+  expiresAt: number;
+}
+
+// ── Advanced Audio ────────────────────────────────────────────────
+export interface SpatialAudioConfig {
+  enabled: boolean;
+  mode: '2d' | '3d';
+  listenerPosition: { x: number; y: number; z: number };
+  distanceModel: 'linear' | 'inverse' | 'exponential';
+  rolloffFactor: number;
+  maxDistance: number;
+  refDistance: number;
+  entitySounds?: Map<string, EntitySound>;
+}
+
+export interface EntitySound {
+  entityId: string;
+  position: { x: number; y: number; z: number };
+  audioBuffer: any; // AudioBuffer (Web Audio API)
+  volume: number;
+  loop: boolean;
+}
+
+export interface BackgroundMusic {
+  id: string;
+  url: string;
+  mood?: 'calm' | 'upbeat' | 'tense' | 'triumphant' | 'neutral';
+  volume: number;
+  fadeIn?: number;
+  fadeOut?: number;
+  fadeInDuration?: number;
+  fadeOutDuration?: number;
+  loop?: boolean;
+}
+
+export interface VoiceConfig {
+  voice: string;
+  pitch: number;
+  rate: number;
+  volume: number;
+  emotion?: 'neutral' | 'excited' | 'serious' | 'friendly';
+}
+
+export interface VoiceModulation {
+  pitch: number;
+  rate: number;
+  emphasis: 'light' | 'moderate' | 'strong';
+  tone:
+    | 'explanatory'
+    | 'authoritative'
+    | 'demonstrative'
+    | 'conversational'
+    | 'instructional'
+    | 'analytical'
+    | 'informative'
+    | 'cautionary';
+}
+
+export interface AmbientSoundscape {
+  id: string;
+  type: string;
+  layers: Array<{
+    url: string;
+    volume: number;
+    loop: boolean;
+  }>;
+  spatialPositioning: boolean;
+}
+
+export interface AudioEffect {
+  type: 'reverb' | 'echo' | 'compression' | 'filter';
+  intensity: number;
+  decay?: number;
+  predelay?: number;
+  delay?: number;
+  feedback?: number;
+  threshold?: number;
+  ratio?: number;
+  attack?: number;
+  release?: number;
+  filterType?: 'lowpass' | 'highpass' | 'bandpass';
+  frequency?: number;
+}
+
+export interface AudioContext {
+  backgroundMusic: BackgroundMusic;
+  ambientSoundscape: AmbientSoundscape | null;
+  voiceModulation: VoiceModulation;
+  audioEffects: AudioEffect[];
+  spatialAudio: SpatialAudioConfig;
+}
+
+// ── Interactive 3D Visualizations ─────────────────────────────────
+export interface Scene3D {
+  id: string;
+  entities: Entity3D[];
+  connections: Array<{
+    id: string;
+    sourceId: string;
+    targetId: string;
+    type: 'straight' | 'curved' | 'tube';
+    color: string;
+    thickness: number;
+    animated: boolean;
+  }>;
+  cameraPath: CameraPath3D;
+  layers: LayerConfig3D[];
+  interactionMode: InteractionMode;
+  lighting: {
+    ambient: { color: string; intensity: number };
+    directional: Array<{
+      color: string;
+      intensity: number;
+      position: { x: number; y: number; z: number };
+    }>;
+    point: Array<{
+      color: string;
+      intensity: number;
+      position: { x: number; y: number; z: number };
+      distance: number;
+    }>;
+  };
+  environment: {
+    background: 'gradient' | 'skybox' | 'solid';
+    backgroundColor: string;
+    fog: { enabled: boolean; color: string; near: number; far: number };
+    grid: { enabled: boolean; size: number; divisions: number };
+  };
+}
+
+export interface Entity3D {
+  id: string;
+  type: DataType;
+  label: string;
+  position: { x: number; y: number; z: number };
+  scale: { x: number; y: number; z: number };
+  rotation: { x: number; y: number; z: number };
+  color: string;
+  geometry: 'box' | 'sphere' | 'cylinder' | 'cone' | 'torus';
+  opacity: number;
+  metadata?: any;
+}
+
+export interface CameraPath3D {
+  keyframes: CameraKeyframe3D[];
+  duration: number;
+  easing: string;
+  loop: boolean;
+}
+
+export interface CameraKeyframe3D {
+  time: number;
+  position: { x: number; y: number; z: number };
+  lookAt: { x: number; y: number; z: number };
+  fov: number;
+}
+
+export interface LayerConfig3D {
+  name: string;
+  zRange: [number, number];
+  opacity: number;
+  visible: boolean;
+  color?: string;
+}
+
+export interface InteractionMode {
+  orbit: boolean;
+  pan: boolean;
+  zoom: boolean;
+  rotate: boolean;
+  select: boolean;
+  flyThrough: boolean;
+}
+
+export interface VRConfig {
+  enabled: boolean;
+  mode: 'vr' | 'ar';
+  controllers: {
+    left: { enabled: boolean; raycast: boolean; teleport?: boolean };
+    right: { enabled: boolean; raycast: boolean; select?: boolean };
+  };
+  locomotion: 'teleport' | 'smooth' | 'none';
+  scale: number;
+  playerHeight: number;
+}
+
+// ── Multimodal Input ──────────────────────────────────────────────
+export interface MultimodalInput {
+  id: string;
+  type: 'image' | 'sketch' | 'pdf' | 'screenshot';
+  data: string;
+  mimeType: string;
+  context?: string;
+}
+
+export interface ImageAnalysis {
+  id: string;
+  topic: string;
+  concepts: Array<{ label: string; description: string }>;
+  relationships: Array<{ from: string; to: string; type: string }>;
+  visualElements: string[];
+  technicalDetails: string[];
+  isDiagram: boolean;
+  diagramType?: string;
+  confidence: number;
+  extractedText: string;
+  suggestedKnowledgeGraph: KnowledgeGraph;
+}
+
+export interface SketchInterpretation {
+  id: string;
+  diagramType: string;
+  elements: Array<{
+    id: string;
+    type: string;
+    label: string;
+    position: { x: number; y: number };
+  }>;
+  connections: Array<{ from: string; to: string; label: string }>;
+  interpretation: string;
+  cleanedDiagram: string;
+  confidence: number;
+  suggestedVisualSpec: any;
+}
+
+export interface PDFProcessing {
+  id: string;
+  pageCount: number;
+  processedPages: number;
+  overallSummary: string;
+  pageSummaries: Array<{
+    pageNumber: number;
+    summary: string;
+    keyPoints: string[];
+  }>;
+  extractedConcepts: string[];
+  suggestedPresentation: string[];
+}
+
+export interface DiagramExtraction {
+  id: string;
+  type: string;
+  nodes: Array<{ id: string; label: string; type: string }>;
+  edges: Array<{ source: string; target: string; label: string }>;
+  layers: Array<{ name: string; nodeIds: string[] }>;
+  dataFlow: string;
+  reconstructedKnowledgeGraph: KnowledgeGraph;
+}
+
+// ── Live System Integration ───────────────────────────────────────
+export interface SystemConnection {
+  id: string;
+  type: 'kubernetes' | 'aws' | 'azure' | 'gcp' | 'prometheus' | 'grafana' | 'datadog';
+  name: string;
+  status: 'connected' | 'disconnected' | 'error';
+  metadata: Record<string, any>;
+  connectedAt: number;
+  lastActivity: number;
+}
+
+export interface LiveMetrics {
+  id: string;
+  query: string;
+  metric: string;
+  values: Array<{ timestamp: number; value: number }>;
+  aggregation: 'avg' | 'sum' | 'min' | 'max';
+  unit: string;
+}
+
+export interface LogStream {
+  id: string;
+  resource: string;
+  lines: Array<{
+    timestamp: number;
+    level: 'INFO' | 'WARN' | 'ERROR' | 'DEBUG';
+    message: string;
+  }>;
+  isLive: boolean;
+}
+
+export interface TraceData {
+  id: string;
+  serviceName: string;
+  spans: Array<{
+    id: string;
+    name: string;
+    serviceName: string;
+    startTime: number;
+    duration: number;
+    tags: Record<string, string>;
+    parentId?: string;
+  }>;
+  totalDuration: number;
+  status: 'success' | 'error';
+}
+
+export interface ClusterInfo {
+  name: string;
+  version: string;
+  nodes: Array<{
+    name: string;
+    status: string;
+    cpu: string;
+    memory: string;
+    pods: number;
+  }>;
+  namespaces: string[];
+  totalPods: number;
+  totalServices: number;
+  totalDeployments: number;
+}
+
+export interface CloudResource {
+  id: string;
+  name: string;
+  type: string;
+  status: string;
+  region: string;
+  details: Record<string, any>;
+}
+
+// ── Live Web Content Integration ──────────────────────────────────
+export interface WebEmbedding {
+  id: string;
+  type: 'documentation' | 'api' | 'repository';
+  url: string;
+  title: string;
+  iframeable: boolean;
+  annotations: Array<{
+    type: 'highlight' | 'arrow' | 'circle';
+    selector: string;
+    color: string;
+    label: string;
+  }>;
+  scrollTo?: string;
+  interactive: boolean;
+}
+
+export interface GitHubRepo {
+  id: string;
+  owner: string;
+  repo: string;
+  branch: string;
+  description: string;
+  stars: number;
+  forks: number;
+  language: string;
+  topics: string[];
+  fileTree: Array<{ path: string; type: 'file' | 'directory'; size?: number }>;
+  readme: string;
+  recentCommits: Array<{
+    sha: string;
+    message: string;
+    author: string;
+    date: number;
+  }>;
+}
+
+export interface APIPlayground {
+  id: string;
+  url: string;
+  endpoint: string;
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
+  headers: Record<string, string>;
+  body?: any;
+  responseTime: number;
+  apiResponse: any;
+  status: 'idle' | 'loading' | 'success' | 'error';
+  curlCommand: string;
+}
+
+export interface WebScrapeResult {
+  id: string;
+  url: string;
+  title: string;
+  summary: string;
+  keyPoints: string[];
+  links: Array<{ text: string; url: string }>;
+  images: Array<{ url: string; alt: string }>;
+  scrapedAt: number;
+}
+
+export interface DocumentationSection {
+  id: string;
+  title: string;
+  level: number;
+  content: string;
+  url: string;
+}
+
+// ── Collaborative & Recording (Extended) ──────────────────────────
+export interface RecordingSession {
+  id: string;
+  sessionId: string;
+  startTime: number;
+  endTime: number | null;
+  duration: number;
+  frames: Array<{
+    timestamp: number;
+    sceneId: string;
+    visualState: any;
+  }>;
+  audioTrack: any;
+  annotations: Annotation[];
+  bookmarks: BookmarkPoint[];
+  status: 'recording' | 'paused' | 'completed';
+}
+
+export type ExportFormat = 'video' | 'pdf' | 'html' | 'markdown' | 'gif';
+
+export interface BookmarkPoint {
+  id: string;
+  label: string;
+  timestamp: number;
+  sceneId: string | null;
+}
+
+// ── Memory & Knowledge Graph ──────────────────────────────────────
+export interface CrossSessionKnowledgeGraph {
+  userId: string;
+  globalGraph: KnowledgeGraph;
+  sessions: SessionSummary[];
+  conceptMastery: Map<string, MasteryLevel>;
+  learningPath: LearningPathNode[];
+}
+
+export interface SessionSummary {
+  sessionId: string;
+  date: number;
+  topic: string;
+  nodesLearned: string[];
+  duration: number;
+  comprehensionScore: number;
+}
+
+export interface MasteryLevel {
+  conceptId: string;
+  level: 'introduced' | 'familiar' | 'practiced' | 'mastered';
+  lastReviewed: number;
+  nextReview: number;
+  reviewCount: number;
+}
+
+export interface LearningPathNode {
+  conceptId: string;
+  prerequisites: string[];
+  status: 'locked' | 'available' | 'in-progress' | 'completed';
+  suggestedNext: string[];
+}
+
+// ── Web Content Integration ───────────────────────────────────────
+export interface WebContentEmbed {
+  type: 'iframe' | 'api' | 'screenshot';
+  url: string;
+  config: {
+    highlightSelector?: string;
+    scrollTo?: string;
+    annotations?: Annotation[];
+  };
+  position: { x: number; y: number };
+  size: { width: number; height: number };
+}
+
+export interface APIPlayground {
+  id: string;
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
+  url: string;
+  headers: Record<string, string>;
+  body?: any;
+  response?: {
+    status: number;
+    headers: Record<string, string>;
+    body: any;
+    time: number;
+  };
+}
+
+// ── Extended WebSocket Events ─────────────────────────────────────
+export type ExtendedWSServerEvent = WSServerEvent
+  | { type: 'code_execution_result'; result: CodeExecutionResult }
+  | { type: 'code_visualization'; visualization: CodeVisualization }
+  | { type: 'data_visualization'; visualization: DataVisualization }
+  | { type: 'ai_illustration_generated'; result: AIIllustrationResult }
+  | { type: '3d_visualization'; visualization: ThreeDVisualization }
+  | { type: 'math_visualization'; visualization: MathVisualization }
+  | { type: 'live_metrics_update'; metrics: LiveMetric[] }
+  | { type: 'participant_joined'; participant: Participant }
+  | { type: 'participant_left'; userId: string }
+  | { type: 'annotation_added'; annotation: Annotation }
+  | { type: 'visual_adaptation'; complexity: VisualComplexity; reason: string }
+  | { type: 'expertise_detected'; expertise: ExpertiseLevel }
+  | { type: 'learning_style_detected'; style: LearningStyle };
+
+export type ExtendedWSClientEvent = WSClientEvent
+  | { type: 'execute_code'; request: CodeExecutionRequest }
+  | { type: 'generate_ai_illustration'; request: AIIllustrationRequest }
+  | { type: 'analyze_image'; request: ImageAnalysisRequest }
+  | { type: 'connect_live_system'; connection: Partial<LiveSystemConnection> }
+  | { type: 'add_annotation'; annotation: Omit<Annotation, 'id' | 'timestamp'> }
+  | { type: 'start_recording' }
+  | { type: 'stop_recording' }
+  | { type: 'export_session'; format: 'mp4' | 'gif' | 'pdf' | 'html' | 'markdown' };

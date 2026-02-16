@@ -22,8 +22,5 @@
 *.tmp
 .DS_Store
 
-# Frontend not needed for backend build
-frontend
-
 # Docs and plans (optional, reduces context)
 *.plan.md

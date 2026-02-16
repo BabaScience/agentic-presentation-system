@@ -22,6 +22,12 @@ export class AudioPlaybackManager {
   private pendingBuffer: ArrayBuffer | null = null;
   private decoding = false;
 
+  // Time tracking for word synchronization
+  private startTime: number | null = null;
+  private audioDuration: number = 0;
+  private animationFrameId: number | null = null;
+  private onTimeUpdate: ((currentTime: number) => void) | null = null;
+
   private constructor() {}
 
   static getInstance(): AudioPlaybackManager {
@@ -34,6 +40,18 @@ export class AudioPlaybackManager {
   /** Register a callback for play/stop state changes */
   setStateCallback(cb: (playing: boolean) => void): void {
     this.onStateChange = cb;
+  }
+
+  /** Register a callback for time updates during playback */
+  setTimeUpdateCallback(cb: (currentTime: number) => void): void {
+    this.onTimeUpdate = cb;
+  }
+
+  /** Get current playback time in milliseconds */
+  getCurrentTime(): number {
+    if (!this.startTime || this.state !== 'playing') return 0;
+    const elapsed = performance.now() - this.startTime;
+    return Math.min(elapsed, this.audioDuration);
   }
 
   /** Ensure AudioContext exists and is resumed (call after user gesture) */
@@ -83,13 +101,17 @@ export class AudioPlaybackManager {
       source.onended = () => {
         if (this.currentSource === source) {
           this.currentSource = null;
+          this.stopTimeUpdateLoop();
           this.setState('idle');
         }
       };
 
       this.currentSource = source;
+      this.startTime = performance.now();
+      this.audioDuration = audioBuffer.duration * 1000; // Convert to ms
       this.setState('playing');
       source.start();
+      this.startTimeUpdateLoop();
     } catch (err) {
       console.warn('[AudioPlayback] Decode/play error:', err);
       this.setState('idle');
@@ -101,6 +123,8 @@ export class AudioPlaybackManager {
   /** Stop currently playing audio immediately */
   stop(): void {
     this.pendingBuffer = null;
+    this.stopTimeUpdateLoop();
+    this.startTime = null;
     this.stopCurrent();
   }
 
@@ -138,5 +162,28 @@ export class AudioPlaybackManager {
   private setState(s: PlaybackState): void {
     this.state = s;
     this.onStateChange?.(s === 'playing');
+  }
+
+  private startTimeUpdateLoop(): void {
+    const update = () => {
+      if (this.state === 'playing') {
+        const currentTime = this.getCurrentTime();
+        this.onTimeUpdate?.(currentTime);
+
+        if (currentTime < this.audioDuration) {
+          this.animationFrameId = requestAnimationFrame(update);
+        } else {
+          this.stopTimeUpdateLoop();
+        }
+      }
+    };
+    this.animationFrameId = requestAnimationFrame(update);
+  }
+
+  private stopTimeUpdateLoop(): void {
+    if (this.animationFrameId) {
+      cancelAnimationFrame(this.animationFrameId);
+      this.animationFrameId = null;
+    }
   }
 }

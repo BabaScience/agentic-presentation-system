@@ -12,6 +12,7 @@ import { AudioPlaybackManager } from '../audio/AudioPlaybackManager';
 type SessionState = 'IDLE' | 'LISTENING' | 'REASONING' | 'BUILDING_GRAPH' | 'PRESENTING' | 'INTERRUPTED' | 'COMPLETED';
 type DataType = 'CONCEPT' | 'RELATIONSHIP' | 'EXAMPLE' | 'ANALOGY' | 'DEFINITION' | 'PROCESS' | 'RESOURCE' | 'COUNTERPOINT';
 type EdgeType = 'REQUIRES' | 'CONTAINS' | 'RELATES_TO' | 'EXEMPLIFIES' | 'CONTRADICTS' | 'LEADS_TO' | 'DEEPENS';
+type ElementType = 'box' | 'circle' | 'arrow' | 'text' | 'code' | 'split_panel' | 'flow_sequence' | 'callout' | 'icon';
 
 export interface KGNode {
   id: string;
@@ -45,6 +46,31 @@ export interface KGEdge {
   isPresented: boolean;
 }
 
+export interface WordTimestamp {
+  word: string;
+  start: number;
+  end: number;
+}
+
+export interface IllustrationSpec {
+  id: string;
+  type: 'shape' | 'icon' | 'diagram';
+  elementType: ElementType;
+  position: { x: number; y: number };
+  size: { width: number; height: number };
+  style: Record<string, any>;
+  animation: { type: 'fadeIn' | 'scaleIn' | 'slideIn' | 'pulse' | 'dashFlow' | 'none'; duration: number; delay: number; easing?: string };
+  content?: string;
+  appearTimingMs: number;
+}
+
+export interface VisualScript {
+  sceneId: string;
+  frames: any[];
+  totalDuration: number;
+  entities: Record<string, any>;
+}
+
 export interface PresentationScene {
   id: string;
   nodeIds: string[];
@@ -54,6 +80,8 @@ export interface PresentationScene {
   viewport: { x: number; y: number; zoom: number };
   visualCommands: any[];
   durationEstimate: number;
+  illustrations?: IllustrationSpec[];
+  visualScript?: VisualScript;
 }
 
 export interface PresentationBookmark {
@@ -99,6 +127,8 @@ interface SessionStore {
   voiceEnabled: boolean;
   isListening: boolean;
   isSpeaking: boolean;
+  currentWordTimestamps: WordTimestamp[];
+  currentAudioTime: number;
 
   // RL
   rlPolicy: RLPolicy | null;
@@ -134,6 +164,8 @@ interface SessionStore {
   sendBinaryAudio: (data: ArrayBuffer) => void;
   setSidebarTab: (tab: 'info' | 'graph' | 'chat') => void;
   setRLPolicy: (policy: RLPolicy) => void;
+  setWordTimestamps: (timestamps: WordTimestamp[]) => void;
+  updateAudioTime: (time: number) => void;
 
   enqueueVisualCommand: (cmd: { type: string; targetId: string; params?: any }) => void;
   dequeueVisualCommand: () => void;
@@ -161,6 +193,8 @@ const initialState = {
   voiceEnabled: true,
   isListening: false,
   isSpeaking: false,
+  currentWordTimestamps: [] as WordTimestamp[],
+  currentAudioTime: 0,
   rlPolicy: null as RLPolicy | null,
   revealedNodeIds: [] as string[],
   visualCommandQueue: [] as Array<{ type: string; targetId: string; params?: any }>,
@@ -189,7 +223,11 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       if (event.data instanceof Blob) {
         if (get().voiceEnabled) {
           event.data.arrayBuffer().then(buffer => {
-            AudioPlaybackManager.getInstance().play(buffer);
+            const manager = AudioPlaybackManager.getInstance();
+            manager.setTimeUpdateCallback((time) => {
+              get().updateAudioTime(time);
+            });
+            manager.play(buffer);
           });
         }
         return;
@@ -231,6 +269,9 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
           case 'agent_audio_meta':
             // Informational — audio binary follows immediately
+            if (msg.wordTimestamps) {
+              store.setWordTimestamps(msg.wordTimestamps);
+            }
             break;
 
           case 'bookmark_created':
@@ -309,6 +350,8 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   },
   setSidebarTab: (tab) => set({ sidebarTab: tab }),
   setRLPolicy: (policy) => set({ rlPolicy: policy }),
+  setWordTimestamps: (timestamps) => set({ currentWordTimestamps: timestamps }),
+  updateAudioTime: (time) => set({ currentAudioTime: time }),
 
   enqueueVisualCommand: (cmd) => set(produce((s: SessionStore) => {
     s.visualCommandQueue.push(cmd);

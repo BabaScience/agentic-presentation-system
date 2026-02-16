@@ -4,7 +4,7 @@
    Active Presenter with Personalized Cognitive Scaffolding
    ═══════════════════════════════════════════════════════════════ */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.VOICE_CHUNK_SIZE = exports.VOICE_SAMPLE_RATE = exports.RL_UPDATE_INTERVAL_MS = exports.BOOKMARK_RESUME_MS = exports.INTERRUPT_DETECTION_MS = exports.KG_MAX_DEPTH = exports.KG_NODE_LIMIT = exports.DATA_TYPE_VISUALS = exports.VoiceIntent = exports.SessionState = exports.EdgeType = exports.DataType = void 0;
+exports.ChartType = exports.CodeLanguage = exports.VOICE_CHUNK_SIZE = exports.VOICE_SAMPLE_RATE = exports.RL_UPDATE_INTERVAL_MS = exports.BOOKMARK_RESUME_MS = exports.INTERRUPT_DETECTION_MS = exports.KG_MAX_DEPTH = exports.KG_NODE_LIMIT = exports.DATA_TYPE_VISUALS = exports.VoiceIntent = exports.SessionState = exports.EdgeType = exports.DataType = void 0;
 // ── Data Type Classification ─────────────────────────────────
 var DataType;
 (function (DataType) {
@@ -65,3 +65,35 @@ exports.BOOKMARK_RESUME_MS = 500;
 exports.RL_UPDATE_INTERVAL_MS = 50;
 exports.VOICE_SAMPLE_RATE = 16000;
 exports.VOICE_CHUNK_SIZE = 4096;
+// ══════════════════════════════════════════════════════════════════
+// ADVANCED FEATURES — Types for Enhanced Capabilities
+// ══════════════════════════════════════════════════════════════════
+// ── Code Execution & Visualization ───────────────────────────────
+var CodeLanguage;
+(function (CodeLanguage) {
+    CodeLanguage["JAVASCRIPT"] = "javascript";
+    CodeLanguage["PYTHON"] = "python";
+    CodeLanguage["GO"] = "go";
+    CodeLanguage["RUST"] = "rust";
+    CodeLanguage["JAVA"] = "java";
+    CodeLanguage["TYPESCRIPT"] = "typescript";
+    CodeLanguage["CPP"] = "cpp";
+    CodeLanguage["BASH"] = "bash";
+})(CodeLanguage || (exports.CodeLanguage = CodeLanguage = {}));
+// ── Data Visualization ───────────────────────────────────────────
+var ChartType;
+(function (ChartType) {
+    ChartType["LINE"] = "line";
+    ChartType["BAR"] = "bar";
+    ChartType["SCATTER"] = "scatter";
+    ChartType["PIE"] = "pie";
+    ChartType["HEATMAP"] = "heatmap";
+    ChartType["TREEMAP"] = "treemap";
+    ChartType["SUNBURST"] = "sunburst";
+    ChartType["NETWORK"] = "network";
+    ChartType["SANKEY"] = "sankey";
+    ChartType["TIMESERIES"] = "timeseries";
+    ChartType["CANDLESTICK"] = "candlestick";
+    ChartType["BOX"] = "box";
+    ChartType["VIOLIN"] = "violin";
+})(ChartType || (exports.ChartType = ChartType = {}));

@@ -108,13 +108,100 @@ body {
 /* ── Scene Presenter ─────────────────────────────── */
 .scene-presenter {
   width: 100%; height: 100%;
-  display: flex; flex-direction: column;
-  align-items: center; justify-content: center;
-  gap: 24px; padding: 32px 40px;
+  display: flex; flex-direction: row;
   position: relative;
   background:
-    radial-gradient(ellipse 600px 400px at 50% 40%, rgba(0,229,255,0.03), transparent),
-    radial-gradient(ellipse 400px 500px at 60% 65%, rgba(179,136,255,0.025), transparent);
+    radial-gradient(ellipse 800px 600px at 70% 50%, rgba(0,229,255,0.04), transparent),
+    radial-gradient(ellipse 600px 700px at 30% 60%, rgba(179,136,255,0.03), transparent);
+  gap: 0;
+}
+
+/* Left Panel: Content Card (35% width) */
+.scene-content-panel {
+  flex: 0 0 35%;
+  min-width: 400px;
+  max-width: 600px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 32px 24px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: linear-gradient(
+    to right,
+    rgba(5, 6, 10, 0.4),
+    rgba(5, 6, 10, 0.1)
+  );
+  backdrop-filter: blur(10px);
+  border-right: 1px solid rgba(255, 255, 255, 0.04);
+  z-index: 10;
+}
+
+/* Custom scrollbar for content panel */
+.scene-content-panel::-webkit-scrollbar {
+  width: 6px;
+}
+.scene-content-panel::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.02);
+}
+.scene-content-panel::-webkit-scrollbar-thumb {
+  background: rgba(0, 229, 255, 0.3);
+  border-radius: 3px;
+}
+.scene-content-panel::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 229, 255, 0.5);
+}
+
+/* Right Panel: Large Illustration Canvas (65% width) */
+.scene-visual-panel {
+  flex: 1 1 65%;
+  height: 100%;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  overflow: hidden;
+}
+
+/* Illustration canvas - full size */
+.scene-illustration-canvas {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 16px;
+  background: rgba(16, 19, 28, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.03);
+  overflow: hidden;
+}
+
+/* Responsive: Stack vertically on smaller screens */
+@media (max-width: 1200px) {
+  .scene-presenter {
+    flex-direction: column;
+  }
+
+  .scene-content-panel {
+    flex: 0 0 40%;
+    min-width: 100%;
+    max-width: 100%;
+    border-right: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    background: linear-gradient(
+      to bottom,
+      rgba(5, 6, 10, 0.4),
+      rgba(5, 6, 10, 0.1)
+    );
+  }
+
+  .scene-visual-panel {
+    flex: 1 1 60%;
+  }
 }
 
 .scene-empty {
@@ -126,34 +213,41 @@ body {
 /* ── Breadcrumb Path ─────────────────────────────── */
 .breadcrumb-path {
   display: flex; align-items: center; gap: 2px;
-  font-family: 'Geist Mono', monospace; font-size: 0.7rem;
-  color: var(--text-3); margin-bottom: -8px;
+  font-family: 'Geist Mono', monospace; font-size: 0.75rem;
+  color: var(--text-3); margin-bottom: 16px;
+  width: 100%;
+  flex-wrap: wrap;
 }
 .breadcrumb-sep {
-  margin: 0 6px; opacity: 0.4;
+  margin: 0 8px; opacity: 0.4;
+  font-size: 0.7rem;
 }
 .breadcrumb-item {
-  padding: 2px 6px; border-radius: 4px;
-  transition: color 0.2s;
+  padding: 4px 10px; border-radius: 6px;
+  transition: all 0.2s;
+  white-space: nowrap;
 }
 .breadcrumb-item.active {
   color: var(--text-1);
-  background: rgba(255,255,255,0.04);
+  background: rgba(0, 229, 255, 0.08);
+  border: 1px solid rgba(0, 229, 255, 0.15);
 }
 
 /* ── Scene Card ──────────────────────────────────── */
 .scene-card {
-  width: 100%; max-width: 680px;
-  background: rgba(16, 19, 28, 0.85);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255,255,255,0.06);
+  width: 100%;
+  background: rgba(16, 19, 28, 0.90);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255,255,255,0.08);
   border-radius: 16px;
   overflow: hidden;
   box-shadow:
-    0 0 60px -20px color-mix(in srgb, var(--accent-color, var(--cyan)) 15%, transparent),
-    0 4px 24px rgba(0,0,0,0.3);
+    0 0 80px -20px color-mix(in srgb, var(--accent-color, var(--cyan)) 20%, transparent),
+    0 8px 32px rgba(0,0,0,0.4);
   animation: cardFadeIn 0.5s cubic-bezier(0.25,0.46,0.45,0.94) both;
+  position: relative;
+  margin-bottom: 24px;
 }
 
 .scene-card-entering {
@@ -161,49 +255,53 @@ body {
 }
 
 @keyframes cardFadeIn {
-  from { opacity: 0; transform: translateY(16px) scale(0.98); }
+  from { opacity: 0; transform: translateY(20px) scale(0.96); }
   to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 @keyframes cardSlideIn {
-  from { opacity: 0; transform: translateX(40px) scale(0.97); }
-  to   { opacity: 1; transform: translateX(0) scale(1); }
+  from { opacity: 0; transform: translateY(30px) scale(0.95); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 .scene-card-accent {
-  height: 3px; width: 100%;
-  opacity: 0.7;
+  height: 4px; width: 100%;
+  opacity: 0.8;
+  box-shadow: 0 2px 12px color-mix(in srgb, var(--accent-color, var(--cyan)) 40%, transparent);
 }
 
 .scene-card-header {
-  display: flex; align-items: center; gap: 12px;
-  padding: 20px 24px 0;
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 24px 24px 0;
 }
 .scene-card-icon {
-  font-size: 1.8rem; flex-shrink: 0;
+  font-size: 2.2rem; flex-shrink: 0;
   animation: iconPop 0.4s cubic-bezier(0.34,1.56,0.64,1) 0.2s both;
+  margin-top: -4px;
 }
 @keyframes iconPop {
-  from { opacity: 0; transform: scale(0.5); }
-  to   { opacity: 1; transform: scale(1); }
+  from { opacity: 0; transform: scale(0.5) rotate(-10deg); }
+  to   { opacity: 1; transform: scale(1) rotate(0deg); }
 }
 .scene-card-title {
   flex: 1; font-family: 'Instrument Serif', serif;
-  font-size: 1.5rem; font-weight: 400; color: var(--text-1);
+  font-size: 1.7rem; font-weight: 500; color: var(--text-1);
   line-height: 1.3;
+  margin-bottom: 8px;
 }
 .scene-card-type {
-  flex-shrink: 0; padding: 3px 10px; border-radius: 100px;
-  font-family: 'Geist Mono', monospace; font-size: 0.6rem;
+  flex-shrink: 0; padding: 4px 12px; border-radius: 100px;
+  font-family: 'Geist Mono', monospace; font-size: 0.65rem;
   font-weight: 600; letter-spacing: 0.06em;
   border: 1px solid;
+  margin-top: 2px;
 }
 
 .scene-card-content {
-  padding: 16px 24px;
+  padding: 18px 24px 24px;
 }
 .scene-card-content p {
-  color: var(--text-2); font-size: 0.95rem;
-  line-height: 1.75; letter-spacing: 0.01em;
+  color: var(--text-2); font-size: 1rem;
+  line-height: 1.8; letter-spacing: 0.01em;
 }
 
 .scene-card-narration {
@@ -278,6 +376,61 @@ body {
 .chip-check {
   color: var(--emerald); font-size: 0.75rem; flex-shrink: 0;
   margin-left: 2px;
+}
+
+/* ── Illustration Cluster ────────────────────────── */
+.illustration-cluster {
+  width: 100%;
+  display: flex; flex-direction: column; gap: 12px;
+  margin-top: 0;
+  padding: 20px;
+  background: rgba(16, 19, 28, 0.5);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+.illustration-label {
+  font-family: 'Geist Mono', monospace; font-size: 0.7rem;
+  font-weight: 600; color: var(--cyan);
+  letter-spacing: 0.1em; text-transform: uppercase;
+  padding-left: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.illustration-label::before {
+  content: '✨';
+  font-size: 1rem;
+}
+.illustration-chips {
+  display: flex; flex-wrap: wrap; gap: 8px;
+}
+
+.illustration-chip {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 14px; border-radius: 10px;
+  background: rgba(16,19,28,0.7);
+  border: 1px solid rgba(255,255,255,0.06);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: all 0.3s ease;
+  animation: chipReveal 0.35s cubic-bezier(0.25,0.46,0.45,0.94) both;
+  animation-delay: var(--chip-delay, 0ms);
+}
+.illustration-chip:hover {
+  border-color: color-mix(in srgb, var(--chip-color, var(--cyan)) 30%, transparent);
+  background: rgba(16,19,28,0.9);
+}
+
+.illustration-chip.chip-revealed {
+  border-color: color-mix(in srgb, var(--chip-color, var(--cyan)) 20%, transparent);
+  box-shadow: 0 0 12px rgba(var(--chip-color-rgb), 0.3);
+}
+.illustration-chip.chip-dim { opacity: 0.5; }
+
+.chip-timing {
+  font-size: 0.7rem;
+  color: var(--text-3);
+  font-family: 'Geist Mono', monospace;
 }
 
 /* ── Scene transition ────────────────────────────── */
@@ -546,4 +699,204 @@ body {
   .main-layout { flex-direction: column; }
   .sidebar { width: 100%; height: 40vh; border-left: none; border-top: 1px solid var(--border); }
   .config-input-group { flex-direction: column; }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   Subtitle Display
+   ══════════════════════════════════════════════════════════════ */
+
+.subtitle-container {
+  position: fixed;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  max-width: 90%;
+  width: auto;
+  pointer-events: none;
+}
+
+.subtitle-text {
+  background: rgba(5, 6, 10, 0.95);
+  border: 1px solid rgba(0, 229, 255, 0.2);
+  border-radius: var(--radius);
+  padding: 12px 24px;
+  color: var(--text-1);
+  font-size: 1.1rem;
+  font-weight: 500;
+  text-align: center;
+  line-height: 1.4;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(12px);
+  animation: subtitleFadeIn 0.2s ease-in-out;
+}
+
+@keyframes subtitleFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.subtitle-text.exiting {
+  animation: subtitleFadeOut 0.2s ease-in-out forwards;
+}
+
+@keyframes subtitleFadeOut {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   Illustration Canvas
+   ══════════════════════════════════════════════════════════════ */
+
+.illustration-canvas-container {
+  width: 100%;
+  height: 100%;
+  background: rgba(5, 6, 10, 0.4);
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  overflow: hidden;
+  position: relative;
+}
+
+.illustration-canvas-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.illustration-canvas-empty,
+.canvas-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  color: var(--text-3);
+}
+
+.canvas-placeholder-icon {
+  font-size: 5rem;
+  opacity: 0.4;
+  animation: floatIcon 3s ease-in-out infinite;
+  filter: drop-shadow(0 0 20px rgba(0, 229, 255, 0.2));
+}
+
+@keyframes floatIcon {
+  0%, 100% {
+    transform: translateY(0px) scale(1);
+    opacity: 0.4;
+  }
+  50% {
+    transform: translateY(-15px) scale(1.05);
+    opacity: 0.6;
+  }
+}
+
+.canvas-placeholder p {
+  font-size: 1.1rem;
+  opacity: 0.6;
+  font-family: 'Geist Mono', monospace;
+  letter-spacing: 0.05em;
+}
+
+.illustration-element {
+  transition: opacity 0.3s ease;
+}
+
+/* SVG canvas layout */
+.illustration-canvas-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.illustration-canvas-svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* Animation classes — used on SVG <g> elements */
+.illus-fadeIn {
+  animation: illusFadeIn 0.7s cubic-bezier(0.25,0.46,0.45,0.94) forwards;
+}
+
+.illus-scaleIn {
+  animation: illusScaleIn 0.65s cubic-bezier(0.34,1.56,0.64,1) forwards;
+}
+
+.illus-slideIn {
+  animation: illusSlideIn 0.7s cubic-bezier(0.25,0.46,0.45,0.94) forwards;
+}
+
+.illus-pulse {
+  animation: illusPulse 3s ease-in-out infinite;
+}
+
+.illus-flow {
+  animation: illusSlideIn 0.7s cubic-bezier(0.25,0.46,0.45,0.94) forwards;
+}
+
+@keyframes illusFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes illusScaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes illusSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes illusPulse {
+  0%, 100% {
+    opacity: 0.65;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.06);
+  }
+}
+
+/* Arrow styles */
+.illustration-arrow svg {
+  overflow: visible;
+}
+
+/* Split panel styles */
+.illustration-split-panel {
+  border: 2px solid;
 }

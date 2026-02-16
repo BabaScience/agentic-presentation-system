@@ -7,16 +7,22 @@
 import {
   type KnowledgeGraph, type KGNode, type KGEdge,
   type PresentationScene, type TraversalPath, type VisualCommand,
-  type RLPolicy, DataType,
+  type RLPolicy, type IllustrationSpec, type WordTimestamp, DataType, DATA_TYPE_VISUALS,
 } from '../../shared/types';
 import { v4 as uuid } from 'uuid';
+import { VisualScriptGenerator } from './VisualScriptGenerator';
 
 export class PresentationPlanner {
+  private visualScriptGenerator: VisualScriptGenerator;
+
+  constructor() {
+    this.visualScriptGenerator = new VisualScriptGenerator();
+  }
 
   // ── Plan Complete Traversal Path ─────────────────────────
-  planTraversal(graph: KnowledgeGraph, policy: RLPolicy): TraversalPath {
+  async planTraversal(graph: KnowledgeGraph, policy: RLPolicy): Promise<TraversalPath> {
     const orderedNodes = this.computeTraversalOrder(graph, policy);
-    const scenes = this.nodesToScenes(graph, orderedNodes, policy);
+    const scenes = await this.nodesToScenes(graph, orderedNodes, policy);
     const branchPoints = this.identifyBranchPoints(graph, scenes);
 
     const totalDuration = scenes.reduce((sum, s) => sum + s.durationEstimate, 0);
@@ -79,11 +85,11 @@ export class PresentationPlanner {
   // ── Convert Ordered Nodes → Presentation Scenes ──────────
   // Always 1 node per scene for focused, progressive presentation.
   // Each scene includes staggered sub-reveals for related edges.
-  private nodesToScenes(
+  private async nodesToScenes(
     graph: KnowledgeGraph,
     nodes: KGNode[],
     policy: RLPolicy,
-  ): PresentationScene[] {
+  ): Promise<PresentationScene[]> {
     const scenes: PresentationScene[] = [];
     const presentedSoFar = new Set<string>();
 
@@ -142,8 +148,31 @@ export class PresentationPlanner {
       const wordCount = narration.split(/\s+/).length;
       const durationMs = (wordCount / (policy.pace / 60)) * 1000 + 1500; // +1.5s for reveals
 
+      // Generate estimated word timestamps for visual script generation
+      const estimatedTimestamps = this.generateEstimatedTimestamps(narration, Math.max(durationMs, 4000));
+
+      // Generate visual script using AI
+      const sceneId = `scene-${uuid().slice(0, 8)}`;
+      let visualScript;
+      try {
+        visualScript = await this.visualScriptGenerator.generateScript(
+          sceneId,
+          narration,
+          focusNode.type,
+          estimatedTimestamps,
+          Math.max(durationMs, 4000),
+        );
+      } catch (error) {
+        console.error('[PresentationPlanner] Visual script generation failed:', error);
+        // Fallback to legacy illustrations
+        visualScript = undefined;
+      }
+
+      // Generate fallback illustrations for legacy support
+      const illustrations = this.generateIllustrations(focusNode, Math.max(durationMs, 4000));
+
       scenes.push({
-        id: `scene-${uuid().slice(0, 8)}`,
+        id: sceneId,
         nodeIds: [focusNode.id],
         edgeIds: relevantEdges.map(e => e.id),
         narration,
@@ -151,6 +180,8 @@ export class PresentationPlanner {
         viewport,
         visualCommands,
         durationEstimate: Math.max(durationMs, 4000),
+        illustrations, // Legacy support
+        visualScript, // New frame-based system
       });
 
       presentedSoFar.add(focusNode.id);
@@ -240,5 +271,544 @@ export class PresentationPlanner {
     }
 
     return branchPoints;
+  }
+
+  // ── Generate Illustrations for Scene ──────────────────────────
+  // Intelligent illustration generator that analyzes content and creates
+  // meaningful visual metaphors
+  /* ─── Color palette for illustration variety ─── */
+  private static readonly PALETTE = {
+    cyan:    '#00e5ff',
+    pink:    '#ff2d7b',
+    green:   '#00e676',
+    amber:   '#ffab00',
+    purple:  '#b388ff',
+    teal:    '#00bcd4',
+    coral:   '#ff6b6b',
+    lime:    '#c6ff00',
+  };
+
+  /** Pick a contrasting accent color that differs from the primary */
+  private accentColor(primary: string): string {
+    const palette = Object.values(PresentationPlanner.PALETTE);
+    const filtered = palette.filter(c => c !== primary);
+    return filtered[Math.floor(Math.random() * filtered.length)];
+  }
+
+  private generateIllustrations(
+    node: KGNode,
+    narrationDuration: number
+  ): IllustrationSpec[] {
+    const illustrations: IllustrationSpec[] = [];
+    const typeVisual = DATA_TYPE_VISUALS[node.type];
+    const contentLower = (node.label + ' ' + node.content + ' ' + node.narration).toLowerCase();
+    const keywords = this.extractVisualKeywords(contentLower);
+
+    switch (node.type) {
+      case DataType.CONCEPT:
+        illustrations.push(...this.generateConceptIllustrations(node, keywords, typeVisual.color));
+        break;
+      case DataType.PROCESS:
+        illustrations.push(...this.generateProcessIllustrations(node, keywords, typeVisual.color, narrationDuration));
+        break;
+      case DataType.EXAMPLE:
+        illustrations.push(...this.generateExampleIllustrations(node, keywords, typeVisual.color));
+        break;
+      case DataType.ANALOGY:
+        illustrations.push(...this.generateAnalogyIllustrations(node, keywords, typeVisual.color));
+        break;
+      case DataType.DEFINITION:
+        illustrations.push(...this.generateDefinitionIllustrations(node, keywords, typeVisual.color));
+        break;
+      case DataType.RELATIONSHIP:
+        illustrations.push(...this.generateRelationshipIllustrations(node, keywords, typeVisual.color));
+        break;
+      default:
+        illustrations.push(...this.generateDefaultIllustrations(node, typeVisual.color));
+    }
+
+    return illustrations;
+  }
+
+  private extractVisualKeywords(content: string): Set<string> {
+    const keywords = new Set<string>();
+    if (/(server|backend|api|endpoint)/i.test(content)) keywords.add('server');
+    if (/(database|storage|persist|store|sql|nosql)/i.test(content)) keywords.add('database');
+    if (/(container|docker|pod|kubernetes|k8s)/i.test(content)) keywords.add('container');
+    if (/(cloud|aws|azure|gcp)/i.test(content)) keywords.add('cloud');
+    if (/(network|connection|link|communicate)/i.test(content)) keywords.add('network');
+    if (/(user|client|person|human)/i.test(content)) keywords.add('user');
+    if (/(device|computer|laptop|phone|mobile)/i.test(content)) keywords.add('device');
+    if (/(flow|stream|pipeline|transfer|move)/i.test(content)) keywords.add('flow');
+    if (/(data|information|message|payload)/i.test(content)) keywords.add('data');
+    if (/(process|step|sequence|stage|phase)/i.test(content)) keywords.add('process');
+    if (/(layer|stack|hierarchy|level)/i.test(content)) keywords.add('layer');
+    if (/(group|cluster|collection|set)/i.test(content)) keywords.add('group');
+    if (/(transform|convert|change|modify)/i.test(content)) keywords.add('transform');
+    return keywords;
+  }
+
+  /*
+   * ── CONCEPT ────────────────────────────────────────
+   * Large central element with distinct satellite accents.
+   */
+  private generateConceptIllustrations(node: KGNode, keywords: Set<string>, color: string): IllustrationSpec[] {
+    const accent = this.accentColor(color);
+    const illustrations: IllustrationSpec[] = [];
+
+    if (keywords.has('container')) {
+      // Outer container — large, top-center
+      illustrations.push({
+        id: `illus-${uuid().slice(0, 8)}`,
+        type: 'diagram',
+        elementType: 'box',
+        position: { x: 50, y: 40 },
+        size: { width: 320, height: 240 },
+        style: { stroke: color, strokeWidth: 3, fill: `${color}08` },
+        animation: { type: 'scaleIn', duration: 700, delay: 0 },
+        content: node.label,
+        appearTimingMs: 300,
+      });
+      // Inner pod A — left
+      illustrations.push({
+        id: `illus-${uuid().slice(0, 8)}`,
+        type: 'shape',
+        elementType: 'box',
+        position: { x: 38, y: 38 },
+        size: { width: 100, height: 80 },
+        style: { stroke: accent, strokeWidth: 2, fill: `${accent}18` },
+        animation: { type: 'fadeIn', duration: 500, delay: 0 },
+        appearTimingMs: 900,
+      });
+      // Inner pod B — right
+      illustrations.push({
+        id: `illus-${uuid().slice(0, 8)}`,
+        type: 'shape',
+        elementType: 'box',
+        position: { x: 62, y: 38 },
+        size: { width: 100, height: 80 },
+        style: { stroke: PresentationPlanner.PALETTE.green, strokeWidth: 2, fill: `${PresentationPlanner.PALETTE.green}18` },
+        animation: { type: 'fadeIn', duration: 500, delay: 0 },
+        appearTimingMs: 1300,
+      });
+      // Decorative orbit circle
+      illustrations.push({
+        id: `illus-${uuid().slice(0, 8)}`,
+        type: 'shape',
+        elementType: 'circle',
+        position: { x: 50, y: 75 },
+        size: { width: 80, height: 80 },
+        style: { stroke: `${accent}60`, strokeWidth: 1.5, fill: 'transparent', opacity: 0.4 },
+        animation: { type: 'pulse', duration: 3000, delay: 0 },
+        appearTimingMs: 1600,
+      });
+    } else if (keywords.has('server')) {
+      illustrations.push({
+        id: `illus-${uuid().slice(0, 8)}`,
+        type: 'diagram',
+        elementType: 'box',
+        position: { x: 50, y: 35 },
+        size: { width: 260, height: 180 },
+        style: { stroke: color, strokeWidth: 3, fill: `${color}0C` },
+        animation: { type: 'scaleIn', duration: 600, delay: 0 },
+        content: node.label,
+        appearTimingMs: 300,
+      });
+      // Small accent dot
+      illustrations.push({
+        id: `illus-${uuid().slice(0, 8)}`,
+        type: 'shape',
+        elementType: 'circle',
+        position: { x: 80, y: 70 },
+        size: { width: 60, height: 60 },
+        style: { stroke: accent, strokeWidth: 2, fill: `${accent}15` },
+        animation: { type: 'fadeIn', duration: 500, delay: 0 },
+        appearTimingMs: 1000,
+      });
+    } else if (keywords.has('database')) {
+      illustrations.push({
+        id: `illus-${uuid().slice(0, 8)}`,
+        type: 'icon',
+        elementType: 'icon',
+        position: { x: 50, y: 40 },
+        size: { width: 200, height: 200 },
+        style: { fill: color, opacity: 0.9 },
+        animation: { type: 'scaleIn', duration: 700, delay: 0 },
+        content: '🗄️',
+        appearTimingMs: 300,
+      });
+      illustrations.push({
+        id: `illus-${uuid().slice(0, 8)}`,
+        type: 'shape',
+        elementType: 'circle',
+        position: { x: 50, y: 40 },
+        size: { width: 280, height: 280 },
+        style: { stroke: `${accent}40`, strokeWidth: 1.5, fill: 'transparent' },
+        animation: { type: 'pulse', duration: 3000, delay: 0 },
+        appearTimingMs: 800,
+      });
+    } else {
+      // Default: prominent central circle with accent ring
+      illustrations.push({
+        id: `illus-${uuid().slice(0, 8)}`,
+        type: 'shape',
+        elementType: 'circle',
+        position: { x: 50, y: 42 },
+        size: { width: 240, height: 240 },
+        style: { stroke: color, strokeWidth: 3, fill: `${color}0C`, opacity: 0.9 },
+        animation: { type: 'pulse', duration: 2500, delay: 0 },
+        content: node.label,
+        appearTimingMs: 300,
+      });
+      illustrations.push({
+        id: `illus-${uuid().slice(0, 8)}`,
+        type: 'shape',
+        elementType: 'circle',
+        position: { x: 50, y: 42 },
+        size: { width: 340, height: 340 },
+        style: { stroke: `${accent}35`, strokeWidth: 1, fill: 'transparent' },
+        animation: { type: 'fadeIn', duration: 800, delay: 0 },
+        appearTimingMs: 800,
+      });
+      illustrations.push({
+        id: `illus-${uuid().slice(0, 8)}`,
+        type: 'shape',
+        elementType: 'circle',
+        position: { x: 22, y: 72 },
+        size: { width: 70, height: 70 },
+        style: { stroke: accent, strokeWidth: 2, fill: `${accent}12` },
+        animation: { type: 'scaleIn', duration: 500, delay: 0 },
+        appearTimingMs: 1200,
+      });
+    }
+
+    return illustrations;
+  }
+
+  /*
+   * ── PROCESS ────────────────────────────────────────
+   * Wide horizontal flow with large boxes and coloured arrows.
+   */
+  private generateProcessIllustrations(node: KGNode, keywords: Set<string>, color: string, duration: number): IllustrationSpec[] {
+    const illustrations: IllustrationSpec[] = [];
+    const stepInterval = Math.min(duration / 5, 1200);
+
+    const stepColors = [
+      color,
+      this.accentColor(color),
+      PresentationPlanner.PALETTE.green,
+    ];
+
+    const steps = 3;
+    for (let i = 0; i < steps; i++) {
+      // Spread across 15% → 85% of canvas
+      const xPos = 20 + i * 30;
+      const yPos = 42;
+      const c = stepColors[i % stepColors.length];
+
+      illustrations.push({
+        id: `illus-${uuid().slice(0, 8)}`,
+        type: 'shape',
+        elementType: 'box',
+        position: { x: xPos, y: yPos },
+        size: { width: 180, height: 140 },
+        style: { stroke: c, strokeWidth: 2.5, fill: `${c}0C` },
+        animation: { type: 'scaleIn', duration: 500, delay: 0 },
+        content: `Step ${i + 1}`,
+        appearTimingMs: 400 + i * stepInterval,
+      });
+
+      if (i < steps - 1) {
+        illustrations.push({
+          id: `illus-${uuid().slice(0, 8)}`,
+          type: 'shape',
+          elementType: 'arrow',
+          position: { x: xPos + 14, y: yPos },
+          size: { width: 200, height: 10 },
+          style: { stroke: `${c}90`, strokeWidth: 3 },
+          animation: { type: 'slideIn', duration: 400, delay: 0 },
+          appearTimingMs: 700 + i * stepInterval,
+        });
+      }
+    }
+
+    // Bottom decorative line
+    illustrations.push({
+      id: `illus-${uuid().slice(0, 8)}`,
+      type: 'shape',
+      elementType: 'arrow',
+      position: { x: 15, y: 78 },
+      size: { width: 600, height: 10 },
+      style: { stroke: `${color}25`, strokeWidth: 1.5 },
+      animation: { type: 'slideIn', duration: 800, delay: 0 },
+      appearTimingMs: 400 + steps * stepInterval,
+    });
+
+    return illustrations;
+  }
+
+  /*
+   * ── EXAMPLE ────────────────────────────────────────
+   * Large code card with accent highlight strip.
+   */
+  private generateExampleIllustrations(node: KGNode, keywords: Set<string>, color: string): IllustrationSpec[] {
+    const accent = this.accentColor(color);
+    const illustrations: IllustrationSpec[] = [];
+
+    // Large code block — centred
+    illustrations.push({
+      id: `illus-${uuid().slice(0, 8)}`,
+      type: 'diagram',
+      elementType: 'code',
+      position: { x: 50, y: 40 },
+      size: { width: 400, height: 260 },
+      style: { stroke: color, strokeWidth: 2, fill: `${color}08` },
+      animation: { type: 'fadeIn', duration: 600, delay: 0 },
+      content: node.label,
+      appearTimingMs: 400,
+    });
+    // Accent highlight bar
+    illustrations.push({
+      id: `illus-${uuid().slice(0, 8)}`,
+      type: 'shape',
+      elementType: 'box',
+      position: { x: 50, y: 72 },
+      size: { width: 300, height: 8 },
+      style: { stroke: 'transparent', strokeWidth: 0, fill: accent },
+      animation: { type: 'slideIn', duration: 500, delay: 0 },
+      appearTimingMs: 1000,
+    });
+    // Small accent dot
+    illustrations.push({
+      id: `illus-${uuid().slice(0, 8)}`,
+      type: 'shape',
+      elementType: 'circle',
+      position: { x: 85, y: 22 },
+      size: { width: 50, height: 50 },
+      style: { stroke: accent, strokeWidth: 2, fill: `${accent}15` },
+      animation: { type: 'scaleIn', duration: 400, delay: 0 },
+      appearTimingMs: 1300,
+    });
+
+    return illustrations;
+  }
+
+  /*
+   * ── ANALOGY ────────────────────────────────────────
+   * Two large panels with distinct colours and a central connector.
+   */
+  private generateAnalogyIllustrations(node: KGNode, keywords: Set<string>, color: string): IllustrationSpec[] {
+    const accent = this.accentColor(color);
+    const illustrations: IllustrationSpec[] = [];
+
+    // Left panel
+    illustrations.push({
+      id: `illus-${uuid().slice(0, 8)}`,
+      type: 'shape',
+      elementType: 'box',
+      position: { x: 25, y: 42 },
+      size: { width: 280, height: 200 },
+      style: { stroke: color, strokeWidth: 2.5, fill: `${color}0A` },
+      animation: { type: 'slideIn', duration: 600, delay: 0 },
+      appearTimingMs: 300,
+    });
+
+    // Right panel — different colour
+    illustrations.push({
+      id: `illus-${uuid().slice(0, 8)}`,
+      type: 'shape',
+      elementType: 'box',
+      position: { x: 75, y: 42 },
+      size: { width: 280, height: 200 },
+      style: { stroke: accent, strokeWidth: 2.5, fill: `${accent}0A` },
+      animation: { type: 'slideIn', duration: 600, delay: 0 },
+      appearTimingMs: 800,
+    });
+
+    // Central double-headed arrow
+    illustrations.push({
+      id: `illus-${uuid().slice(0, 8)}`,
+      type: 'shape',
+      elementType: 'arrow',
+      position: { x: 40, y: 42 },
+      size: { width: 200, height: 10 },
+      style: { stroke: PresentationPlanner.PALETTE.amber, strokeWidth: 3 },
+      animation: { type: 'fadeIn', duration: 500, delay: 0 },
+      content: '≈',
+      appearTimingMs: 1300,
+    });
+
+    // Decorative circles at corners
+    illustrations.push({
+      id: `illus-${uuid().slice(0, 8)}`,
+      type: 'shape',
+      elementType: 'circle',
+      position: { x: 25, y: 75 },
+      size: { width: 40, height: 40 },
+      style: { stroke: `${color}50`, strokeWidth: 1.5, fill: 'transparent' },
+      animation: { type: 'fadeIn', duration: 400, delay: 0 },
+      appearTimingMs: 1600,
+    });
+    illustrations.push({
+      id: `illus-${uuid().slice(0, 8)}`,
+      type: 'shape',
+      elementType: 'circle',
+      position: { x: 75, y: 75 },
+      size: { width: 40, height: 40 },
+      style: { stroke: `${accent}50`, strokeWidth: 1.5, fill: 'transparent' },
+      animation: { type: 'fadeIn', duration: 400, delay: 0 },
+      appearTimingMs: 1600,
+    });
+
+    return illustrations;
+  }
+
+  /*
+   * ── DEFINITION ─────────────────────────────────────
+   * Large bordered definition card with accent bracket and quote icon.
+   */
+  private generateDefinitionIllustrations(node: KGNode, keywords: Set<string>, color: string): IllustrationSpec[] {
+    const accent = this.accentColor(color);
+    const illustrations: IllustrationSpec[] = [];
+
+    illustrations.push({
+      id: `illus-${uuid().slice(0, 8)}`,
+      type: 'diagram',
+      elementType: 'box',
+      position: { x: 50, y: 40 },
+      size: { width: 380, height: 220 },
+      style: { stroke: color, strokeWidth: 3, fill: `${color}0A` },
+      animation: { type: 'scaleIn', duration: 600, delay: 0 },
+      content: node.label,
+      appearTimingMs: 300,
+    });
+    // Accent left-border bar
+    illustrations.push({
+      id: `illus-${uuid().slice(0, 8)}`,
+      type: 'shape',
+      elementType: 'box',
+      position: { x: 30, y: 40 },
+      size: { width: 6, height: 180 },
+      style: { stroke: 'transparent', strokeWidth: 0, fill: accent },
+      animation: { type: 'slideIn', duration: 400, delay: 0 },
+      appearTimingMs: 700,
+    });
+    // Quote icon top-right
+    illustrations.push({
+      id: `illus-${uuid().slice(0, 8)}`,
+      type: 'icon',
+      elementType: 'icon',
+      position: { x: 80, y: 20 },
+      size: { width: 80, height: 80 },
+      style: { fill: `${accent}40`, opacity: 0.5 },
+      animation: { type: 'fadeIn', duration: 500, delay: 0 },
+      content: '❝',
+      appearTimingMs: 1000,
+    });
+
+    return illustrations;
+  }
+
+  /*
+   * ── RELATIONSHIP ───────────────────────────────────
+   * Two large circles at opposing ends with a bold connecting arrow.
+   */
+  private generateRelationshipIllustrations(node: KGNode, keywords: Set<string>, color: string): IllustrationSpec[] {
+    const accent = this.accentColor(color);
+    const illustrations: IllustrationSpec[] = [];
+
+    // Left node — large
+    illustrations.push({
+      id: `illus-${uuid().slice(0, 8)}`,
+      type: 'shape',
+      elementType: 'circle',
+      position: { x: 25, y: 42 },
+      size: { width: 200, height: 200 },
+      style: { stroke: color, strokeWidth: 2.5, fill: `${color}0C` },
+      animation: { type: 'scaleIn', duration: 600, delay: 0 },
+      appearTimingMs: 300,
+    });
+
+    // Right node — different colour, slightly smaller
+    illustrations.push({
+      id: `illus-${uuid().slice(0, 8)}`,
+      type: 'shape',
+      elementType: 'circle',
+      position: { x: 75, y: 42 },
+      size: { width: 180, height: 180 },
+      style: { stroke: accent, strokeWidth: 2.5, fill: `${accent}0C` },
+      animation: { type: 'scaleIn', duration: 600, delay: 0 },
+      appearTimingMs: 700,
+    });
+
+    // Bold connecting arrow
+    illustrations.push({
+      id: `illus-${uuid().slice(0, 8)}`,
+      type: 'shape',
+      elementType: 'arrow',
+      position: { x: 37, y: 42 },
+      size: { width: 260, height: 10 },
+      style: { stroke: PresentationPlanner.PALETTE.amber, strokeWidth: 4 },
+      animation: { type: 'slideIn', duration: 500, delay: 0 },
+      content: node.label,
+      appearTimingMs: 1100,
+    });
+
+    // Subtle ring around the whole relationship
+    illustrations.push({
+      id: `illus-${uuid().slice(0, 8)}`,
+      type: 'shape',
+      elementType: 'circle',
+      position: { x: 50, y: 42 },
+      size: { width: 500, height: 300 },
+      style: { stroke: `${color}18`, strokeWidth: 1, fill: 'transparent' },
+      animation: { type: 'fadeIn', duration: 800, delay: 0 },
+      appearTimingMs: 1400,
+    });
+
+    return illustrations;
+  }
+
+  // Default fallback — centred circle with accent ring
+  private generateDefaultIllustrations(node: KGNode, color: string): IllustrationSpec[] {
+    const accent = this.accentColor(color);
+    return [
+      {
+        id: `illus-${uuid().slice(0, 8)}`,
+        type: 'shape',
+        elementType: 'circle',
+        position: { x: 50, y: 42 },
+        size: { width: 220, height: 220 },
+        style: { stroke: color, strokeWidth: 2.5, fill: `${color}0C` },
+        animation: { type: 'pulse', duration: 2500, delay: 0 },
+        content: node.label,
+        appearTimingMs: 300,
+      },
+      {
+        id: `illus-${uuid().slice(0, 8)}`,
+        type: 'shape',
+        elementType: 'circle',
+        position: { x: 50, y: 42 },
+        size: { width: 320, height: 320 },
+        style: { stroke: `${accent}30`, strokeWidth: 1, fill: 'transparent' },
+        animation: { type: 'fadeIn', duration: 800, delay: 0 },
+        appearTimingMs: 800,
+      },
+    ];
+  }
+
+  /**
+   * Generate estimated word timestamps for narration
+   * Used when actual TTS timestamps aren't available yet
+   */
+  private generateEstimatedTimestamps(narration: string, durationMs: number): WordTimestamp[] {
+    const words = narration.split(/\s+/);
+    const avgWordDuration = durationMs / words.length;
+
+    return words.map((word, i) => ({
+      word,
+      start: i * avgWordDuration,
+      end: (i + 1) * avgWordDuration,
+    }));
   }
 }

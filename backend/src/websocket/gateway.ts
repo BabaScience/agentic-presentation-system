@@ -167,8 +167,8 @@ export class WebSocketGateway {
       });
     }
 
-    // Phase 4: Plan traversal path
-    const path = this.planner.planTraversal(graph, this.rl.getCurrentPolicy());
+    // Phase 4: Plan traversal path (with visual script generation)
+    const path = await this.planner.planTraversal(graph, this.rl.getCurrentPolicy());
     session.traversalPath = path.sceneSequence;
     session.currentSceneIndex = 0;
 
@@ -235,6 +235,7 @@ export class WebSocketGateway {
               type: 'agent_audio_meta',
               durationMs: audioDuration,
               sceneId: scene.id,
+              wordTimestamps,
             });
             // Send audio as binary
             if (session.ws.readyState === WebSocket.OPEN) {
