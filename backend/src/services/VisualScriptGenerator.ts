@@ -19,6 +19,7 @@ import {
   type VisualEntity,
   type VisualEntityType,
   type WordTimestamp,
+  type VisualHint,
   DataType,
 } from '../../shared/types';
 import { v4 as uuid } from 'uuid';
@@ -67,10 +68,11 @@ export class VisualScriptGenerator {
     dataType: DataType,
     wordTimestamps: WordTimestamp[],
     durationMs: number,
+    visualHint?: VisualHint,
   ): Promise<VisualScript> {
 
     // Use Claude to analyze narration and generate visual segments
-    const segments = await this.analyzeNarration(narration, dataType, wordTimestamps, durationMs);
+    const segments = await this.analyzeNarration(narration, dataType, wordTimestamps, durationMs, visualHint);
 
     // Convert segments to frames
     const frames = this.segmentsToFrames(segments, durationMs);
@@ -99,9 +101,21 @@ export class VisualScriptGenerator {
     dataType: DataType,
     wordTimestamps: WordTimestamp[],
     durationMs: number,
+    visualHint?: VisualHint,
   ): Promise<VisualSegment[]> {
 
     const environmentGuide = getEnvironmentGuideForPrompt();
+
+    // Build visual hint section if agent provided guidance
+    const visualHintSection = visualHint ? `
+**Agent Visual Hint** (the reasoning agent analyzed this concept and suggests these visuals — use as your PRIMARY guide):
+- Suggested entities: ${JSON.stringify(visualHint.suggestedEntities)}
+- Layout pattern: ${visualHint.layoutPattern}
+${visualHint.visualMetaphor ? `- Visual metaphor: "${visualHint.visualMetaphor}"` : ''}
+${visualHint.colorScheme ? `- Color scheme: ${visualHint.colorScheme}` : ''}
+
+IMPORTANT: Use the agent's suggested entities as your starting point. Map them to the closest available VisualEntityType. Follow the suggested layout pattern for positioning. You may add supplementary entities but keep the agent's primary/secondary structure.
+` : '';
 
     const prompt = `${environmentGuide}
 
@@ -109,7 +123,7 @@ export class VisualScriptGenerator {
 
 You are generating a frame-by-frame visual script for the following narration.
 Use the complete presentation environment guide above to make intelligent decisions.
-
+${visualHintSection}
 **Narration**: "${narration}"
 **Data Type**: ${dataType}
 **Duration**: ${durationMs}ms (${Math.round(durationMs / 1000)}s)
@@ -144,7 +158,7 @@ Return ONLY a JSON array (no markdown, no explanation):
 
 ## Requirements:
 - 3-5 frames total (balanced timing)
-- Each entity MUST use types from guide: User, Server, Database, Container, Pod, Cloud, Network, Device, Arrow, DataFlow, Process, Queue, Cache, LoadBalancer, Service
+- Each entity MUST use types from: User, Server, Database, Container, Pod, Cloud, Network, Device, Arrow, DataFlow, Process, Queue, Cache, LoadBalancer, Service, Concept, Entity, Group, Label, Comparison, Timeline, Metric, Cycle, Stack, Tree, Badge, Quote
 - Position must be: "left", "center", "right", "top", or "bottom"
 - Labels should be concise (1-3 words)
 - Ensure smooth progression (entities build on each other)
@@ -283,11 +297,19 @@ Generate the visual script now:`;
       case DataType.PROCESS:
         return { type: 'Process', action: 'appears', position };
       case DataType.EXAMPLE:
-        return { type: 'Server', action: 'appears', position };
+        return { type: 'Entity', action: 'appears', position };
       case DataType.CONCEPT:
-        return { type: 'Container', action: 'appears', position };
+        return { type: 'Concept', action: 'appears', position };
+      case DataType.ANALOGY:
+        return { type: 'Comparison', action: 'appears', position };
+      case DataType.DEFINITION:
+        return { type: 'Quote', action: 'appears', position };
+      case DataType.COUNTERPOINT:
+        return { type: 'Comparison', action: 'appears', position };
+      case DataType.RESOURCE:
+        return { type: 'Badge', action: 'appears', position };
       default:
-        return { type: 'Service', action: 'appears', position };
+        return { type: 'Entity', action: 'appears', position };
     }
   }
 
@@ -347,6 +369,7 @@ Generate the visual script now:`;
   ): VisualEntity {
 
     const sizeMap: Record<VisualEntityType, { width: number; height: number }> = {
+      // Infrastructure types
       User: { width: 80, height: 80 },
       Server: { width: 120, height: 100 },
       Database: { width: 100, height: 100 },
@@ -362,6 +385,19 @@ Generate the visual script now:`;
       Cache: { width: 100, height: 80 },
       LoadBalancer: { width: 120, height: 80 },
       Service: { width: 110, height: 90 },
+      // Universal types
+      Concept: { width: 120, height: 120 },
+      Entity: { width: 110, height: 90 },
+      Group: { width: 200, height: 160 },
+      Label: { width: 120, height: 40 },
+      Comparison: { width: 240, height: 100 },
+      Timeline: { width: 200, height: 60 },
+      Metric: { width: 80, height: 80 },
+      Cycle: { width: 120, height: 120 },
+      Stack: { width: 100, height: 120 },
+      Tree: { width: 100, height: 100 },
+      Badge: { width: 60, height: 30 },
+      Quote: { width: 200, height: 120 },
     };
 
     return {

@@ -138,7 +138,7 @@ interface SessionStore {
 
   // Visual command animation
   revealedNodeIds: string[];
-  visualCommandQueue: Array<{ type: string; targetId: string; params?: any }>;
+  visualCommandQueue: Array<{ type: string; targetId: string; wordTrigger?: number; params?: any }>;
 
   // UI
   sidebarTab: 'info' | 'graph' | 'chat';
@@ -167,7 +167,7 @@ interface SessionStore {
   setWordTimestamps: (timestamps: WordTimestamp[]) => void;
   updateAudioTime: (time: number) => void;
 
-  enqueueVisualCommand: (cmd: { type: string; targetId: string; params?: any }) => void;
+  enqueueVisualCommand: (cmd: { type: string; targetId: string; wordTrigger?: number; params?: any }) => void;
   dequeueVisualCommand: () => void;
   revealNode: (id: string) => void;
 
@@ -271,6 +271,15 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
             // Informational — audio binary follows immediately
             if (msg.wordTimestamps) {
               store.setWordTimestamps(msg.wordTimestamps);
+            }
+            // Apply rescaled visual timing from real TTS duration
+            if (msg.visualScript || msg.illustrations) {
+              set(produce((s: any) => {
+                if (s.currentScene?.id === msg.sceneId) {
+                  if (msg.visualScript) s.currentScene.visualScript = msg.visualScript;
+                  if (msg.illustrations) s.currentScene.illustrations = msg.illustrations;
+                }
+              }));
             }
             break;
 

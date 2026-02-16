@@ -22,8 +22,8 @@ export class AudioPlaybackManager {
   private pendingBuffer: ArrayBuffer | null = null;
   private decoding = false;
 
-  // Time tracking for word synchronization
-  private startTime: number | null = null;
+  // Time tracking for word synchronization (AudioContext-based for accuracy)
+  private audioContextStartTime: number = 0; // ctx.currentTime when source.start()
   private audioDuration: number = 0;
   private animationFrameId: number | null = null;
   private onTimeUpdate: ((currentTime: number) => void) | null = null;
@@ -47,11 +47,11 @@ export class AudioPlaybackManager {
     this.onTimeUpdate = cb;
   }
 
-  /** Get current playback time in milliseconds */
+  /** Get current playback time in milliseconds (AudioContext-based, survives tab backgrounding) */
   getCurrentTime(): number {
-    if (!this.startTime || this.state !== 'playing') return 0;
-    const elapsed = performance.now() - this.startTime;
-    return Math.min(elapsed, this.audioDuration);
+    if (!this.ctx || this.state !== 'playing') return 0;
+    const elapsed = (this.ctx.currentTime - this.audioContextStartTime) * 1000;
+    return Math.min(Math.max(elapsed, 0), this.audioDuration);
   }
 
   /** Ensure AudioContext exists and is resumed (call after user gesture) */
@@ -107,10 +107,10 @@ export class AudioPlaybackManager {
       };
 
       this.currentSource = source;
-      this.startTime = performance.now();
       this.audioDuration = audioBuffer.duration * 1000; // Convert to ms
       this.setState('playing');
       source.start();
+      this.audioContextStartTime = ctx.currentTime; // Record AudioContext time at playback start
       this.startTimeUpdateLoop();
     } catch (err) {
       console.warn('[AudioPlayback] Decode/play error:', err);
@@ -124,7 +124,7 @@ export class AudioPlaybackManager {
   stop(): void {
     this.pendingBuffer = null;
     this.stopTimeUpdateLoop();
-    this.startTime = null;
+    this.audioContextStartTime = 0;
     this.stopCurrent();
   }
 

@@ -6,8 +6,8 @@
    Synchronized to audio narration timing.
    ═══════════════════════════════════════════════════════════════ */
 
-import React, { useMemo } from 'react';
-import type { IllustrationSpec, VisualScript } from '../../../shared/types';
+import React, { useMemo, useState, useRef, useEffect } from 'react';
+import type { IllustrationSpec, VisualScript, VisualEntity, IllustrationFrame } from '../../../shared/types';
 import { Server, Database, Container, Pod, Cloud, User, Device, Arrow, DataFlow, Box, Layer } from './svg/SVGLibrary';
 import { FrameRenderer } from './FrameRenderer';
 
@@ -29,6 +29,38 @@ export function IllustrationCanvas({ illustrations, visualScript, currentTime, w
       frame => currentTime >= frame.startTime && currentTime < frame.endTime
     ) || visualScript.frames[visualScript.frames.length - 1];
   }, [visualScript, currentTime]);
+
+  // Entity lifecycle tracking for smooth frame transitions
+  const [exitingEntities, setExitingEntities] = useState<VisualEntity[]>([]);
+  const prevFrameRef = useRef<IllustrationFrame | null>(null);
+  const exitTimeoutRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!currentFrame || currentFrame === prevFrameRef.current) return;
+
+    const prevEntities = prevFrameRef.current?.entities || [];
+    const nextKeys = new Set(currentFrame.entities.map(e => `${e.type}-${e.label}`));
+
+    // Entities in previous frame but not in current → exiting
+    const exiting = prevEntities.filter(e => !nextKeys.has(`${e.type}-${e.label}`));
+
+    if (exiting.length > 0) {
+      setExitingEntities(exiting);
+      if (exitTimeoutRef.current) clearTimeout(exitTimeoutRef.current);
+      exitTimeoutRef.current = window.setTimeout(() => setExitingEntities([]), 400);
+    } else {
+      setExitingEntities([]);
+    }
+
+    prevFrameRef.current = currentFrame;
+  }, [currentFrame]);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (exitTimeoutRef.current) clearTimeout(exitTimeoutRef.current);
+    };
+  }, []);
 
   const visibleIllustrations = useMemo(() => {
     if (!illustrations) return [];
@@ -104,6 +136,7 @@ export function IllustrationCanvas({ illustrations, visualScript, currentTime, w
         {useFrameSystem && currentFrame && (
           <FrameRenderer
             entities={currentFrame.entities}
+            exitingEntities={exitingEntities}
             canvasWidth={width}
             canvasHeight={height}
           />

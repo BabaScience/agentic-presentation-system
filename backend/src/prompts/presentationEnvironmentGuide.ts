@@ -97,6 +97,81 @@ You can create and manipulate the following visual entities in your presentation
   - Best for: Performance optimization, caching layers
   - Example: "Frequently accessed data is cached..."
 
+### Universal Types (Topic-Agnostic — use for ANY subject)
+
+- **Concept**: Abstract ideas, principles, theories
+  - Size: 120x120px (circular with inner dashed ring)
+  - Best for: Central ideas, abstract concepts, any non-technical topic
+  - Example: "Photosynthesis is the process by which plants convert light..."
+
+- **Entity**: Generic named entity (person, place, thing, event)
+  - Size: 110x90px (labeled rectangle)
+  - Best for: Named entities in any domain — historical figures, species, countries, objects
+  - Example: "Napoleon led the French army across Europe..."
+
+- **Group**: Container grouping related items
+  - Size: 200x160px (dashed border rectangle)
+  - Best for: Categories, classifications, sets, families, collections
+  - Example: "The Romantic period includes several artistic movements..."
+
+- **Label**: Text annotation or callout
+  - Size: 120x40px (text with underline accent)
+  - Best for: Key terms, annotations, definitions, highlighting words
+  - Example: "This phenomenon is called 'osmosis'..."
+
+- **Comparison**: Side-by-side visual
+  - Size: 240x100px (two panels with 'vs' divider)
+  - Best for: Analogies, counterpoints, before/after, pros/cons
+  - Example: "Unlike classical music, jazz emphasizes improvisation..."
+
+- **Timeline**: Horizontal timeline element
+  - Size: 200x60px (line with dot marker)
+  - Best for: Historical events, sequences, milestones, dates
+  - Example: "In 1789, the revolution began..."
+
+- **Metric**: Number or statistic display
+  - Size: 80x80px (circle with centered number/value)
+  - Best for: Key numbers, statistics, measurements, percentages
+  - Example: "The process takes approximately 3 seconds..."
+
+- **Cycle**: Circular process element
+  - Size: 120x120px (animated rotating dashed circle)
+  - Best for: Cyclical processes, feedback loops, recurring phenomena
+  - Example: "The water cycle continuously moves water between..."
+
+- **Stack**: Layered stack visualization
+  - Size: 100x120px (three offset rectangles)
+  - Best for: Layered architectures, stacked concepts, geological layers
+  - Example: "The TCP/IP model has four layers..."
+
+- **Tree**: Hierarchical node with children
+  - Size: 100x100px (parent node with two child branches)
+  - Best for: Classification trees, org charts, family trees, taxonomies
+  - Example: "The species taxonomy branches into kingdoms..."
+
+- **Badge**: Small accent or tag
+  - Size: 60x30px (pill-shaped tag)
+  - Best for: Labels, tags, status indicators, categories
+  - Example: "This species is classified as 'endangered'..."
+
+- **Quote**: Text callout/quote block
+  - Size: 200x120px (rectangle with left accent bar)
+  - Best for: Definitions, famous quotes, key principles, theorems
+  - Example: "As Einstein said, 'Imagination is more important...'"
+
+### Topic-Adaptive Entity Selection
+
+When the narration is about NON-TECHNICAL topics, prefer universal entity types:
+
+**Biology/Science**: Cycle (cycles), Concept (principles), Group (classifications), Tree (taxonomy), Metric (measurements), Arrow (processes)
+**History/Events**: Timeline (dates), Entity (figures/places), Group (periods), Comparison (contrasts), Badge (labels)
+**Business/Economics**: Metric (KPIs), Comparison (analysis), Entity (companies), Arrow (flows), Stack (strategies)
+**Art/Music/Literature**: Quote (themes), Concept (movements), Comparison (styles), Entity (creators), Group (genres)
+**Philosophy/Psychology**: Concept (ideas), Quote (principles), Comparison (schools), Tree (frameworks), Cycle (dialectics)
+**Mathematics/Physics**: Metric (values), Concept (theorems), Cycle (systems), Arrow (causation), Stack (layers)
+
+Use infrastructure types (Server, Database, Pod, etc.) ONLY when the topic is actually about software, infrastructure, or technology.
+
 ## ═══════════════════════════════════════════════════════
 ## 2. ANIMATION TYPES
 ## ═══════════════════════════════════════════════════════

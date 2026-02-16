@@ -230,11 +230,60 @@ Provide a fresh, clearer explanation. Output just the narration text, no JSON.`,
     return {
       topic,
       conceptualPrimitives: [
-        { label: topic, type: DataType.CONCEPT, content: `Core concept: ${topic}`, narration: `Let's explore ${topic}. This is a foundational concept we'll build upon.` },
-        { label: `${topic} Basics`, type: DataType.DEFINITION, content: `Fundamental definitions of ${topic}`, narration: `First, let's establish what ${topic} means at its core.` },
-        { label: `${topic} in Practice`, type: DataType.EXAMPLE, content: `Real-world example of ${topic}`, narration: `Here's a concrete example of how ${topic} works in practice.` },
-        { label: `How ${topic} Works`, type: DataType.PROCESS, content: `The internal process of ${topic}`, narration: `Now let's walk through how ${topic} operates step by step.` },
-        { label: `${topic} Analogy`, type: DataType.ANALOGY, content: `${topic} is like a familiar concept`, narration: `Think of ${topic} like something you already know well.` },
+        {
+          label: topic, type: DataType.CONCEPT,
+          content: `Core concept: ${topic}`,
+          narration: `Let's explore ${topic}. This is a foundational concept we'll build upon.`,
+          visualHint: {
+            suggestedEntities: [{ type: 'Concept', label: topic, role: 'primary' }],
+            layoutPattern: 'central-radial',
+          },
+        },
+        {
+          label: `${topic} Basics`, type: DataType.DEFINITION,
+          content: `Fundamental definitions of ${topic}`,
+          narration: `First, let's establish what ${topic} means at its core.`,
+          visualHint: {
+            suggestedEntities: [{ type: 'Quote', label: 'Definition', role: 'primary' }],
+            layoutPattern: 'central-radial',
+          },
+        },
+        {
+          label: `${topic} in Practice`, type: DataType.EXAMPLE,
+          content: `Real-world example of ${topic}`,
+          narration: `Here's a concrete example of how ${topic} works in practice.`,
+          visualHint: {
+            suggestedEntities: [
+              { type: 'Entity', label: 'Example', role: 'primary' },
+              { type: 'Arrow', label: 'demonstrates', role: 'connector' },
+            ],
+            layoutPattern: 'flow-lr',
+          },
+        },
+        {
+          label: `How ${topic} Works`, type: DataType.PROCESS,
+          content: `The internal process of ${topic}`,
+          narration: `Now let's walk through how ${topic} operates step by step.`,
+          visualHint: {
+            suggestedEntities: [
+              { type: 'Process', label: 'Step 1', role: 'primary' },
+              { type: 'Arrow', label: 'leads to', role: 'connector' },
+              { type: 'Process', label: 'Step 2', role: 'secondary' },
+            ],
+            layoutPattern: 'flow-lr',
+          },
+        },
+        {
+          label: `${topic} Analogy`, type: DataType.ANALOGY,
+          content: `${topic} is like a familiar concept`,
+          narration: `Think of ${topic} like something you already know well.`,
+          visualHint: {
+            suggestedEntities: [
+              { type: 'Comparison', label: 'Analogy', role: 'primary' },
+            ],
+            layoutPattern: 'comparison',
+          },
+        },
       ],
       relationships: [
         { from: topic, to: `${topic} Basics`, type: EdgeType.CONTAINS, label: 'defined by' },

@@ -301,24 +301,30 @@ export default function App() {
   const demoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [sceneTransitioning, setSceneTransitioning] = useState(false);
 
-  // ── Visual Command Queue Processor ────────────────────
+  // ── Visual Command Queue Processor (word-trigger aware) ──
   useEffect(() => {
     if (store.visualCommandQueue.length === 0) return;
-    const cmd = store.visualCommandQueue[0];
 
-    const timer = setTimeout(() => {
+    const cmd = store.visualCommandQueue[0];
+    let triggerTimeMs = 0;
+
+    // Convert wordTrigger (word index) → milliseconds using real timestamps
+    if (cmd.wordTrigger != null && store.currentWordTimestamps.length > 0) {
+      const wordIdx = Math.min(cmd.wordTrigger, store.currentWordTimestamps.length - 1);
+      triggerTimeMs = store.currentWordTimestamps[wordIdx]?.start ?? 0;
+    }
+
+    // Fire command when audio time reaches the trigger point
+    if (store.currentAudioTime >= triggerTimeMs) {
       if (cmd.type === 'reveal') {
         store.revealNode(cmd.targetId);
         SoundEffectEngine.getInstance().playReveal();
       } else if (cmd.type === 'connect') {
-        // Connection reveal: just play the sound (edges are shown as related chips)
         SoundEffectEngine.getInstance().playConnect();
       }
       store.dequeueVisualCommand();
-    }, 300);
-
-    return () => clearTimeout(timer);
-  }, [store.visualCommandQueue]);
+    }
+  }, [store.visualCommandQueue, store.currentAudioTime]);
 
   // ── Scene Transition Effect ───────────────────────────
   useEffect(() => {
@@ -426,6 +432,27 @@ export default function App() {
     }, scene.durationEstimate);
 
     return () => { if (demoTimerRef.current) clearTimeout(demoTimerRef.current); };
+  }, [demoSceneIndex]);
+
+  // ── Demo Time Simulation (drives frame transitions) ───
+  useEffect(() => {
+    if (demoSceneIndex < 0 || demoSceneIndex >= DEMO_SCENES.length) return;
+
+    const scene = DEMO_SCENES[demoSceneIndex];
+    const startRealTime = performance.now();
+    store.updateAudioTime(0);
+
+    let rafId: number;
+    const tick = () => {
+      const elapsed = performance.now() - startRealTime;
+      store.updateAudioTime(Math.min(elapsed, scene.durationEstimate));
+      if (elapsed < scene.durationEstimate) {
+        rafId = requestAnimationFrame(tick);
+      }
+    };
+    rafId = requestAnimationFrame(tick);
+
+    return () => cancelAnimationFrame(rafId);
   }, [demoSceneIndex]);
 
   // ── Demo Commands ──────────────────────────────────────

@@ -163,3 +163,106 @@ export const Layer: React.FC<SVGComponentProps & { layers?: number }> = ({ x, y,
     {label && <text x={0} y={size/2 + 20} textAnchor="middle" fill={color} fontSize={12} fontWeight={500}>{label}</text>}
   </g>
 );
+
+// ═══ UNIVERSAL TYPES (Topic-Agnostic) ═══
+
+export const Concept: React.FC<SVGComponentProps> = ({ x, y, size = 60, color = '#00e5ff', label, className = '', animationDelay = 0 }) => (
+  <g transform={`translate(${x}, ${y})`} className={className} style={{ animationDelay: `${animationDelay}ms` }}>
+    <circle cx={0} cy={0} r={size/2} fill={`${color}15`} stroke={color} strokeWidth={2.5} />
+    <circle cx={0} cy={0} r={size/2 - 8} fill="none" stroke={`${color}40`} strokeWidth={1} strokeDasharray="4,4" />
+    {label && <text x={0} y={5} textAnchor="middle" fill={color} fontSize={Math.min(12, size/5)} fontWeight={600} fontFamily="'Geist Mono', monospace">{label}</text>}
+  </g>
+);
+
+export const Entity: React.FC<SVGComponentProps> = ({ x, y, size = 55, color = '#00e5ff', label, className = '', animationDelay = 0 }) => (
+  <g transform={`translate(${x}, ${y})`} className={className} style={{ animationDelay: `${animationDelay}ms` }}>
+    <rect x={-size/2} y={-size*0.4} width={size} height={size*0.8} rx={8} fill={`${color}15`} stroke={color} strokeWidth={2} />
+    {label && <text x={0} y={5} textAnchor="middle" fill={color} fontSize={Math.min(12, size/5)} fontWeight={500} fontFamily="'Geist Mono', monospace">{label}</text>}
+  </g>
+);
+
+export const GroupEntity: React.FC<SVGComponentProps> = ({ x, y, size = 100, color = '#00bcd4', label, className = '', animationDelay = 0 }) => (
+  <g transform={`translate(${x}, ${y})`} className={className} style={{ animationDelay: `${animationDelay}ms` }}>
+    <rect x={-size/2} y={-size*0.4} width={size} height={size*0.8} rx={12} fill={`${color}08`} stroke={color} strokeWidth={2} strokeDasharray="8,4" />
+    {label && <text x={0} y={-size*0.4 - 8} textAnchor="middle" fill={color} fontSize={11} fontWeight={500} fontFamily="'Geist Mono', monospace">{label}</text>}
+  </g>
+);
+
+export const LabelEntity: React.FC<SVGComponentProps> = ({ x, y, size = 60, color = '#ffab00', label, className = '', animationDelay = 0 }) => (
+  <g transform={`translate(${x}, ${y})`} className={className} style={{ animationDelay: `${animationDelay}ms` }}>
+    <text x={0} y={5} textAnchor="middle" fill={color} fontSize={14} fontWeight={600} fontFamily="'Geist Mono', monospace">{label || ''}</text>
+    <line x1={-size/3} y1={14} x2={size/3} y2={14} stroke={`${color}60`} strokeWidth={1.5} />
+  </g>
+);
+
+export const ComparisonEntity: React.FC<SVGComponentProps> = ({ x, y, size = 120, color = '#ffab00', label, className = '', animationDelay = 0 }) => (
+  <g transform={`translate(${x}, ${y})`} className={className} style={{ animationDelay: `${animationDelay}ms` }}>
+    <rect x={-size/2} y={-size*0.35} width={size*0.45} height={size*0.7} rx={6} fill={`${color}10`} stroke={color} strokeWidth={1.5} />
+    <rect x={size*0.05} y={-size*0.35} width={size*0.45} height={size*0.7} rx={6} fill={`${color}10`} stroke={color} strokeWidth={1.5} />
+    <text x={0} y={6} textAnchor="middle" fill={color} fontSize={16} fontWeight={700} opacity={0.6}>vs</text>
+    {label && <text x={0} y={size*0.35 + 20} textAnchor="middle" fill={color} fontSize={11} fontWeight={500} fontFamily="'Geist Mono', monospace">{label}</text>}
+  </g>
+);
+
+export const TimelineEntity: React.FC<SVGComponentProps> = ({ x, y, size = 100, color = '#00e676', label, className = '', animationDelay = 0 }) => (
+  <g transform={`translate(${x}, ${y})`} className={className} style={{ animationDelay: `${animationDelay}ms` }}>
+    <line x1={-size/2} y1={0} x2={size/2} y2={0} stroke={color} strokeWidth={3} opacity={0.5} />
+    <circle cx={0} cy={0} r={8} fill={color} />
+    <circle cx={0} cy={0} r={4} fill="#0a0c14" />
+    {label && <text x={0} y={25} textAnchor="middle" fill={color} fontSize={11} fontWeight={500} fontFamily="'Geist Mono', monospace">{label}</text>}
+  </g>
+);
+
+export const MetricEntity: React.FC<SVGComponentProps> = ({ x, y, size = 40, color = '#ff2d7b', label, className = '', animationDelay = 0 }) => (
+  <g transform={`translate(${x}, ${y})`} className={className} style={{ animationDelay: `${animationDelay}ms` }}>
+    <circle cx={0} cy={0} r={size/2} fill={`${color}20`} stroke={color} strokeWidth={2} />
+    {label && <text x={0} y={6} textAnchor="middle" fill={color} fontSize={Math.min(size/3, 16)} fontWeight={700} fontFamily="'Geist Mono', monospace">{label}</text>}
+  </g>
+);
+
+export const CycleEntity: React.FC<SVGComponentProps> = ({ x, y, size = 60, color = '#00bcd4', label, className = '', animationDelay = 0 }) => (
+  <g transform={`translate(${x}, ${y})`} className={className} style={{ animationDelay: `${animationDelay}ms` }}>
+    <circle cx={0} cy={0} r={size/2} fill="none" stroke={color} strokeWidth={2.5} strokeDasharray="12,4" opacity={0.8}>
+      <animateTransform attributeName="transform" type="rotate" from="0 0 0" to="360 0 0" dur="8s" repeatCount="indefinite" />
+    </circle>
+    <circle cx={0} cy={0} r={size/2 - 10} fill={`${color}08`} stroke="none" />
+    {label && <text x={0} y={5} textAnchor="middle" fill={color} fontSize={Math.min(11, size/6)} fontWeight={500} fontFamily="'Geist Mono', monospace">{label}</text>}
+  </g>
+);
+
+export const StackEntity: React.FC<SVGComponentProps> = ({ x, y, size = 50, color = '#b388ff', label, className = '', animationDelay = 0 }) => (
+  <g transform={`translate(${x}, ${y})`} className={className} style={{ animationDelay: `${animationDelay}ms` }}>
+    {[0, 1, 2].map(i => (
+      <rect key={i} x={-size/2 + i*3} y={-size/2 + i*14} width={size - i*6} height={size*0.28} rx={4}
+        fill={`${color}${25 - i*5}`} stroke={color} strokeWidth={1.5} opacity={1 - i*0.15} />
+    ))}
+    {label && <text x={0} y={size/2 + 20} textAnchor="middle" fill={color} fontSize={11} fontWeight={500} fontFamily="'Geist Mono', monospace">{label}</text>}
+  </g>
+);
+
+export const TreeEntity: React.FC<SVGComponentProps> = ({ x, y, size = 50, color = '#00e676', label, className = '', animationDelay = 0 }) => (
+  <g transform={`translate(${x}, ${y})`} className={className} style={{ animationDelay: `${animationDelay}ms` }}>
+    <circle cx={0} cy={-size/4} r={size/5} fill={`${color}25`} stroke={color} strokeWidth={2} />
+    <line x1={-size/4} y1={size/8} x2={0} y2={-size/10} stroke={color} strokeWidth={1.5} opacity={0.6} />
+    <line x1={size/4} y1={size/8} x2={0} y2={-size/10} stroke={color} strokeWidth={1.5} opacity={0.6} />
+    <circle cx={-size/4} cy={size/4} r={size/7} fill={`${color}15`} stroke={color} strokeWidth={1.5} />
+    <circle cx={size/4} cy={size/4} r={size/7} fill={`${color}15`} stroke={color} strokeWidth={1.5} />
+    {label && <text x={0} y={size/2 + 18} textAnchor="middle" fill={color} fontSize={11} fontWeight={500} fontFamily="'Geist Mono', monospace">{label}</text>}
+  </g>
+);
+
+export const BadgeEntity: React.FC<SVGComponentProps> = ({ x, y, size = 30, color = '#ff6b6b', label, className = '', animationDelay = 0 }) => (
+  <g transform={`translate(${x}, ${y})`} className={className} style={{ animationDelay: `${animationDelay}ms` }}>
+    <rect x={-size} y={-size/3} width={size*2} height={size*0.65} rx={size*0.3} fill={`${color}30`} stroke={color} strokeWidth={1.5} />
+    {label && <text x={0} y={4} textAnchor="middle" fill={color} fontSize={10} fontWeight={600} fontFamily="'Geist Mono', monospace">{label}</text>}
+  </g>
+);
+
+export const QuoteEntity: React.FC<SVGComponentProps> = ({ x, y, size = 100, color = '#b388ff', label, className = '', animationDelay = 0 }) => (
+  <g transform={`translate(${x}, ${y})`} className={className} style={{ animationDelay: `${animationDelay}ms` }}>
+    <rect x={-size/2} y={-size*0.4} width={size} height={size*0.8} rx={8} fill={`${color}0A`} stroke={color} strokeWidth={2} />
+    <rect x={-size/2} y={-size*0.4} width={4} height={size*0.8} rx={2} fill={color} />
+    <text x={-size/2 + 16} y={-size*0.22} fill={`${color}50`} fontSize={22} fontWeight={700}>"</text>
+    {label && <text x={4} y={8} textAnchor="middle" fill={color} fontSize={Math.min(12, size/8)} fontWeight={500} fontFamily="'Geist Mono', monospace">{label}</text>}
+  </g>
+);

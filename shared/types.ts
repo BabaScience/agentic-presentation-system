@@ -71,6 +71,7 @@ export interface KGNode {
   isPresented: boolean;
   parentId: string | null;
   metadata: Record<string, any>;
+  visualHint?: VisualHint;
   createdAt: number;
 }
 
@@ -166,9 +167,14 @@ export interface IllustrationSpec {
 
 // Visual entity types (semantic understanding)
 export type VisualEntityType =
+  // Infrastructure types
   | 'User' | 'Server' | 'Database' | 'Container' | 'Pod'
   | 'Cloud' | 'Network' | 'Device' | 'Arrow' | 'DataFlow'
-  | 'Process' | 'Queue' | 'Cache' | 'LoadBalancer' | 'Service';
+  | 'Process' | 'Queue' | 'Cache' | 'LoadBalancer' | 'Service'
+  // Universal types (topic-agnostic)
+  | 'Concept' | 'Entity' | 'Group' | 'Label'
+  | 'Comparison' | 'Timeline' | 'Metric' | 'Cycle'
+  | 'Stack' | 'Tree' | 'Badge' | 'Quote';
 
 // Visual entity instance
 export interface VisualEntity {
@@ -309,11 +315,29 @@ export interface UserPreferences {
 // ── Agent Reasoning Output ───────────────────────────────────
 export interface ReasoningOutput {
   topic: string;
-  conceptualPrimitives: { label: string; type: DataType; content: string; narration: string }[];
+  conceptualPrimitives: { label: string; type: DataType; content: string; narration: string; visualHint?: VisualHint }[];
   relationships: { from: string; to: string; type: EdgeType; label: string }[];
   prerequisiteDependencies: string[];
   complexityGradient: string[];
   anticipatedFollowUps: string[];
+}
+
+// ── Visual Hint (Agent → Visual Script Pipeline) ────────────
+export type LayoutPattern =
+  | 'flow-lr' | 'flow-tb' | 'hierarchical' | 'circular'
+  | 'comparison' | 'layered' | 'central-radial' | 'timeline';
+
+export interface VisualHintEntity {
+  type: string;
+  label: string;
+  role: 'primary' | 'secondary' | 'connector' | 'decoration';
+}
+
+export interface VisualHint {
+  suggestedEntities: VisualHintEntity[];
+  layoutPattern: LayoutPattern;
+  visualMetaphor?: string;
+  colorScheme?: 'cool' | 'warm' | 'neutral' | 'contrasting';
 }
 
 export interface ClassifiedChunk {
@@ -344,7 +368,7 @@ export type WSServerEvent =
   | { type: 'bookmark_resumed'; bookmark: PresentationBookmark }
   | { type: 'scene_change'; scene: PresentationScene }
   | { type: 'narration_text'; text: string; sceneId: string }
-  | { type: 'agent_audio_meta'; durationMs: number; sceneId: string; wordTimestamps?: WordTimestamp[] }
+  | { type: 'agent_audio_meta'; durationMs: number; sceneId: string; wordTimestamps?: WordTimestamp[]; visualScript?: VisualScript; illustrations?: IllustrationSpec[] }
   | { type: 'rl_update'; policy: RLPolicy; learnerState: Partial<LearnerState> }
   | { type: 'error'; message: string; code: string }
   | { type: 'pong' };

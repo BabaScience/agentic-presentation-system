@@ -117,10 +117,11 @@ export class VoiceService {
     }
   }
 
-  // ── TTS Integration (ElevenLabs) ──────────────────────────
+  // ── TTS Integration (ElevenLabs with-timestamps) ─────────
   async synthesizeSpeech(text: string, voiceId?: string): Promise<{
     audioData: Buffer;
     wordTimestamps: WordTimestamp[];
+    durationMs: number;
   }> {
     if (!process.env.ELEVENLABS_API_KEY) {
       console.warn('[TTS] No ELEVENLABS_API_KEY set, returning empty audio');
@@ -131,13 +132,12 @@ export class VoiceService {
       // "George" voice — calm, authoritative, great for presentations
       const voice = voiceId || 'JBFqnCBsd6RMkjVDRZzb';
       const response = await fetch(
-        `https://api.elevenlabs.io/v1/text-to-speech/${voice}`,
+        `https://api.elevenlabs.io/v1/text-to-speech/${voice}/with-timestamps`,
         {
           method: 'POST',
           headers: {
             'xi-api-key': process.env.ELEVENLABS_API_KEY!,
             'Content-Type': 'application/json',
-            'Accept': 'audio/mpeg',
           },
           body: JSON.stringify({
             text,
@@ -154,45 +154,110 @@ export class VoiceService {
 
       if (!response.ok) {
         const errText = await response.text();
-        console.error('[TTS] ElevenLabs API error:', response.status, errText);
+        console.error('[TTS] ElevenLabs with-timestamps error:', response.status, errText);
         return this.fallbackTimestamps(text);
       }
 
-      const arrayBuf = await response.arrayBuffer();
-      const audioData = Buffer.from(arrayBuf);
+      const result = await response.json() as {
+        audio_base64: string;
+        alignment?: {
+          characters: string[];
+          character_start_times_seconds: number[];
+          character_end_times_seconds: number[];
+        };
+        normalized_alignment?: {
+          characters: string[];
+          character_start_times_seconds: number[];
+          character_end_times_seconds: number[];
+        };
+      };
 
-      if (audioData.length === 0) {
-        console.warn('[TTS] ElevenLabs returned empty audio');
+      if (!result.audio_base64) {
+        console.warn('[TTS] ElevenLabs returned no audio_base64');
         return this.fallbackTimestamps(text);
       }
 
-      // Estimate word timestamps from MP3 size (~128kbps)
-      const words = text.split(/\s+/);
-      const estimatedDurationMs = (audioData.length / (128 * 1000 / 8)) * 1000;
-      const avgWordDuration = estimatedDurationMs / Math.max(words.length, 1);
-      const wordTimestamps: WordTimestamp[] = words.map((word, i) => ({
-        word,
-        start: i * avgWordDuration,
-        end: (i + 1) * avgWordDuration,
-      }));
+      const audioData = Buffer.from(result.audio_base64, 'base64');
 
-      console.log(`[TTS] Generated ${audioData.length} bytes of audio (~${Math.round(estimatedDurationMs)}ms)`);
-      return { audioData, wordTimestamps };
+      // Derive real word timestamps from character alignment
+      const alignment = result.alignment || result.normalized_alignment;
+      let wordTimestamps: WordTimestamp[];
+      let durationMs: number;
+
+      if (alignment && alignment.characters.length > 0) {
+        wordTimestamps = this.deriveWordTimestamps(text, alignment);
+        durationMs = alignment.character_end_times_seconds[
+          alignment.character_end_times_seconds.length - 1
+        ] * 1000;
+      } else {
+        // Alignment missing — estimate uniformly from audio size
+        console.warn('[TTS] No alignment data, using uniform estimation');
+        const words = text.split(/\s+/);
+        const estimatedDurationMs = (audioData.length / (128 * 1000 / 8)) * 1000;
+        const avgWordDuration = estimatedDurationMs / Math.max(words.length, 1);
+        wordTimestamps = words.map((word, i) => ({
+          word,
+          start: i * avgWordDuration,
+          end: (i + 1) * avgWordDuration,
+        }));
+        durationMs = estimatedDurationMs;
+      }
+
+      console.log(`[TTS] Generated ${audioData.length} bytes with real timestamps (${Math.round(durationMs)}ms, ${wordTimestamps.length} words)`);
+      return { audioData, wordTimestamps, durationMs };
     } catch (err: any) {
       console.error('[TTS] ElevenLabs error:', err.message);
       return this.fallbackTimestamps(text);
     }
   }
 
-  private fallbackTimestamps(text: string): { audioData: Buffer; wordTimestamps: WordTimestamp[] } {
+  // ── Derive word-level timestamps from character alignment ──
+  private deriveWordTimestamps(
+    text: string,
+    alignment: {
+      characters: string[];
+      character_start_times_seconds: number[];
+      character_end_times_seconds: number[];
+    },
+  ): WordTimestamp[] {
+    const words = text.split(/\s+/);
+    const timestamps: WordTimestamp[] = [];
+    let charIdx = 0;
+
+    for (const word of words) {
+      // Skip whitespace/space characters in alignment
+      while (
+        charIdx < alignment.characters.length &&
+        alignment.characters[charIdx].trim() === ''
+      ) {
+        charIdx++;
+      }
+
+      if (charIdx >= alignment.characters.length) break;
+
+      const startTime = alignment.character_start_times_seconds[charIdx] * 1000;
+
+      // Advance through this word's characters
+      const lastCharIdx = Math.min(charIdx + word.length - 1, alignment.characters.length - 1);
+      const endTime = alignment.character_end_times_seconds[lastCharIdx] * 1000;
+
+      timestamps.push({ word, start: startTime, end: endTime });
+      charIdx = lastCharIdx + 1;
+    }
+
+    return timestamps;
+  }
+
+  private fallbackTimestamps(text: string): { audioData: Buffer; wordTimestamps: WordTimestamp[]; durationMs: number } {
     const words = text.split(/\s+/);
     const avgWordDuration = 300;
+    const durationMs = words.length * avgWordDuration;
     const wordTimestamps: WordTimestamp[] = words.map((word, i) => ({
       word,
       start: i * avgWordDuration,
       end: (i + 1) * avgWordDuration,
     }));
-    return { audioData: Buffer.alloc(0), wordTimestamps };
+    return { audioData: Buffer.alloc(0), wordTimestamps, durationMs };
   }
 
   // ── Voice Activity Detection Config ──────────────────────

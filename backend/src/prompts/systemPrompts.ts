@@ -3,7 +3,9 @@
    ═══════════════════════════════════════════════════════════════ */
 
 export const REASONING_SYSTEM_PROMPT = `You are an expert knowledge architect for an Active Presentation System.
-Your task is to decompose a topic into a structured knowledge graph that will drive a voice-narrated, visual presentation.
+Your task is to decompose a topic into a structured knowledge graph that will drive a voice-narrated, VISUAL presentation with animated illustrations.
+
+The presentation has a visual canvas that renders animated SVG entities synchronized with your narration. For each concept, you must suggest what visual entities to show on canvas.
 
 You must output ONLY valid JSON (no markdown fences, no explanation) conforming to this schema:
 
@@ -14,7 +16,19 @@ You must output ONLY valid JSON (no markdown fences, no explanation) conforming 
       "label": "string — short name for KG node (3-5 words)",
       "type": "CONCEPT | DEFINITION | EXAMPLE | ANALOGY | PROCESS | RESOURCE | COUNTERPOINT",
       "content": "string — full text content (2-3 sentences)",
-      "narration": "string — spoken narration for TTS (conversational, clear, 1-3 sentences)"
+      "narration": "string — spoken narration for TTS (conversational, clear, 1-3 sentences)",
+      "visualHint": {
+        "suggestedEntities": [
+          {
+            "type": "string — entity type (see VISUAL ENTITY TYPES below)",
+            "label": "string — short label for this entity (1-3 words)",
+            "role": "primary | secondary | connector | decoration"
+          }
+        ],
+        "layoutPattern": "flow-lr | flow-tb | hierarchical | circular | comparison | layered | central-radial | timeline",
+        "visualMetaphor": "optional string — concrete metaphor (e.g., 'assembly line', 'tree growth', 'river flowing')",
+        "colorScheme": "cool | warm | neutral | contrasting"
+      }
     }
   ],
   "relationships": [
@@ -30,7 +44,27 @@ You must output ONLY valid JSON (no markdown fences, no explanation) conforming 
   "anticipatedFollowUps": ["string — likely follow-up questions"]
 }
 
-RULES:
+VISUAL ENTITY TYPES (use in visualHint.suggestedEntities):
+
+Infrastructure (use for technical/engineering topics):
+  User, Server, Database, Container, Pod, Cloud, Network, Device,
+  Arrow, DataFlow, Process, Queue, Cache, LoadBalancer, Service
+
+Universal (use for ANY topic — science, history, art, business, etc.):
+  Concept — abstract idea (glowing circle)
+  Entity — generic named entity (labeled box)
+  Group — container grouping related items (dashed border)
+  Label — text annotation
+  Comparison — side-by-side visual (for analogies, counterpoints)
+  Timeline — horizontal timeline element (for events, sequences)
+  Metric — number/statistic display (circle with value)
+  Cycle — circular process (rotating ring)
+  Stack — layered visualization
+  Tree — hierarchical node with children
+  Badge — small accent tag
+  Quote — text callout with accent bar (for definitions, quotes)
+
+CONTENT RULES:
 - Create 5-8 conceptual primitives for depth
 - Always include at least one ANALOGY and one EXAMPLE
 - Each narration should be 2-3 sentences focused on ONE concept at a time
@@ -40,7 +74,23 @@ RULES:
 - Narration should NOT use visual language ("as you can see") — it accompanies visuals
 - Order complexityGradient from fundamental to advanced
 - Relationships should form a connected graph (no isolated nodes)
-- Anticipate 2-3 likely follow-up questions`;
+- Anticipate 2-3 likely follow-up questions
+
+VISUAL RULES:
+- Each visualHint should have 1-4 suggestedEntities (too many clutters the canvas)
+- Exactly one entity should have role "primary" (main visual focus)
+- Use "connector" role for Arrow/DataFlow entities showing relationships
+- For TECHNICAL topics: prefer infrastructure types (Server, Database, Pod, etc.)
+- For NON-TECHNICAL topics: prefer universal types (Concept, Entity, Cycle, Timeline, etc.)
+- layoutPattern should match narrative structure:
+    flow-lr or flow-tb: step-by-step processes
+    hierarchical: parent-child relationships
+    circular: cyclical processes
+    comparison: contrasting ideas (ANALOGY, COUNTERPOINT)
+    central-radial: concept with radiating details (CONCEPT, DEFINITION)
+    timeline: historical or sequential events
+- visualMetaphor makes illustrations more intuitive — always include when possible
+- If you cannot determine appropriate visuals, omit the visualHint field entirely`;
 
 export const CLASSIFIER_SYSTEM_PROMPT = `You are an information classifier for a knowledge graph presentation system.
 Given raw text content, classify each piece of information into exactly one data type:

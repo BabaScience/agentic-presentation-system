@@ -226,23 +226,25 @@ export class WebSocketGateway {
       // Generate and stream TTS audio (or fall back to delay)
       if (process.env.ELEVENLABS_API_KEY) {
         try {
-          const { audioData, wordTimestamps } = await this.voice.synthesizeSpeech(scene.narration);
+          const { audioData, wordTimestamps, durationMs: realDurationMs } = await this.voice.synthesizeSpeech(scene.narration);
           if (audioData.length > 0) {
-            // Send audio duration info first (text frame)
-            const audioDuration = wordTimestamps.length > 0
-              ? wordTimestamps[wordTimestamps.length - 1].end : scene.durationEstimate || 5000;
+            // Rescale visual script frame timings to match real audio duration
+            this.rescaleVisualScript(scene, realDurationMs);
+
             this.send(session.ws, {
               type: 'agent_audio_meta',
-              durationMs: audioDuration,
+              durationMs: realDurationMs,
               sceneId: scene.id,
               wordTimestamps,
+              visualScript: scene.visualScript,
+              illustrations: scene.illustrations,
             });
             // Send audio as binary
             if (session.ws.readyState === WebSocket.OPEN) {
               session.ws.send(audioData);
             }
-            // Wait for audio duration instead of fixed estimate
-            await this.delay(audioDuration + 500, signal);
+            // Wait for real audio duration instead of estimate
+            await this.delay(realDurationMs + 500, signal);
           } else {
             await this.delay(scene.durationEstimate || 5000, signal);
           }
@@ -374,7 +376,33 @@ export class WebSocketGateway {
         this.send(session.ws, { type: 'visual_command', command: cmd });
       }
 
-      await this.delay(scene.durationEstimate || 4000);
+      // TTS with real timestamps for interrupt scenes
+      if (process.env.ELEVENLABS_API_KEY) {
+        try {
+          const { audioData, wordTimestamps, durationMs } = await this.voice.synthesizeSpeech(scene.narration);
+          if (audioData.length > 0) {
+            this.rescaleVisualScript(scene, durationMs);
+            this.send(session.ws, {
+              type: 'agent_audio_meta',
+              durationMs,
+              sceneId: scene.id,
+              wordTimestamps,
+              visualScript: scene.visualScript,
+              illustrations: scene.illustrations,
+            });
+            if (session.ws.readyState === WebSocket.OPEN) {
+              session.ws.send(audioData);
+            }
+            await this.delay(durationMs + 500);
+          } else {
+            await this.delay(scene.durationEstimate || 4000);
+          }
+        } catch {
+          await this.delay(scene.durationEstimate || 4000);
+        }
+      } else {
+        await this.delay(scene.durationEstimate || 4000);
+      }
     }
 
     // Phase D: Comprehension check
@@ -476,6 +504,26 @@ export class WebSocketGateway {
   private send(ws: WebSocket, event: WSServerEvent): void {
     if (ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify(event));
+    }
+  }
+
+  private rescaleVisualScript(scene: PresentationScene, realDurationMs: number): void {
+    if (!scene.visualScript?.frames.length) return;
+    const estimatedDuration = scene.visualScript.totalDuration;
+    if (estimatedDuration <= 0 || realDurationMs <= 0) return;
+
+    const scale = realDurationMs / estimatedDuration;
+    for (const frame of scene.visualScript.frames) {
+      frame.startTime = Math.round(frame.startTime * scale);
+      frame.endTime = Math.round(frame.endTime * scale);
+    }
+    scene.visualScript.totalDuration = realDurationMs;
+
+    // Also rescale legacy illustration appear timings
+    if (scene.illustrations) {
+      for (const illus of scene.illustrations) {
+        illus.appearTimingMs = Math.round(illus.appearTimingMs * scale);
+      }
     }
   }
 

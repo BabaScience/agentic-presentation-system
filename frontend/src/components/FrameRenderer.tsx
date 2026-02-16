@@ -7,20 +7,32 @@
 
 import React, { useMemo } from 'react';
 import type { VisualEntity, VisualEntityType } from '../../../shared/types';
-import { Server, Database, Container, Pod, Cloud, User, Device, Arrow, DataFlow, Box } from './svg/SVGLibrary';
+import {
+  Server, Database, Container, Pod, Cloud, User, Device, Arrow, DataFlow, Box,
+  Concept, Entity, GroupEntity, LabelEntity, ComparisonEntity, TimelineEntity,
+  MetricEntity, CycleEntity, StackEntity, TreeEntity, BadgeEntity, QuoteEntity,
+} from './svg/SVGLibrary';
 
 interface FrameRendererProps {
   entities: VisualEntity[];
+  exitingEntities?: VisualEntity[];
   canvasWidth: number;
   canvasHeight: number;
 }
 
-export const FrameRenderer = React.memo<FrameRendererProps>(({ entities, canvasWidth, canvasHeight }) => {
+export const FrameRenderer = React.memo<FrameRendererProps>(({ entities, exitingEntities = [], canvasWidth, canvasHeight }) => {
   return (
     <g className="frame-entities">
+      {/* Exiting entities: fade out */}
+      {exitingEntities.map(entity => (
+        <g key={`exit-${entity.type}-${entity.label}`} className="entity-exiting">
+          <EntityRenderer entity={entity} canvasWidth={canvasWidth} canvasHeight={canvasHeight} />
+        </g>
+      ))}
+      {/* Active entities: stable keys enable reconciliation across frames */}
       {entities.map(entity => (
         <EntityRenderer
-          key={entity.id}
+          key={`${entity.type}-${entity.label || entity.id}`}
           entity={entity}
           canvasWidth={canvasWidth}
           canvasHeight={canvasHeight}
@@ -206,6 +218,102 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({ entity, canvasWidth, ca
             </text>
           )}
         </g>
+      );
+
+    case 'Concept':
+      return (
+        <Concept
+          x={x} y={y} size={entity.size.width} color={color}
+          label={entity.label} className={animClass} animationDelay={animDelay}
+        />
+      );
+
+    case 'Entity':
+      return (
+        <Entity
+          x={x} y={y} size={entity.size.width} color={color}
+          label={entity.label} className={animClass} animationDelay={animDelay}
+        />
+      );
+
+    case 'Group':
+      return (
+        <GroupEntity
+          x={x} y={y} size={entity.size.width} color={color}
+          label={entity.label} className={animClass} animationDelay={animDelay}
+        />
+      );
+
+    case 'Label':
+      return (
+        <LabelEntity
+          x={x} y={y} size={entity.size.width} color={color}
+          label={entity.label} className={animClass} animationDelay={animDelay}
+        />
+      );
+
+    case 'Comparison':
+      return (
+        <ComparisonEntity
+          x={x} y={y} size={entity.size.width} color={color}
+          label={entity.label} className={animClass} animationDelay={animDelay}
+        />
+      );
+
+    case 'Timeline':
+      return (
+        <TimelineEntity
+          x={x} y={y} size={entity.size.width} color={color}
+          label={entity.label} className={animClass} animationDelay={animDelay}
+        />
+      );
+
+    case 'Metric':
+      return (
+        <MetricEntity
+          x={x} y={y} size={entity.size.width} color={color}
+          label={entity.label} className={animClass} animationDelay={animDelay}
+        />
+      );
+
+    case 'Cycle':
+      return (
+        <CycleEntity
+          x={x} y={y} size={entity.size.width} color={color}
+          label={entity.label} className={animClass} animationDelay={animDelay}
+        />
+      );
+
+    case 'Stack':
+      return (
+        <StackEntity
+          x={x} y={y} size={entity.size.width} color={color}
+          label={entity.label} className={animClass} animationDelay={animDelay}
+        />
+      );
+
+    case 'Tree':
+      return (
+        <TreeEntity
+          x={x} y={y} size={entity.size.width} color={color}
+          label={entity.label} className={animClass} animationDelay={animDelay}
+        />
+      );
+
+    case 'Badge':
+      return (
+        <BadgeEntity
+          x={x} y={y} size={entity.size.width} color={color}
+          label={entity.label} className={animClass} animationDelay={animDelay}
+        />
+      );
+
+    case 'Quote':
+      return (
+        <QuoteEntity
+          x={x} y={y} size={entity.size.width} color={color}
+          label={entity.label} className={animClass} animationDelay={animDelay}
+        />
       );
 
     default:

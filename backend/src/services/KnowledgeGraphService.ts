@@ -72,6 +72,7 @@ export class KnowledgeGraphService {
         isPresented: false,
         parentId: index === 0 ? null : graph.rootNodeId || null,
         metadata: {},
+        visualHint: primitive.visualHint,
         createdAt: Date.now(),
       };
 
