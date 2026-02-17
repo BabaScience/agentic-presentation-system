@@ -163,6 +163,16 @@ export class WebSocketGateway {
     this.transition(session, SessionState.REASONING);
     const reasoning = await this.agent.reason(topic, this.rl.getCurrentPolicy());
 
+    // Warn client if AI reasoning fell back to templates
+    if ((reasoning as any)._fallbackReason) {
+      console.warn(`[WS] Reasoning used fallback for session ${session.id}: ${(reasoning as any)._fallbackReason}`);
+      this.send(session.ws, {
+        type: 'error',
+        message: 'AI reasoning is temporarily unavailable. Using simplified content.',
+        code: 'REASONING_FALLBACK',
+      });
+    }
+
     // Phase 2: Build Knowledge Graph
     this.transition(session, SessionState.BUILDING_GRAPH);
     const graph = this.kgService.buildFromReasoning(session.id, reasoning);

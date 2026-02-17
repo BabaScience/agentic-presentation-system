@@ -289,12 +289,10 @@ export class PresentationPlanner {
   ): string {
     const parts: string[] = [];
 
-    if (isFirst) {
-      parts.push(`Let's explore ${nodes[0].label}.`);
-    }
+    // The node's own narration already contains an appropriate introduction,
+    // so we skip the explicit "Let's explore X" prefix to avoid duplication.
 
     for (const node of nodes) {
-      // Use node's pre-generated narration
       parts.push(node.narration);
     }
 
