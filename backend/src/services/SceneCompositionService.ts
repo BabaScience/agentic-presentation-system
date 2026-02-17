@@ -14,6 +14,7 @@ import {
   type LayoutConstraint,
   type CompositionRule,
   type VisualEntity,
+  clampEntityPosition,
 } from '../../shared/types';
 
 /**
@@ -176,6 +177,8 @@ export class SceneCompositionService {
       const angle = (index / entities.length) * 2 * Math.PI;
       entity.position.x = centerX + radius * Math.cos(angle);
       entity.position.y = centerY + radius * Math.sin(angle);
+      // Size-aware clamp to keep entity within canvas
+      entity.position = clampEntityPosition(entity.position, entity.size.width, entity.size.height);
     });
 
     return entities;
@@ -471,6 +474,7 @@ export class SceneCompositionService {
       if (!entity.fixed) {
         entity.position.x += (50 - centerX) * shiftFactor;
         entity.position.y += (50 - centerY) * shiftFactor;
+        entity.position = clampEntityPosition(entity.position, entity.size.width, entity.size.height);
       }
     });
   }
@@ -494,10 +498,12 @@ export class SceneCompositionService {
           if (!entities[i].fixed) {
             entities[i].position.x -= Math.cos(angle) * overlap * 0.5;
             entities[i].position.y -= Math.sin(angle) * overlap * 0.5;
+            entities[i].position = clampEntityPosition(entities[i].position, entities[i].size.width, entities[i].size.height);
           }
           if (!entities[j].fixed) {
             entities[j].position.x += Math.cos(angle) * overlap * 0.5;
             entities[j].position.y += Math.sin(angle) * overlap * 0.5;
+            entities[j].position = clampEntityPosition(entities[j].position, entities[j].size.width, entities[j].size.height);
           }
         }
       }

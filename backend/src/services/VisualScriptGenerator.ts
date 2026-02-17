@@ -21,6 +21,9 @@ import {
   type WordTimestamp,
   type VisualHint,
   DataType,
+  FRAME_DURATION_MIN_MS,
+  INTER_ENTITY_STAGGER_MIN_MS,
+  clampEntityPosition,
 } from '../../shared/types';
 import { v4 as uuid } from 'uuid';
 import { getEnvironmentGuideForPrompt } from '../prompts/presentationEnvironmentGuide';
@@ -29,6 +32,7 @@ import { DataVisualizationService } from './DataVisualizationService';
 import { AIIllustrationService } from './AIIllustrationService';
 import { MathVisualizationService } from './MathVisualizationService';
 import { postProcessFrames } from './LayoutEngine';
+import { SceneCompositionService } from './SceneCompositionService';
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY || '',
@@ -64,12 +68,14 @@ export class VisualScriptGenerator {
   private dataViz: DataVisualizationService;
   private aiIllustration: AIIllustrationService;
   private mathViz: MathVisualizationService;
+  private composition: SceneCompositionService;
 
   constructor() {
     this.codeExecution = new CodeExecutionService();
     this.dataViz = new DataVisualizationService();
     this.aiIllustration = new AIIllustrationService();
     this.mathViz = new MathVisualizationService();
+    this.composition = new SceneCompositionService();
   }
 
   /**
@@ -92,6 +98,31 @@ export class VisualScriptGenerator {
 
     // Post-process: layout engine (collision avoidance + pattern enforcement)
     postProcessFrames(frames, visualHint?.layoutPattern);
+
+    // Optional: use SceneCompositionService for complex frames with poor layout
+    for (const frame of frames) {
+      if (frame.entities.length >= 4) {
+        try {
+          const layoutType = this.mapLayoutPattern(visualHint?.layoutPattern);
+          const layout = this.composition.generateLayout(frame.entities, layoutType);
+          if (layout.aestheticScore !== undefined && layout.aestheticScore < 0.5) {
+            // Re-apply positions from composition service, then re-clamp for size
+            for (const layoutEntity of layout.entities) {
+              const entity = frame.entities.find(e => e.id === layoutEntity.id);
+              if (entity) {
+                entity.position = clampEntityPosition(
+                  layoutEntity.position,
+                  entity.size.width,
+                  entity.size.height,
+                );
+              }
+            }
+          }
+        } catch {
+          // Composition service is optional — ignore errors
+        }
+      }
+    }
 
     // Collect all entities
     const allEntities: Record<string, VisualEntity> = {};
@@ -200,7 +231,7 @@ Return ONLY a JSON array (no markdown, no explanation):
 ]
 
 ## Entity Field Requirements:
-- **type**: Must be one of: User, Server, Database, Container, Pod, Cloud, Network, Device, Arrow, DataFlow, Process, Queue, Cache, LoadBalancer, Service, Concept, Entity, Group, Label, Comparison, Timeline, Metric, Cycle, Stack, Tree, Badge, Quote
+- **type**: Must be one of: User, Server, Database, Container, Pod, Cloud, Network, Device, Arrow, DataFlow, Process, Queue, Cache, LoadBalancer, Service, Firewall, APIGateway, Lambda, Subnet, Volume, Registry, Monitor, Pipeline, Decision, Cluster, Concept, Entity, Group, Label, Comparison, Timeline, Metric, Cycle, Stack, Tree, Badge, Quote
 - **label**: Concise (1-3 words)
 - **position**: Object with x (0-100) and y (0-100) as percentage coordinates. Spread entities across the canvas — avoid clustering everything at x:50, y:50. Use the layout patterns from the guide. Not required for Arrow/DataFlow if "from"/"to" are specified — position will be computed automatically.
 - **color**: Hex color from the palette above. Match to the entity's semantic role. Primary entities get bright colors, connectors get subtle ones.
@@ -360,10 +391,40 @@ Generate the visual script now:`;
     if (/(cloud|aws|azure)/i.test(text)) {
       entities.push({ type: 'Cloud', label: 'Cloud', position: { x: 50, y: 25 }, color: '#00bcd4', animation: { type: 'fadeIn', delay: 0 } });
     }
+    if (/(firewall|waf|security.group|acl)/i.test(text)) {
+      entities.push({ type: 'Firewall', label: 'Firewall', position: positions[Math.min(posIdx++, 2)], color: '#ff4444', animation: { type: 'scaleIn', delay: 200 } });
+    }
+    if (/(api.gateway|ingress|reverse.proxy|kong|envoy)/i.test(text)) {
+      entities.push({ type: 'APIGateway', label: 'API Gateway', position: positions[Math.min(posIdx++, 2)], color: '#00e5ff', animation: { type: 'scaleIn', delay: 200 } });
+    }
+    if (/(lambda|serverless|faas)/i.test(text)) {
+      entities.push({ type: 'Lambda', label: 'Lambda', position: positions[Math.min(posIdx++, 2)], color: '#ffab00', animation: { type: 'scaleIn', delay: 200 } });
+    }
+    if (/(subnet|vpc|cidr)/i.test(text)) {
+      entities.push({ type: 'Subnet', label: 'Subnet', position: { x: 50, y: 40 }, color: '#4488ff', animation: { type: 'fadeIn', delay: 0 } });
+    }
+    if (/(volume|disk|pvc|ebs|persistent.storage)/i.test(text)) {
+      entities.push({ type: 'Volume', label: 'Volume', position: positions[Math.min(posIdx++, 2)], color: '#b388ff', animation: { type: 'fadeIn', delay: 200 } });
+    }
+    if (/(registry|repository|ecr|docker.hub)/i.test(text)) {
+      entities.push({ type: 'Registry', label: 'Registry', position: positions[Math.min(posIdx++, 2)], color: '#00e676', animation: { type: 'fadeIn', delay: 200 } });
+    }
+    if (/(monitor|prometheus|grafana|metrics|dashboard)/i.test(text)) {
+      entities.push({ type: 'Monitor', label: 'Monitor', position: positions[Math.min(posIdx++, 2)], color: '#00e676', animation: { type: 'fadeIn', delay: 200 } });
+    }
+    if (/(ci\/cd|pipeline|jenkins|github.actions)/i.test(text)) {
+      entities.push({ type: 'Pipeline', label: 'Pipeline', position: { x: 50, y: 45 }, color: '#00bcd4', animation: { type: 'slideIn', delay: 200 } });
+    }
+    if (/(decision|condition|if.*then|routing.rule)/i.test(text)) {
+      entities.push({ type: 'Decision', label: 'Decision', position: positions[Math.min(posIdx++, 2)], color: '#ffab00', animation: { type: 'scaleIn', delay: 200 } });
+    }
+    if (/(cluster|replica.set|node.pool)/i.test(text)) {
+      entities.push({ type: 'Cluster', label: 'Cluster', position: { x: 50, y: 40 }, color: '#4488ff', animation: { type: 'scaleIn', delay: 0 } });
+    }
     if (/(send|transmit|request|call)/i.test(text) && entities.length > 0) {
       entities.push({ type: 'Arrow', position: { x: 50, y: 45 }, color: '#ffffff40', size: 0.8, animation: { type: 'flow', delay: 400 } });
     }
-    if (/(flow|stream|pipeline)/i.test(text)) {
+    if (/(flow|stream)/i.test(text)) {
       entities.push({ type: 'DataFlow', position: { x: 50, y: 45 }, color: '#ffffff30', size: 0.8, animation: { type: 'flow', delay: 300 } });
     }
 
@@ -408,13 +469,24 @@ Generate the visual script now:`;
 
   /**
    * Convert visual segments to illustration frames
+   * Enforces minimum frame duration and validates segment count
    */
   private segmentsToFrames(segments: VisualSegment[], totalDuration: number): IllustrationFrame[] {
+    // Validate segment count — fall back to uniform segmentation if invalid
+    if (segments.length < 2 || segments.length > 6) {
+      const targetCount = Math.max(2, Math.min(segments.length, 6));
+      if (segments.length > 6) {
+        segments = segments.slice(0, 6);
+      }
+      // If fewer than 2, handled by caller (fallback generates at least 1)
+    }
+
     const frames: IllustrationFrame[] = [];
     const entityRegistry = new Map<string, VisualEntity>(); // Track entities across frames
 
     segments.forEach((segment, segmentIdx) => {
       const frameEntities: VisualEntity[] = [];
+      let prevDelay = -1; // Track for stagger enforcement
 
       segment.entities.forEach((entityDef, entityIdx) => {
         // Use type+label as stable key for entity reuse across frames
@@ -444,6 +516,15 @@ Generate the visual script now:`;
           entityRegistry.set(entityKey, entity);
         }
 
+        // Enforce inter-entity stagger for non-first entities
+        if (entity.animation && entityIdx > 0) {
+          const minDelay = prevDelay + INTER_ENTITY_STAGGER_MIN_MS;
+          if (entity.animation.delay < minDelay) {
+            entity.animation.delay = minDelay;
+          }
+        }
+        prevDelay = entity.animation?.delay || 0;
+
         frameEntities.push(entity);
       });
 
@@ -456,6 +537,20 @@ Generate the visual script now:`;
         description: segment.description,
       });
     });
+
+    // Enforce minimum frame duration — extend short frames, shift subsequent
+    for (let i = 0; i < frames.length; i++) {
+      const frame = frames[i];
+      const duration = frame.endTime - frame.startTime;
+      if (duration < FRAME_DURATION_MIN_MS) {
+        const extension = FRAME_DURATION_MIN_MS - duration;
+        frame.endTime += extension;
+        for (let j = i + 1; j < frames.length; j++) {
+          frames[j].startTime += extension;
+          frames[j].endTime += extension;
+        }
+      }
+    }
 
     return frames;
   }
@@ -478,6 +573,17 @@ Generate the visual script now:`;
     Cache: { width: 100, height: 80 },
     LoadBalancer: { width: 120, height: 80 },
     Service: { width: 110, height: 90 },
+    // Extended IT infrastructure types
+    Firewall: { width: 100, height: 90 },
+    APIGateway: { width: 120, height: 80 },
+    Lambda: { width: 90, height: 80 },
+    Subnet: { width: 180, height: 140 },
+    Volume: { width: 90, height: 100 },
+    Registry: { width: 100, height: 90 },
+    Monitor: { width: 110, height: 80 },
+    Pipeline: { width: 180, height: 60 },
+    Decision: { width: 90, height: 90 },
+    Cluster: { width: 120, height: 100 },
     // Universal types
     Concept: { width: 120, height: 120 },
     Entity: { width: 110, height: 90 },
@@ -513,7 +619,12 @@ Generate the visual script now:`;
   ): VisualEntity {
 
     const baseSize = VisualScriptGenerator.SIZE_MAP[type] || { width: 100, height: 80 };
-    const scale = Math.max(0.3, Math.min(2.0, sizeScale || 1.0));
+    // Cap max scale based on entity base size to prevent overflow
+    const maxDim = Math.max(baseSize.width, baseSize.height);
+    const maxScale = maxDim >= 180 ? 1.2 : maxDim >= 120 ? 1.4 : 2.0;
+    const scale = Math.max(0.3, Math.min(maxScale, sizeScale || 1.0));
+    const finalWidth = Math.round(baseSize.width * scale);
+    const finalHeight = Math.round(baseSize.height * scale);
 
     const validAnimTypes = ['fadeIn', 'slideIn', 'scaleIn', 'pulse', 'flow', 'dashFlow', 'none'];
     const animType = animationDef?.type && validAnimTypes.includes(animationDef.type)
@@ -523,19 +634,16 @@ Generate the visual script now:`;
     const entity: VisualEntity = {
       id: `entity-${uuid().slice(0, 8)}`,
       type,
-      position: {
-        x: Math.max(5, Math.min(95, position.x)),
-        y: Math.max(5, Math.min(95, position.y)),
-      },
+      position: clampEntityPosition(position, finalWidth, finalHeight),
       size: {
-        width: Math.round(baseSize.width * scale),
-        height: Math.round(baseSize.height * scale),
+        width: finalWidth,
+        height: finalHeight,
       },
       label,
       color,
       animation: {
         type: animType as 'fadeIn' | 'slideIn' | 'scaleIn' | 'pulse' | 'flow' | 'dashFlow' | 'none',
-        duration: animationDef?.delay !== undefined ? 500 : 500,
+        duration: 500,
         delay: animationDef?.delay || 0,
       },
     };
@@ -575,9 +683,10 @@ Generate the visual script now:`;
     const offsetX = entityIdx * 5 - 2.5;
     const offsetY = segmentIdx * 3 - 1.5;
 
+    // Clamp generously — final size-aware clamp happens in createEntity()
     return {
-      x: Math.max(10, Math.min(90, base.x + offsetX)),
-      y: Math.max(10, Math.min(90, base.y + offsetY)),
+      x: Math.max(8, Math.min(92, base.x + offsetX)),
+      y: Math.max(8, Math.min(92, base.y + offsetY)),
     };
   }
 
@@ -641,6 +750,18 @@ Generate the visual script now:`;
     };
 
     return instructions[pattern] || `Follow the "${pattern}" layout pattern: spread entities logically across the canvas using the full x:10-90 and y:15-85 range. Avoid clustering.`;
+  }
+
+  /**
+   * Map layout pattern string to SceneCompositionService layout type
+   */
+  private mapLayoutPattern(pattern?: string): 'force-directed' | 'hierarchical' | 'circular' | 'grid' | 'flow' {
+    if (!pattern) return 'force-directed';
+    if (pattern.includes('hierarchical') || pattern.includes('tree')) return 'hierarchical';
+    if (pattern.includes('circular') || pattern.includes('radial')) return 'circular';
+    if (pattern.includes('flow') || pattern.includes('timeline')) return 'flow';
+    if (pattern.includes('grid') || pattern.includes('layered')) return 'grid';
+    return 'force-directed';
   }
 
   /**

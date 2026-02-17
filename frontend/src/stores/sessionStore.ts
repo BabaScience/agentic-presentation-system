@@ -259,8 +259,9 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
             break;
 
           case 'scene_change':
-            // Clear visual command queue for new scene
-            set({ visualCommandQueue: [] });
+            // Clear visual command queue and reset audio time for new scene
+            AudioPlaybackManager.getInstance().stop();
+            set({ visualCommandQueue: [], currentAudioTime: 0, currentWordTimestamps: [] });
             store.setCurrentScene(msg.scene);
             break;
 

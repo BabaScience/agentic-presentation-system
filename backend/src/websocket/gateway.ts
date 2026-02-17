@@ -25,6 +25,10 @@ import {
   type PresentationScene,
   type PresentationBookmark,
   type KnowledgeGraph,
+  ANIMATION_DELAY_MIN_MS,
+  FRAME_DURATION_MIN_MS,
+  ILLUSTRATION_APPEAR_MIN_MS,
+  INTER_ENTITY_STAGGER_MIN_MS,
 } from '../../shared/types';
 
 interface ClientSession {
@@ -672,29 +676,62 @@ export class WebSocketGateway {
 
     const scale = realDurationMs / estimatedDuration;
 
-    // Rescale frame boundaries
+    // Phase 1: Scale frame boundaries and enforce minimum frame duration
     for (const frame of scene.visualScript.frames) {
-      const frameDuration = frame.endTime - frame.startTime;
       frame.startTime = Math.round(frame.startTime * scale);
       frame.endTime = Math.round(frame.endTime * scale);
+    }
 
-      // Preserve internal choreography: rescale animation delays proportionally
-      // relative to the frame's own duration (not the global scale)
-      const newFrameDuration = frame.endTime - frame.startTime;
-      const frameDurationScale = frameDuration > 0 ? newFrameDuration / frameDuration : 1;
-
-      for (const entity of frame.entities) {
-        if (entity.animation && entity.animation.delay > 0) {
-          entity.animation.delay = Math.round(entity.animation.delay * frameDurationScale);
+    // Enforce minimum frame duration — extend short frames and shift subsequent ones
+    for (let i = 0; i < scene.visualScript.frames.length; i++) {
+      const frame = scene.visualScript.frames[i];
+      const duration = frame.endTime - frame.startTime;
+      if (duration < FRAME_DURATION_MIN_MS) {
+        const extension = FRAME_DURATION_MIN_MS - duration;
+        frame.endTime += extension;
+        for (let j = i + 1; j < scene.visualScript.frames.length; j++) {
+          scene.visualScript.frames[j].startTime += extension;
+          scene.visualScript.frames[j].endTime += extension;
         }
       }
     }
-    scene.visualScript.totalDuration = realDurationMs;
 
-    // Also rescale legacy illustration appear timings
+    // Phase 2: Scale entity animation delays and enforce minimums
+    for (const frame of scene.visualScript.frames) {
+      const frameDuration = frame.endTime - frame.startTime;
+      const origFrameDuration = frameDuration / scale;
+      const frameDurationScale = origFrameDuration > 0 ? frameDuration / origFrameDuration : 1;
+
+      for (const entity of frame.entities) {
+        if (entity.animation && entity.animation.delay > 0) {
+          entity.animation.delay = Math.max(
+            ANIMATION_DELAY_MIN_MS,
+            Math.round(entity.animation.delay * frameDurationScale),
+          );
+        }
+      }
+
+      // Re-stagger: sort non-zero delays and ensure minimum gap
+      const nonZeroEntities = frame.entities.filter(e => e.animation && e.animation.delay > 0);
+      nonZeroEntities.sort((a, b) => (a.animation?.delay || 0) - (b.animation?.delay || 0));
+      for (let i = 1; i < nonZeroEntities.length; i++) {
+        const prev = nonZeroEntities[i - 1].animation!.delay;
+        const curr = nonZeroEntities[i].animation!.delay;
+        if (curr - prev < INTER_ENTITY_STAGGER_MIN_MS) {
+          nonZeroEntities[i].animation!.delay = prev + INTER_ENTITY_STAGGER_MIN_MS;
+        }
+      }
+    }
+
+    scene.visualScript.totalDuration = scene.visualScript.frames[scene.visualScript.frames.length - 1].endTime;
+
+    // Phase 3: Rescale legacy illustration timings with minimum floor
     if (scene.illustrations) {
       for (const illus of scene.illustrations) {
-        illus.appearTimingMs = Math.round(illus.appearTimingMs * scale);
+        const scaled = Math.round(illus.appearTimingMs * scale);
+        illus.appearTimingMs = illus.appearTimingMs > 0
+          ? Math.max(scaled, ILLUSTRATION_APPEAR_MIN_MS)
+          : scaled;
       }
     }
   }

@@ -12,11 +12,14 @@
    ═══════════════════════════════════════════════════════════════ */
 
 import React, { useMemo } from 'react';
-import type { VisualEntity, VisualEntityType } from '../../../shared/types';
+import { type VisualEntity, type VisualEntityType, CANVAS_WIDTH, CANVAS_HEIGHT } from '../../../shared/types';
 import {
   Server, Database, Container, Pod, Cloud, User, Device, Arrow, DataFlow, Box,
   Concept, Entity, GroupEntity, LabelEntity, ComparisonEntity, TimelineEntity,
   MetricEntity, CycleEntity, StackEntity, TreeEntity, BadgeEntity, QuoteEntity,
+  LoadBalancerShape, QueueShape, CacheShape, ServiceShape, ProcessShape,
+  FirewallShape, APIGatewayShape, LambdaShape, SubnetShape, VolumeShape,
+  RegistryShape, MonitorShape, PipelineShape, DecisionShape, ClusterShape,
 } from './svg/SVGLibrary';
 
 interface FrameRendererProps {
@@ -129,9 +132,13 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({
   posMap,
   childrenMap,
 }) => {
-  // Convert percentage position to canvas coordinates
-  const x = (entity.position.x / 100) * canvasWidth;
-  const y = (entity.position.y / 100) * canvasHeight;
+  // Convert percentage position to canvas coordinates (with defense-in-depth clamping)
+  const halfWPct = (entity.size.width / 2) / canvasWidth * 100;
+  const halfHPct = (entity.size.height / 2) / canvasHeight * 100;
+  const clampedPctX = Math.max(halfWPct + 1, Math.min(100 - halfWPct - 1, entity.position.x));
+  const clampedPctY = Math.max(halfHPct + 1, Math.min(100 - halfHPct - 1, entity.position.y));
+  const x = (clampedPctX / 100) * canvasWidth;
+  const y = (clampedPctY / 100) * canvasHeight;
 
   const animClass = entity.animation ? `illus-${entity.animation.type}` : '';
   const highlightClass = entity.highlight === true ? 'entity-highlight' : (entity.highlight === false ? 'entity-dim' : '');
@@ -158,11 +165,12 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({
       const nx = dx / dist;
       const ny = dy / dist;
 
-      // Offset from center by half the entity size
-      const x1 = source.x + nx * (source.w / 2);
-      const y1 = source.y + ny * (source.h / 2);
-      const x2 = target.x - nx * (target.w / 2);
-      const y2 = target.y - ny * (target.h / 2);
+      // Offset from center by half the entity size, clamped to canvas
+      const pad = 8; // px padding from edge
+      const x1 = Math.max(pad, Math.min(canvasWidth - pad, source.x + nx * (source.w / 2)));
+      const y1 = Math.max(pad, Math.min(canvasHeight - pad, source.y + ny * (source.h / 2)));
+      const x2 = Math.max(pad, Math.min(canvasWidth - pad, target.x - nx * (target.w / 2)));
+      const y2 = Math.max(pad, Math.min(canvasHeight - pad, target.y - ny * (target.h / 2)));
 
       if (entity.type === 'DataFlow') {
         return (
@@ -276,14 +284,118 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({
       );
 
     case 'Process':
+      return (
+        <g>
+          <ProcessShape x={x} y={y} size={entity.size.width} color={color}
+            label={entity.label} className={combinedClass} animationDelay={animDelay} />
+          {children && renderChildren(children, x, y, entity.size, canvasWidth, canvasHeight, posMap, childrenMap)}
+        </g>
+      );
+
     case 'Service':
+      return (
+        <g>
+          <ServiceShape x={x} y={y} size={entity.size.width} color={color}
+            label={entity.label} className={combinedClass} animationDelay={animDelay} />
+          {children && renderChildren(children, x, y, entity.size, canvasWidth, canvasHeight, posMap, childrenMap)}
+        </g>
+      );
+
     case 'Queue':
+      return (
+        <g>
+          <QueueShape x={x} y={y} size={entity.size.width} color={color}
+            label={entity.label} className={combinedClass} animationDelay={animDelay} />
+          {children && renderChildren(children, x, y, entity.size, canvasWidth, canvasHeight, posMap, childrenMap)}
+        </g>
+      );
+
     case 'Cache':
+      return (
+        <g>
+          <CacheShape x={x} y={y} size={entity.size.width} color={color}
+            label={entity.label} className={combinedClass} animationDelay={animDelay} />
+          {children && renderChildren(children, x, y, entity.size, canvasWidth, canvasHeight, posMap, childrenMap)}
+        </g>
+      );
+
     case 'LoadBalancer':
       return (
         <g>
-          <Box x={x} y={y} size={entity.size.width} color={color}
-            label={entity.label || entity.type} className={combinedClass} animationDelay={animDelay} />
+          <LoadBalancerShape x={x} y={y} size={entity.size.width} color={color}
+            label={entity.label} className={combinedClass} animationDelay={animDelay} />
+          {children && renderChildren(children, x, y, entity.size, canvasWidth, canvasHeight, posMap, childrenMap)}
+        </g>
+      );
+
+    case 'Firewall':
+      return (
+        <g>
+          <FirewallShape x={x} y={y} size={entity.size.width} color={color}
+            label={entity.label} className={combinedClass} animationDelay={animDelay} />
+          {children && renderChildren(children, x, y, entity.size, canvasWidth, canvasHeight, posMap, childrenMap)}
+        </g>
+      );
+
+    case 'APIGateway':
+      return (
+        <g>
+          <APIGatewayShape x={x} y={y} size={entity.size.width} color={color}
+            label={entity.label} className={combinedClass} animationDelay={animDelay} />
+          {children && renderChildren(children, x, y, entity.size, canvasWidth, canvasHeight, posMap, childrenMap)}
+        </g>
+      );
+
+    case 'Lambda':
+      return (
+        <LambdaShape x={x} y={y} size={entity.size.width} color={color}
+          label={entity.label} className={combinedClass} animationDelay={animDelay} />
+      );
+
+    case 'Subnet':
+      return (
+        <g>
+          <SubnetShape x={x} y={y} size={entity.size.width} color={color}
+            label={entity.label} className={combinedClass} animationDelay={animDelay} />
+          {children && renderChildren(children, x, y, entity.size, canvasWidth, canvasHeight, posMap, childrenMap)}
+        </g>
+      );
+
+    case 'Volume':
+      return (
+        <VolumeShape x={x} y={y} size={entity.size.width} color={color}
+          label={entity.label} className={combinedClass} animationDelay={animDelay} />
+      );
+
+    case 'Registry':
+      return (
+        <RegistryShape x={x} y={y} size={entity.size.width} color={color}
+          label={entity.label} className={combinedClass} animationDelay={animDelay} />
+      );
+
+    case 'Monitor':
+      return (
+        <MonitorShape x={x} y={y} size={entity.size.width} color={color}
+          label={entity.label} className={combinedClass} animationDelay={animDelay} />
+      );
+
+    case 'Pipeline':
+      return (
+        <PipelineShape x={x} y={y} size={entity.size.width} color={color}
+          label={entity.label} className={combinedClass} animationDelay={animDelay} />
+      );
+
+    case 'Decision':
+      return (
+        <DecisionShape x={x} y={y} size={entity.size.width} color={color}
+          label={entity.label} className={combinedClass} animationDelay={animDelay} />
+      );
+
+    case 'Cluster':
+      return (
+        <g>
+          <ClusterShape x={x} y={y} size={entity.size.width} color={color}
+            label={entity.label} className={combinedClass} animationDelay={animDelay} />
           {children && renderChildren(children, x, y, entity.size, canvasWidth, canvasHeight, posMap, childrenMap)}
         </g>
       );
@@ -461,11 +573,17 @@ function renderChildren(
               </g>
             );
           case 'Service':
+            return (
+              <g key={`child-${child.type}-${child.label || i}`}>
+                <ServiceShape x={childX} y={childY} size={childSize} color={color}
+                  label={child.label} className={animClass} animationDelay={animDelay} />
+              </g>
+            );
           case 'Process':
             return (
               <g key={`child-${child.type}-${child.label || i}`}>
-                <Box x={childX} y={childY} size={childSize} color={color}
-                  label={child.label || child.type} className={animClass} animationDelay={animDelay} />
+                <ProcessShape x={childX} y={childY} size={childSize} color={color}
+                  label={child.label} className={animClass} animationDelay={animDelay} />
               </g>
             );
           default:

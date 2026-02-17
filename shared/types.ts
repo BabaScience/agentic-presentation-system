@@ -171,6 +171,9 @@ export type VisualEntityType =
   | 'User' | 'Server' | 'Database' | 'Container' | 'Pod'
   | 'Cloud' | 'Network' | 'Device' | 'Arrow' | 'DataFlow'
   | 'Process' | 'Queue' | 'Cache' | 'LoadBalancer' | 'Service'
+  // Extended IT infrastructure types
+  | 'Firewall' | 'APIGateway' | 'Lambda' | 'Subnet' | 'Volume'
+  | 'Registry' | 'Monitor' | 'Pipeline' | 'Decision' | 'Cluster'
   // Universal types (topic-agnostic)
   | 'Concept' | 'Entity' | 'Group' | 'Label'
   | 'Comparison' | 'Timeline' | 'Metric' | 'Cycle'
@@ -416,6 +419,42 @@ export const VOICE_CHUNK_SIZE = 4096;
 export const CONCURRENCY_POOL_CLAUDE_MAX = 3;
 export const CONCURRENCY_POOL_TTS_MAX = 2;
 export const CONCURRENCY_POOL_TOTAL_MAX = 4;
+
+// ── Canvas & Visual Constants ────────────────────────────
+export const CANVAS_WIDTH = 1600;
+export const CANVAS_HEIGHT = 900;
+
+// ── Visual Timing Floors ────────────────────────────────
+export const ANIMATION_DELAY_MIN_MS = 150;
+export const FRAME_DURATION_MIN_MS = 1500;
+export const ILLUSTRATION_APPEAR_MIN_MS = 200;
+export const INTER_ENTITY_STAGGER_MIN_MS = 100;
+
+/** Extra pixels below entity body reserved for the text label */
+export const ENTITY_LABEL_PADDING_PX = 22;
+
+/**
+ * Clamp an entity's center position so the entity (including its label)
+ * stays fully within the canvas.
+ * Positions are in 0-100 percentage space; sizes are in pixels.
+ */
+export function clampEntityPosition(
+  position: { x: number; y: number },
+  entityWidthPx: number,
+  entityHeightPx: number,
+  canvasWidth = CANVAS_WIDTH,
+  canvasHeight = CANVAS_HEIGHT,
+): { x: number; y: number } {
+  const halfWPct = (entityWidthPx / 2) / canvasWidth * 100;
+  const halfHPct = (entityHeightPx / 2) / canvasHeight * 100;
+  // Labels extend below the entity body — reserve space for them
+  const labelPadPct = ENTITY_LABEL_PADDING_PX / canvasHeight * 100;
+  const pad = 1; // 1% padding from edge
+  return {
+    x: Math.max(halfWPct + pad, Math.min(100 - halfWPct - pad, position.x)),
+    y: Math.max(halfHPct + pad, Math.min(100 - halfHPct - labelPadPct - pad, position.y)),
+  };
+}
 
 // ══════════════════════════════════════════════════════════════════
 // ADVANCED FEATURES — Types for Enhanced Capabilities

@@ -5,7 +5,7 @@
    layout patterns, and ensure visual clarity.
    ═══════════════════════════════════════════════════════════════ */
 
-import type { VisualEntity, IllustrationFrame, LayoutPattern } from '../../shared/types';
+import { type VisualEntity, type IllustrationFrame, type LayoutPattern, clampEntityPosition } from '../../shared/types';
 
 interface Rect {
   x: number;
@@ -71,23 +71,26 @@ export function resolveCollisions(entities: VisualEntity[], maxIterations = 20):
             // Push horizontally
             const push = overlapX / 2 + 1;
             if (a.x < b.x) {
-              movable[i].position.x = Math.max(5, movable[i].position.x - push);
-              movable[j].position.x = Math.min(95, movable[j].position.x + push);
+              movable[i].position.x -= push;
+              movable[j].position.x += push;
             } else {
-              movable[i].position.x = Math.min(95, movable[i].position.x + push);
-              movable[j].position.x = Math.max(5, movable[j].position.x - push);
+              movable[i].position.x += push;
+              movable[j].position.x -= push;
             }
           } else {
             // Push vertically
             const push = overlapY / 2 + 1;
             if (a.y < b.y) {
-              movable[i].position.y = Math.max(5, movable[i].position.y - push);
-              movable[j].position.y = Math.min(95, movable[j].position.y + push);
+              movable[i].position.y -= push;
+              movable[j].position.y += push;
             } else {
-              movable[i].position.y = Math.min(95, movable[i].position.y + push);
-              movable[j].position.y = Math.max(5, movable[j].position.y - push);
+              movable[i].position.y += push;
+              movable[j].position.y -= push;
             }
           }
+          // Size-aware clamp: keep each entity fully within the canvas
+          movable[i].position = clampEntityPosition(movable[i].position, movable[i].size.width, movable[i].size.height);
+          movable[j].position = clampEntityPosition(movable[j].position, movable[j].size.width, movable[j].size.height);
         }
       }
     }
@@ -243,5 +246,11 @@ export function postProcessFrames(
     applyLayoutPattern(frame.entities, layoutPattern);
     // Then resolve any remaining collisions
     resolveCollisions(frame.entities);
+    // Final pass: ensure all entities are within canvas bounds (size-aware)
+    for (const entity of frame.entities) {
+      if (!(entity.sourceEntityId && entity.targetEntityId)) {
+        entity.position = clampEntityPosition(entity.position, entity.size.width, entity.size.height);
+      }
+    }
   }
 }

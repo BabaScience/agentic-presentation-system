@@ -43,33 +43,40 @@ function convertIllustrationsToScript(illustrations: IllustrationSpec[]): Visual
     buckets.set(bucket, list);
   }
 
-  // Convert each bucket to a frame with accumulated entities
-  const allEntities: VisualEntity[] = [];
+  // Convert each bucket to a frame with sliding window entities
+  // (current bucket + previous bucket, not all previous buckets)
   const frames: IllustrationFrame[] = [];
   const entityMap: Record<string, VisualEntity> = {};
 
   const bucketKeys = [...buckets.keys()].sort((a, b) => a - b);
+  let prevBucketEntities: VisualEntity[] = [];
 
   for (let i = 0; i < bucketKeys.length; i++) {
     const bucketStart = bucketKeys[i];
     const bucketEnd = i < bucketKeys.length - 1 ? bucketKeys[i + 1] : maxTime;
     const bucketIllus = buckets.get(bucketStart)!;
 
-    // Add new entities from this bucket
+    // Convert this bucket's illustrations to entities
+    const currentBucketEntities: VisualEntity[] = [];
     for (const illus of bucketIllus) {
       const entity = illustrationToEntity(illus);
-      allEntities.push(entity);
+      currentBucketEntities.push(entity);
       entityMap[entity.id] = entity;
     }
+
+    // Sliding window: previous bucket + current bucket
+    const frameEntities = [...prevBucketEntities, ...currentBucketEntities];
 
     frames.push({
       id: `legacy-frame-${i}`,
       startTime: bucketStart,
       endTime: bucketEnd,
-      entities: [...allEntities], // Accumulated entities
+      entities: frameEntities,
       narrationSegment: '',
       description: `Legacy frame ${i}`,
     });
+
+    prevBucketEntities = currentBucketEntities;
   }
 
   return {
@@ -124,17 +131,42 @@ export function IllustrationCanvas({ illustrations, visualScript, currentTime, w
   const hasFrames = effectiveScript && effectiveScript.frames.length > 0;
 
   const currentFrame = useMemo(() => {
-    if (!effectiveScript) return null;
-    return effectiveScript.frames.find(
+    if (!effectiveScript || effectiveScript.frames.length === 0) return null;
+    const frames = effectiveScript.frames;
+    const matched = frames.find(
       frame => currentTime >= frame.startTime && currentTime < frame.endTime
-    ) || effectiveScript.frames[effectiveScript.frames.length - 1];
+    );
+    if (matched) return matched;
+    // If currentTime exceeds all frames (stale from previous scene), show first frame
+    const lastFrame = frames[frames.length - 1];
+    if (currentTime >= lastFrame.endTime) return frames[0];
+    // If currentTime is before all frames, show first frame
+    return frames[0];
   }, [effectiveScript, currentTime]);
 
   // Entity lifecycle tracking for smooth frame transitions
   const [exitingEntities, setExitingEntities] = useState<VisualEntity[]>([]);
   const prevFrameRef = useRef<IllustrationFrame | null>(null);
+  const prevSceneIdRef = useRef<string | null>(null);
   const exitTimeoutRef = useRef<number | null>(null);
 
+  // Cross-scene fadeout: when sceneId changes, fade out ALL previous entities
+  useEffect(() => {
+    const currentSceneId = effectiveScript?.sceneId || null;
+    if (prevSceneIdRef.current && currentSceneId !== prevSceneIdRef.current) {
+      // Scene changed — fade out all entities from previous scene's last frame
+      const prevEntities = prevFrameRef.current?.entities || [];
+      if (prevEntities.length > 0) {
+        setExitingEntities(prevEntities);
+        if (exitTimeoutRef.current) clearTimeout(exitTimeoutRef.current);
+        exitTimeoutRef.current = window.setTimeout(() => setExitingEntities([]), 400);
+      }
+      prevFrameRef.current = null;
+    }
+    prevSceneIdRef.current = currentSceneId;
+  }, [effectiveScript?.sceneId]);
+
+  // Within-scene frame transitions
   useEffect(() => {
     if (!currentFrame || currentFrame === prevFrameRef.current) return;
 
@@ -180,6 +212,7 @@ export function IllustrationCanvas({ illustrations, visualScript, currentTime, w
         height="100%"
         viewBox={`0 0 ${width} ${height}`}
         preserveAspectRatio="xMidYMid meet"
+        overflow="hidden"
         className="illustration-canvas-svg"
       >
         {/* ── Shared Defs: grid, glow filters, gradients ── */}
@@ -216,6 +249,26 @@ export function IllustrationCanvas({ illustrations, visualScript, currentTime, w
           <filter id="glow-purple" x="-50%" y="-50%" width="200%" height="200%">
             <feGaussianBlur stdDeviation="8" result="blur"/>
             <feFlood floodColor="#b388ff" floodOpacity="0.35" result="color"/>
+            <feComposite in="color" in2="blur" operator="in" result="glowColor"/>
+            <feMerge><feMergeNode in="glowColor"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+
+          {/* Additional glow filters for extended entity types */}
+          <filter id="glow-red" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="8" result="blur"/>
+            <feFlood floodColor="#ff4444" floodOpacity="0.35" result="color"/>
+            <feComposite in="color" in2="blur" operator="in" result="glowColor"/>
+            <feMerge><feMergeNode in="glowColor"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+          <filter id="glow-blue" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="8" result="blur"/>
+            <feFlood floodColor="#4488ff" floodOpacity="0.35" result="color"/>
+            <feComposite in="color" in2="blur" operator="in" result="glowColor"/>
+            <feMerge><feMergeNode in="glowColor"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+          <filter id="glow-orange" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="8" result="blur"/>
+            <feFlood floodColor="#ff8800" floodOpacity="0.35" result="color"/>
             <feComposite in="color" in2="blur" operator="in" result="glowColor"/>
             <feMerge><feMergeNode in="glowColor"/><feMergeNode in="SourceGraphic"/></feMerge>
           </filter>

@@ -49,6 +49,58 @@ You can create and manipulate the following visual entities in your presentation
   - Best for: Showing request routing, HA architecture
   - Example: "The load balancer distributes traffic..."
 
+### Extended IT Infrastructure
+
+- **Firewall**: Firewalls, WAFs, security groups, ACLs
+  - Size: 100x90px (shield shape with lock)
+  - Best for: Security boundaries, access control, network protection
+  - Example: "The firewall blocks unauthorized traffic..."
+
+- **APIGateway**: API gateways, ingress controllers, reverse proxies
+  - Size: 120x80px (rectangle with gateway bars)
+  - Best for: API management, request routing, rate limiting
+  - Example: "The API gateway routes requests to backend services..."
+
+- **Lambda**: Lambda functions, serverless functions, FaaS
+  - Size: 90x80px (lambda symbol in rounded box)
+  - Best for: Serverless computing, event-driven functions
+  - Example: "The Lambda function processes the event..."
+
+- **Subnet**: Subnets, VPCs, network segments, CIDR blocks
+  - Size: 180x140px (dashed rectangle with IP badge)
+  - Best for: Network topology, VPC architecture, isolation
+  - Example: "The private subnet contains the database tier..."
+
+- **Volume**: Persistent volumes, disks, storage, EBS, PVCs
+  - Size: 90x100px (cylinder with platter lines)
+  - Best for: Persistent storage, disk volumes, data persistence
+  - Example: "The volume stores data that persists across restarts..."
+
+- **Registry**: Container registries, package repositories, artifact stores
+  - Size: 100x90px (grid of package squares)
+  - Best for: Image storage, package management, artifact hosting
+  - Example: "The registry stores Docker images for deployment..."
+
+- **Monitor**: Monitoring dashboards, Prometheus, Grafana, metrics
+  - Size: 110x80px (screen with heartbeat line)
+  - Best for: Observability, metrics visualization, health monitoring
+  - Example: "The monitoring dashboard shows CPU utilization..."
+
+- **Pipeline**: CI/CD pipelines, build pipelines, data pipelines
+  - Size: 180x60px (chevron chain)
+  - Best for: Automation workflows, continuous delivery, ETL processes
+  - Example: "The CI/CD pipeline builds, tests, and deploys..."
+
+- **Decision**: Decision points, conditionals, routing rules, branches
+  - Size: 90x90px (diamond shape)
+  - Best for: Branching logic, routing decisions, conditional flows
+  - Example: "If the request is authenticated, route to the service..."
+
+- **Cluster**: Clusters, replica sets, node pools, server groups
+  - Size: 120x100px (three overlapping circles)
+  - Best for: Distributed systems, high availability, scaling groups
+  - Example: "The cluster runs three replicas for high availability..."
+
 ### User Interactions
 - **User**: End users, clients, personas
   - Size: 80x80px
@@ -197,17 +249,33 @@ Use infrastructure types (Server, Database, Pod, etc.) ONLY when the topic is ac
   - Duration: 1500-3000ms
   - Use for: Data movement, process flow
 
+### MANDATORY ANIMATION CHOREOGRAPHY RULES
+1. Each frame MUST have exactly ONE entity with delay=0 (the "hero" entity)
+2. All other entities MUST have delay >= 200ms
+3. Delays MUST be staggered: each subsequent entity adds at least 150ms
+4. Arrow/DataFlow entities MUST appear AFTER both their source and target entities (delay >= 400ms)
+5. Frame duration should be at least 2 seconds
+6. Maximum 5 entities per frame — if more are needed, split into additional frames
+
 ### Timing Guidelines
-- **Immediate (0ms delay)**: Primary focus elements
-- **Staggered (100-300ms delay)**: Related group reveals
-- **Sequential (500-1000ms delay)**: Story progression
-- **Synchronized**: Multiple elements appear together
+- **Immediate (0ms delay)**: Primary focus element ONLY (one per frame)
+- **Staggered (200-400ms delay)**: Secondary elements, each 150ms apart
+- **Sequential (400-700ms delay)**: Connectors (Arrow/DataFlow), after their endpoints
+- **Synchronized**: Avoid — stagger instead for readable animation
 
 ## ═══════════════════════════════════════════════════════
 ## 3. POSITIONING SYSTEM
 ## ═══════════════════════════════════════════════════════
 
-The canvas uses percentage-based positioning (0-100 on both axes):
+The canvas uses percentage-based positioning (0-100 on both axes) on a 1600×900px canvas.
+
+### CRITICAL: Safe Positioning Zone
+Entity positions are CENTER POINTS. Large entities near edges will overflow the visible area.
+Keep positions within these bounds based on entity size:
+- **Small entities** (User, Pod, Badge, Metric, Device): x=8-92, y=8-92
+- **Medium entities** (Server, Database, Concept, Service, Cache): x=10-90, y=10-90
+- **Large entities** (Group, Comparison, Quote, Subnet, Pipeline, Cloud, Timeline, Network): x=15-85, y=15-85
+- **NEVER place ANY entity at x<8, x>92, y<8, or y>92** — it WILL be clipped
 
 ### Standard Layout Positions
 - **Left**: x=15-25, y=50 (Left side, vertically centered)
@@ -275,9 +343,29 @@ Layer 4 (y=80): Database, Cache, Queue
 - "cloud", "AWS", "Azure", "GCP" → **Cloud**
 - "load balancer", "proxy", "nginx" → **LoadBalancer**
 
+**Security & Networking:**
+- "firewall", "WAF", "security group", "ACL", "block traffic" → **Firewall**
+- "gateway", "ingress", "reverse proxy", "kong", "envoy", "API gateway" → **APIGateway**
+- "subnet", "VPC", "CIDR", "network segment", "private network" → **Subnet**
+
+**Serverless & Compute:**
+- "lambda", "function", "serverless", "FaaS", "event-driven" → **Lambda**
+- "cluster", "replica set", "node pool", "scaling group" → **Cluster**
+
+**Storage & Registry:**
+- "volume", "disk", "PVC", "EBS", "persistent storage" → **Volume**
+- "registry", "repository", "ECR", "Docker Hub", "npm registry" → **Registry**
+
+**Observability & Automation:**
+- "monitoring", "Prometheus", "Grafana", "metrics", "dashboard", "alerting" → **Monitor**
+- "pipeline", "CI/CD", "GitHub Actions", "Jenkins", "build pipeline" → **Pipeline**
+
+**Logic:**
+- "decision", "if", "condition", "branch", "routing rule", "switch" → **Decision**
+
 **Communication:**
 - "send", "request", "call", "transmit" → **Arrow**
-- "flow", "stream", "pipeline" → **DataFlow**
+- "flow", "stream" → **DataFlow**
 - "network", "connection", "link" → **Network**
 
 ### Temporal Segmentation Guidelines
@@ -602,7 +690,19 @@ If you can't determine specific entities from narration:
    - Comparison: Side-by-side entities
    - Structure: Hierarchical layout
 
-3. **Keep it simple**:
+3. **Map legacy/unknown entity names to new types**:
+   - "load_balancer" or "lb" → **LoadBalancer**
+   - "api_gateway" or "gateway" → **APIGateway**
+   - "function" or "serverless" → **Lambda**
+   - "vpc" or "network_segment" → **Subnet**
+   - "storage" or "disk" → **Volume**
+   - "container_registry" or "artifact_store" → **Registry**
+   - "dashboard" or "metrics" → **Monitor**
+   - "ci_cd" or "build" → **Pipeline**
+   - "conditional" or "branch" → **Decision**
+   - "replica_set" or "node_pool" → **Cluster**
+
+4. **Keep it simple**:
    - 2-3 entities maximum
    - Clear labels
    - Obvious relationships

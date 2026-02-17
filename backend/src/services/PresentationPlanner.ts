@@ -884,16 +884,53 @@ export class PresentationPlanner {
 
   /**
    * Generate estimated word timestamps for narration
-   * Used when actual TTS timestamps aren't available yet
+   * Uses syllable-weighted distribution for more natural alignment.
+   * Short words get less time, long words get more, with pauses after punctuation.
    */
   generateEstimatedTimestamps(narration: string, durationMs: number): WordTimestamp[] {
-    const words = narration.split(/\s+/);
-    const avgWordDuration = durationMs / words.length;
+    const words = narration.split(/\s+/).filter(w => w.length > 0);
+    if (words.length === 0) return [];
 
-    return words.map((word, i) => ({
-      word,
-      start: i * avgWordDuration,
-      end: (i + 1) * avgWordDuration,
-    }));
+    // Count syllables heuristically (count vowel groups)
+    const countSyllables = (word: string): number => {
+      const cleaned = word.replace(/[^a-zA-Z]/g, '').toLowerCase();
+      if (cleaned.length <= 2) return 1;
+      const matches = cleaned.match(/[aeiouy]+/g);
+      return Math.max(1, matches ? matches.length : 1);
+    };
+
+    // Compute weight per word based on syllable count
+    const weights = words.map((word, i) => {
+      const syllables = countSyllables(word);
+      let weight: number;
+      if (syllables === 1 && word.replace(/[^a-zA-Z]/g, '').length <= 3) {
+        weight = 0.5; // Short words: "a", "the", "is"
+      } else if (syllables <= 3) {
+        weight = 1.0; // Medium words
+      } else {
+        weight = 1.5; // Long words: "Kubernetes", "infrastructure"
+      }
+
+      // Add pause after punctuation
+      if (/[.]$/.test(word)) weight += 0.4; // period pause
+      else if (/[,;:]$/.test(word)) weight += 0.2; // comma pause
+
+      return weight;
+    });
+
+    const totalWeight = weights.reduce((sum, w) => sum + w, 0);
+    const msPerWeight = durationMs / totalWeight;
+
+    let currentTime = 0;
+    return words.map((word, i) => {
+      const wordDuration = weights[i] * msPerWeight;
+      const ts = {
+        word,
+        start: currentTime,
+        end: currentTime + wordDuration,
+      };
+      currentTime += wordDuration;
+      return ts;
+    });
   }
 }
