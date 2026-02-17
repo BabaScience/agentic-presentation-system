@@ -2,6 +2,9 @@
    WebSocket Gateway — Full-Duplex Audio + Command Transport
    Handles: audio streaming, visual commands, graph mutations,
    state transitions, bookmarks, and RL updates.
+
+   Uses ScenePipelineOrchestrator for concurrent scene preparation
+   and progressive presentation (no waiting for all scenes).
    ═══════════════════════════════════════════════════════════════ */
 
 import { WebSocketServer, WebSocket } from 'ws';
@@ -13,6 +16,8 @@ import { VoiceService } from '../services/VoiceService';
 import { PresentationPlanner } from '../services/PresentationPlanner';
 import { InterruptHandler } from '../services/InterruptHandler';
 import { RLService } from '../services/RLService';
+import { ConcurrencyPool } from '../services/ConcurrencyPool';
+import { ScenePipelineOrchestrator } from '../services/ScenePipelineOrchestrator';
 import {
   SessionState,
   VoiceIntent,
@@ -33,6 +38,7 @@ interface ClientSession {
   bookmark: PresentationBookmark | null;
   isPresenting: boolean;
   presentationAbortController: AbortController | null;
+  scenePipeline: ScenePipelineOrchestrator | null;
 }
 
 export class WebSocketGateway {
@@ -47,6 +53,9 @@ export class WebSocketGateway {
   private interruptHandler: InterruptHandler;
   private rl: RLService;
 
+  // Shared concurrency pool (global rate limiting across all sessions)
+  private pool: ConcurrencyPool;
+
   constructor(private server: http.Server) {
     this.agent = new AgentService();
     this.kgService = new KnowledgeGraphService();
@@ -54,6 +63,7 @@ export class WebSocketGateway {
     this.planner = new PresentationPlanner();
     this.interruptHandler = new InterruptHandler();
     this.rl = new RLService();
+    this.pool = new ConcurrencyPool();
   }
 
   initialize(): void {
@@ -73,6 +83,7 @@ export class WebSocketGateway {
         bookmark: null,
         isPresenting: false,
         presentationAbortController: null,
+        scenePipeline: null,
       };
 
       this.clients.set(sessionId, session);
@@ -84,6 +95,7 @@ export class WebSocketGateway {
       ws.on('close', () => {
         console.log(`[WS] Client disconnected: ${sessionId}`);
         session.presentationAbortController?.abort();
+        session.scenePipeline?.cancelPending();
         this.clients.delete(sessionId);
       });
 
@@ -137,7 +149,7 @@ export class WebSocketGateway {
     }
   }
 
-  // ── Start Session: Full Agent Pipeline ───────────────────
+  // ── Start Session: Full Agent Pipeline (Concurrent) ─────
   private async handleStartSession(session: ClientSession, topic: string): Promise<void> {
     console.log('[WS] handleStartSession starting for topic:', topic);
     session.topic = topic;
@@ -147,8 +159,7 @@ export class WebSocketGateway {
     this.transition(session, SessionState.REASONING);
     const reasoning = await this.agent.reason(topic, this.rl.getCurrentPolicy());
 
-    // Phase 2: Classification is embedded in reasoning output
-    // Phase 3: Build Knowledge Graph
+    // Phase 2: Build Knowledge Graph
     this.transition(session, SessionState.BUILDING_GRAPH);
     const graph = this.kgService.buildFromReasoning(session.id, reasoning);
     session.graph = graph;
@@ -167,26 +178,162 @@ export class WebSocketGateway {
       });
     }
 
-    // Phase 4: Plan traversal path (with visual script generation)
-    const path = await this.planner.planTraversal(graph, this.rl.getCurrentPolicy());
-    session.traversalPath = path.sceneSequence;
+    // Phase 3: Compute traversal order (synchronous)
+    const policy = this.rl.getCurrentPolicy();
+    const orderedNodes = this.planner.computeTraversalOrder(graph, policy);
     session.currentSceneIndex = 0;
 
-    // Begin presenting
+    // Phase 4: Transition to PRESENTING immediately — don't wait for scenes
     this.transition(session, SessionState.PRESENTING);
 
-    // Start async graph expansion in background
+    // Phase 5: Fire off concurrent scene preparation
+    const pipeline = new ScenePipelineOrchestrator(
+      this.planner,
+      this.voice,
+      this.pool,
+      { enableTTS: !!process.env.ELEVENLABS_API_KEY },
+    );
+    session.scenePipeline = pipeline;
+
+    pipeline.prepareAllScenes(graph, orderedNodes, policy, (sceneIndex, status, totalScenes) => {
+      if (session.ws.readyState === WebSocket.OPEN) {
+        this.send(session.ws, {
+          type: 'scene_prepare_status',
+          sceneIndex,
+          status,
+          totalScenes,
+        });
+      }
+    });
+
+    // Phase 6: Start async graph expansion in background
     this.kgService.expandAsync(graph, this.rl, (mutation) => {
       if (session.ws.readyState === WebSocket.OPEN) {
         this.send(session.ws, { type: 'graph_update', mutation });
       }
     });
 
-    // Begin presentation loop
-    await this.presentLoop(session);
+    // Phase 7: Progressive present loop — consumes scenes as they become ready
+    await this.progressivePresentLoop(session);
   }
 
-  // ── Presentation Loop ────────────────────────────────────
+  // ── Progressive Presentation Loop ─────────────────────────
+  // Consumes prepared scenes from the SceneReadyQueue one at a time.
+  // Scene 1 plays as soon as it's ready; later scenes prepare during playback.
+  private async progressivePresentLoop(session: ClientSession): Promise<void> {
+    const pipeline = session.scenePipeline;
+    if (!pipeline) return;
+
+    session.isPresenting = true;
+    session.presentationAbortController = new AbortController();
+    const signal = session.presentationAbortController.signal;
+
+    const queue = pipeline.getSceneQueue();
+    const totalScenes = pipeline.getTotalSceneCount();
+
+    let sceneIndex = session.currentSceneIndex;
+
+    while (sceneIndex < totalScenes && !signal.aborted) {
+      // Wait for next scene to be ready
+      const prepared = await queue.waitForScene(sceneIndex, signal);
+      if (!prepared || signal.aborted) break;
+
+      const scene = prepared.scene;
+
+      // Store in traversalPath for interrupt/resume compatibility
+      session.traversalPath[sceneIndex] = scene;
+      session.currentSceneIndex = sceneIndex;
+
+      // Brief inter-scene gap for transition animation (skip for first scene)
+      if (sceneIndex > 0) {
+        await this.delay(300, signal);
+        if (signal.aborted) break;
+      }
+
+      // Send scene to client
+      this.send(session.ws, { type: 'scene_change', scene });
+
+      // Small delay for scene transition animation to settle
+      await this.delay(200, signal);
+      if (signal.aborted) break;
+
+      // Send narration text
+      this.send(session.ws, {
+        type: 'narration_text',
+        text: scene.narration,
+        sceneId: scene.id,
+      });
+
+      // Send visual commands
+      for (const cmd of scene.visualCommands) {
+        this.send(session.ws, { type: 'visual_command', command: cmd });
+      }
+
+      // Use pre-generated audio if available, otherwise fall back to delay
+      if (prepared.audioData && prepared.audioData.byteLength > 0) {
+        this.send(session.ws, {
+          type: 'agent_audio_meta',
+          durationMs: prepared.audioDurationMs!,
+          sceneId: scene.id,
+          wordTimestamps: prepared.wordTimestamps,
+          visualScript: scene.visualScript,
+          illustrations: scene.illustrations,
+        });
+        if (session.ws.readyState === WebSocket.OPEN) {
+          session.ws.send(prepared.audioData);
+        }
+        await this.delay(prepared.audioDurationMs! + 500, signal);
+      } else {
+        // No TTS audio — send visual metadata and use estimated duration
+        if (scene.visualScript || scene.illustrations) {
+          this.send(session.ws, {
+            type: 'agent_audio_meta',
+            durationMs: scene.durationEstimate,
+            sceneId: scene.id,
+            visualScript: scene.visualScript,
+            illustrations: scene.illustrations,
+          });
+        }
+        await this.delay(scene.durationEstimate || 5000, signal);
+      }
+
+      if (signal.aborted) break;
+
+      // Mark nodes as presented
+      for (const nodeId of scene.nodeIds) {
+        if (session.graph?.nodes[nodeId]) {
+          session.graph.nodes[nodeId].isPresented = true;
+        }
+      }
+
+      // RL: comprehension check
+      if (this.rl.shouldCheckComprehension(sceneIndex)) {
+        this.send(session.ws, {
+          type: 'narration_text',
+          text: 'Does that make sense so far? Feel free to ask if anything is unclear.',
+          sceneId: `check-${scene.id}`,
+        });
+        await this.delay(3000, signal);
+        if (signal.aborted) break;
+      }
+
+      sceneIndex++;
+    }
+
+    if (!signal.aborted) {
+      this.transition(session, SessionState.COMPLETED);
+      this.send(session.ws, {
+        type: 'narration_text',
+        text: 'That covers the main concepts. Do you have any questions, or would you like to explore any topic in more depth?',
+        sceneId: 'completion',
+      });
+    }
+
+    session.isPresenting = false;
+  }
+
+  // ── Legacy Presentation Loop (for interrupt resume) ─────
+  // Used after interrupt when resuming from already-prepared scenes
   private async presentLoop(session: ClientSession): Promise<void> {
     session.isPresenting = true;
     session.presentationAbortController = new AbortController();
@@ -336,8 +483,9 @@ export class WebSocketGateway {
 
   // ── Interrupt Protocol (§6 from V2 Spec) ─────────────────
   private async handleInterrupt(session: ClientSession, question: string): Promise<void> {
-    // Phase A: Pause & Bookmark
+    // Phase A: Pause & Bookmark + cancel pending scene preparation
     session.presentationAbortController?.abort();
+    session.scenePipeline?.cancelPending();
 
     const bookmark = this.interruptHandler.createBookmark(
       session.traversalPath[session.currentSceneIndex],
@@ -419,7 +567,7 @@ export class WebSocketGateway {
     this.send(session.ws, { type: 'bookmark_resumed', bookmark });
     this.transition(session, SessionState.PRESENTING);
 
-    // Resume presentation loop from where we left off
+    // Resume presentation loop from already-prepared scenes
     await this.presentLoop(session);
   }
 
@@ -459,14 +607,23 @@ export class WebSocketGateway {
 
       case 'resume':
         if (session.state === SessionState.PRESENTING && !session.isPresenting) {
-          await this.presentLoop(session);
+          // Try progressive loop first if pipeline exists, else legacy
+          if (session.scenePipeline) {
+            await this.progressivePresentLoop(session);
+          } else {
+            await this.presentLoop(session);
+          }
         }
         break;
 
       case 'skip':
         session.currentSceneIndex++;
         session.presentationAbortController?.abort();
-        if (session.currentSceneIndex < session.traversalPath.length) {
+        if (session.scenePipeline) {
+          if (session.currentSceneIndex < session.scenePipeline.getTotalSceneCount()) {
+            await this.progressivePresentLoop(session);
+          }
+        } else if (session.currentSceneIndex < session.traversalPath.length) {
           await this.presentLoop(session);
         }
         break;
@@ -475,6 +632,7 @@ export class WebSocketGateway {
         if (session.currentSceneIndex > 0) {
           session.currentSceneIndex--;
           session.presentationAbortController?.abort();
+          // For go_back, scenes are already prepared — use legacy loop with cached traversalPath
           await this.presentLoop(session);
         }
         break;

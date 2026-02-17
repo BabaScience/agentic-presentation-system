@@ -136,6 +136,10 @@ interface SessionStore {
   // Chat (text fallback)
   chatMessages: ChatMessage[];
 
+  // Scene preparation tracking
+  scenePreparationStatus: Record<number, 'pending' | 'preparing' | 'ready' | 'failed'>;
+  totalScenesToPrepare: number;
+
   // Visual command animation
   revealedNodeIds: string[];
   visualCommandQueue: Array<{ type: string; targetId: string; wordTrigger?: number; params?: any }>;
@@ -196,6 +200,8 @@ const initialState = {
   currentWordTimestamps: [] as WordTimestamp[],
   currentAudioTime: 0,
   rlPolicy: null as RLPolicy | null,
+  scenePreparationStatus: {} as Record<number, 'pending' | 'preparing' | 'ready' | 'failed'>,
+  totalScenesToPrepare: 0,
   revealedNodeIds: [] as string[],
   visualCommandQueue: [] as Array<{ type: string; targetId: string; params?: any }>,
   chatMessages: [] as ChatMessage[],
@@ -289,6 +295,13 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
           case 'bookmark_resumed':
             store.setBookmark(null);
+            break;
+
+          case 'scene_prepare_status':
+            set(produce((s: SessionStore) => {
+              s.scenePreparationStatus[msg.sceneIndex] = msg.status;
+              s.totalScenesToPrepare = msg.totalScenes;
+            }));
             break;
 
           case 'rl_update':

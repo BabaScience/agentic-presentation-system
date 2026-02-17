@@ -229,6 +229,17 @@ export interface VisualScript {
   entities: Record<string, VisualEntity>; // All entities referenced
 }
 
+// ── Scene Preparation (Concurrent Pipeline) ─────────────────
+export type ScenePreparationStatus = 'pending' | 'preparing' | 'ready' | 'failed';
+
+export interface PreparedScene {
+  scene: PresentationScene;
+  audioData?: Uint8Array;
+  wordTimestamps?: WordTimestamp[];
+  audioDurationMs?: number;
+  status: ScenePreparationStatus;
+}
+
 // ── Traversal Path ───────────────────────────────────────────
 export interface TraversalPath {
   sceneSequence: PresentationScene[];
@@ -378,6 +389,7 @@ export type WSServerEvent =
   | { type: 'narration_text'; text: string; sceneId: string }
   | { type: 'agent_audio_meta'; durationMs: number; sceneId: string; wordTimestamps?: WordTimestamp[]; visualScript?: VisualScript; illustrations?: IllustrationSpec[] }
   | { type: 'rl_update'; policy: RLPolicy; learnerState: Partial<LearnerState> }
+  | { type: 'scene_prepare_status'; sceneIndex: number; status: ScenePreparationStatus; totalScenes: number }
   | { type: 'error'; message: string; code: string }
   | { type: 'pong' };
 
@@ -401,6 +413,9 @@ export const BOOKMARK_RESUME_MS = 500;
 export const RL_UPDATE_INTERVAL_MS = 50;
 export const VOICE_SAMPLE_RATE = 16000;
 export const VOICE_CHUNK_SIZE = 4096;
+export const CONCURRENCY_POOL_CLAUDE_MAX = 3;
+export const CONCURRENCY_POOL_TTS_MAX = 2;
+export const CONCURRENCY_POOL_TOTAL_MAX = 4;
 
 // ══════════════════════════════════════════════════════════════════
 // ADVANCED FEATURES — Types for Enhanced Capabilities

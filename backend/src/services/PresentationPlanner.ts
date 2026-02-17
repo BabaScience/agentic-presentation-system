@@ -12,11 +12,21 @@ import {
 import { v4 as uuid } from 'uuid';
 import { VisualScriptGenerator } from './VisualScriptGenerator';
 
+export interface SceneLocalData {
+  scene: PresentationScene;
+  estimatedTimestamps: WordTimestamp[];
+  focusNode: KGNode;
+}
+
 export class PresentationPlanner {
   private visualScriptGenerator: VisualScriptGenerator;
 
   constructor() {
     this.visualScriptGenerator = new VisualScriptGenerator();
+  }
+
+  getVisualScriptGenerator(): VisualScriptGenerator {
+    return this.visualScriptGenerator;
   }
 
   // ── Plan Complete Traversal Path ─────────────────────────
@@ -38,7 +48,7 @@ export class PresentationPlanner {
 
   // ── Compute Node Traversal Order ─────────────────────────
   // Uses BFS from root, weighted by RL relevance scores
-  private computeTraversalOrder(graph: KnowledgeGraph, policy: RLPolicy): KGNode[] {
+  computeTraversalOrder(graph: KnowledgeGraph, policy: RLPolicy): KGNode[] {
     const visited = new Set<string>();
     const order: KGNode[] = [];
     const root = graph.nodes[graph.rootNodeId];
@@ -85,7 +95,7 @@ export class PresentationPlanner {
   // ── Convert Ordered Nodes → Presentation Scenes ──────────
   // Always 1 node per scene for focused, progressive presentation.
   // Each scene includes staggered sub-reveals for related edges.
-  private async nodesToScenes(
+  async nodesToScenes(
     graph: KnowledgeGraph,
     nodes: KGNode[],
     policy: RLPolicy,
@@ -189,6 +199,80 @@ export class PresentationPlanner {
     }
 
     return scenes;
+  }
+
+  // ── Compose Scene Locals (synchronous, no API calls) ─────
+  // Extracts all locally-computable scene data for a single node.
+  // Used by ScenePipelineOrchestrator to prepare scenes concurrently.
+  composeSceneLocals(
+    graph: KnowledgeGraph,
+    focusNode: KGNode,
+    nodeIndex: number,
+    presentedSoFar: Set<string>,
+    policy: RLPolicy,
+  ): SceneLocalData {
+    const sceneEdges = Object.values(graph.edges).filter(
+      e => e.sourceId === focusNode.id || e.targetId === focusNode.id,
+    );
+    const relevantEdges = sceneEdges.filter(e => {
+      const otherId = e.sourceId === focusNode.id ? e.targetId : e.sourceId;
+      return presentedSoFar.has(otherId);
+    });
+
+    const visualCommands: VisualCommand[] = [];
+    const narrationWords = focusNode.narration.split(/\s+/).length;
+
+    visualCommands.push({
+      type: 'reveal',
+      targetId: focusNode.id,
+      wordTrigger: 0,
+    });
+
+    const edgeInterval = Math.max(Math.floor(narrationWords / (relevantEdges.length + 1)), 5);
+    for (let j = 0; j < relevantEdges.length; j++) {
+      visualCommands.push({
+        type: 'connect',
+        targetId: relevantEdges[j].id,
+        wordTrigger: Math.min((j + 1) * edgeInterval, narrationWords - 2),
+        params: {
+          from: relevantEdges[j].sourceId,
+          to: relevantEdges[j].targetId,
+          label: relevantEdges[j].label,
+        },
+      });
+    }
+
+    const narration = this.composeNarration([focusNode], relevantEdges, policy, nodeIndex === 0);
+
+    const viewportNodes = [focusNode];
+    for (const e of relevantEdges) {
+      const otherId = e.sourceId === focusNode.id ? e.targetId : e.sourceId;
+      const other = graph.nodes[otherId];
+      if (other) viewportNodes.push(other);
+    }
+    const viewport = this.computeViewport(viewportNodes);
+
+    const wordCount = narration.split(/\s+/).length;
+    const durationMs = (wordCount / (policy.pace / 60)) * 1000 + 1500;
+    const finalDuration = Math.max(durationMs, 4000);
+
+    const estimatedTimestamps = this.generateEstimatedTimestamps(narration, finalDuration);
+    const illustrations = this.generateIllustrations(focusNode, finalDuration);
+    const sceneId = `scene-${uuid().slice(0, 8)}`;
+
+    const scene: PresentationScene = {
+      id: sceneId,
+      nodeIds: [focusNode.id],
+      edgeIds: relevantEdges.map(e => e.id),
+      narration,
+      focusNodeId: focusNode.id,
+      viewport,
+      visualCommands,
+      durationEstimate: finalDuration,
+      illustrations,
+    };
+
+    return { scene, estimatedTimestamps, focusNode };
   }
 
   // ── Compose Narration for a Scene ────────────────────────
@@ -296,7 +380,7 @@ export class PresentationPlanner {
     return filtered[Math.floor(Math.random() * filtered.length)];
   }
 
-  private generateIllustrations(
+  generateIllustrations(
     node: KGNode,
     narrationDuration: number
   ): IllustrationSpec[] {
@@ -802,7 +886,7 @@ export class PresentationPlanner {
    * Generate estimated word timestamps for narration
    * Used when actual TTS timestamps aren't available yet
    */
-  private generateEstimatedTimestamps(narration: string, durationMs: number): WordTimestamp[] {
+  generateEstimatedTimestamps(narration: string, durationMs: number): WordTimestamp[] {
     const words = narration.split(/\s+/);
     const avgWordDuration = durationMs / words.length;
 
