@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ship Roadmap — Agentic Presentation System</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.6.1/mermaid.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist+Mono:wght@300;400;500;600;700&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap');
+
+  :root {
+    --bg-void: #05060a;
+    --bg-surface: #0b0d14;
+    --bg-elevated: #10131c;
+    --bg-card: #151924;
+    --bg-hover: #1a1f2e;
+    --cyan: #00e5ff;
+    --cyan-dim: rgba(0,229,255,0.15);
+    --cyan-glow: rgba(0,229,255,0.08);
+    --magenta: #ff2d7b;
+    --magenta-dim: rgba(255,45,123,0.15);
+    --amber: #ffab00;
+    --amber-dim: rgba(255,171,0,0.12);
+    --emerald: #00e676;
+    --emerald-dim: rgba(0,230,118,0.12);
+    --violet: #b388ff;
+    --violet-dim: rgba(179,136,255,0.12);
+    --rose: #ff6b9d;
+    --text-1: #e8eaed;
+    --text-2: #9aa0a6;
+    --text-3: #5f6368;
+    --border: rgba(255,255,255,0.06);
+    --border-accent: rgba(0,229,255,0.15);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html {
+    scroll-behavior: smooth;
+    scrollbar-width: thin;
+    scrollbar-color: var(--text-3) transparent;
+  }
+
+  body {
+    font-family: 'DM Sans', system-ui, sans-serif;
+    background: var(--bg-void);
+    color: var(--text-1);
+    line-height: 1.7;
+    font-size: 15.5px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── Hero ──────────────────────────────────────── */
+  .hero {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 60px 24px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 800px 500px at 35% 30%, rgba(0,229,255,0.04), transparent),
+      radial-gradient(ellipse 600px 700px at 65% 70%, rgba(255,45,123,0.03), transparent),
+      radial-gradient(ellipse 500px 500px at 50% 50%, rgba(179,136,255,0.02), transparent);
+    pointer-events: none;
+  }
+
+  .hero-version {
+    font-family: 'Geist Mono', monospace;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--cyan);
+    background: var(--cyan-dim);
+    border: 1px solid rgba(0,229,255,0.2);
+    padding: 6px 18px;
+    border-radius: 100px;
+    margin-bottom: 32px;
+  }
+
+  .hero h1 {
+    font-family: 'Instrument Serif', serif;
+    font-size: clamp(2.8rem, 6vw, 5rem);
+    font-weight: 400;
+    line-height: 1.08;
+    max-width: 900px;
+    margin-bottom: 24px;
+  }
+
+  .hero h1 em { font-style: italic; color: var(--cyan); }
+
+  .hero-sub {
+    font-size: 1.15rem;
+    color: var(--text-2);
+    max-width: 680px;
+    line-height: 1.7;
+    margin-bottom: 48px;
+  }
+
+  .hero-mission {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    font-family: 'Geist Mono', monospace;
+    font-size: 0.82rem;
+    font-weight: 500;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .mission-item {
+    padding: 6px 16px;
+    border-radius: 8px;
+    border: 1px solid;
+  }
+
+  .mission-math { color: var(--cyan); background: var(--cyan-glow); border-color: rgba(0,229,255,0.2); }
+  .mission-physics { color: var(--magenta); background: var(--magenta-dim); border-color: rgba(255,45,123,0.2); }
+  .mission-cs { color: var(--amber); background: var(--amber-dim); border-color: rgba(255,171,0,0.2); }
+  .mission-any { color: var(--emerald); background: var(--emerald-dim); border-color: rgba(0,230,118,0.2); }
+
+  /* ── TOC ───────────────────────────────────────── */
+  .toc {
+    max-width: 800px;
+    margin: 0 auto 80px;
+    padding: 0 24px;
+  }
+
+  .toc-label {
+    font-family: 'Geist Mono', monospace;
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--text-3);
+    margin-bottom: 20px;
+  }
+
+  .toc-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 8px;
+  }
+
+  .toc-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    text-decoration: none;
+    color: var(--text-2);
+    font-size: 0.85rem;
+    transition: all 0.2s;
+  }
+
+  .toc-item:hover {
+    border-color: var(--border-accent);
+    color: var(--text-1);
+    background: var(--bg-card);
+  }
+
+  .toc-num {
+    font-family: 'Geist Mono', monospace;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--cyan);
+    min-width: 24px;
+  }
+
+  /* ── Sections ─────────────────────────────────── */
+  .container {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+
+  section { margin-bottom: 100px; }
+
+  .section-header {
+    margin-bottom: 40px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .section-tag {
+    font-family: 'Geist Mono', monospace;
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--cyan);
+    margin-bottom: 10px;
+  }
+
+  .section-header h2 {
+    font-family: 'Instrument Serif', serif;
+    font-size: clamp(1.8rem, 3.5vw, 2.6rem);
+    font-weight: 400;
+    line-height: 1.15;
+  }
+
+  .section-header h2 em { font-style: italic; color: var(--magenta); }
+
+  .section-desc {
+    color: var(--text-2);
+    margin-top: 12px;
+    max-width: 700px;
+    font-size: 1rem;
+    line-height: 1.7;
+  }
+
+  h3 {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin-top: 40px;
+    margin-bottom: 16px;
+    color: var(--text-1);
+  }
+
+  h3 .accent { color: var(--amber); }
+
+  h4 {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 1rem;
+    font-weight: 600;
+    margin-top: 28px;
+    margin-bottom: 10px;
+    color: var(--text-2);
+  }
+
+  p { margin-bottom: 16px; color: var(--text-2); }
+  p strong { color: var(--text-1); font-weight: 600; }
+
+  ul, ol {
+    margin: 12px 0 20px 24px;
+    color: var(--text-2);
+  }
+
+  li {
+    margin-bottom: 8px;
+    line-height: 1.6;
+  }
+
+  li strong { color: var(--text-1); }
+
+  /* ── Diagram Container ────────────────────────── */
+  .diagram {
+    margin: 32px 0;
+    padding: 32px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow-x: auto;
+  }
+
+  .diagram-label {
+    font-family: 'Geist Mono', monospace;
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-3);
+    margin-bottom: 16px;
+  }
+
+  .mermaid { display: flex; justify-content: center; }
+  .mermaid svg { max-width: 100%; height: auto; }
+
+  /* ── Cards ─────────────────────────────────────── */
+  .card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 12px;
+    margin: 24px 0;
+  }
+
+  .card {
+    padding: 24px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    transition: border-color 0.2s;
+  }
+
+  .card:hover { border-color: var(--border-accent); }
+
+  .card-icon { font-size: 1.6rem; margin-bottom: 12px; }
+
+  .card h4 { margin-top: 0; margin-bottom: 8px; color: var(--text-1); font-size: 0.95rem; }
+
+  .card p { font-size: 0.85rem; margin-bottom: 0; color: var(--text-2); line-height: 1.6; }
+
+  .card ul { margin: 8px 0 0 16px; }
+  .card li { font-size: 0.85rem; margin-bottom: 4px; }
+
+  /* ── Code Blocks ───────────────────────────────── */
+  code {
+    font-family: 'Geist Mono', monospace;
+    font-size: 0.82em;
+    background: var(--bg-elevated);
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: var(--cyan);
+  }
+
+  /* ── Callouts ──────────────────────────────────── */
+  .callout {
+    margin: 24px 0;
+    padding: 20px 24px;
+    border-radius: 12px;
+    border-left: 3px solid;
+    font-size: 0.9rem;
+  }
+
+  .callout-cyan { background: var(--cyan-glow); border-color: var(--cyan); }
+  .callout-magenta { background: var(--magenta-dim); border-color: var(--magenta); }
+  .callout-amber { background: var(--amber-dim); border-color: var(--amber); }
+  .callout-emerald { background: var(--emerald-dim); border-color: var(--emerald); }
+  .callout-violet { background: var(--violet-dim); border-color: var(--violet); }
+
+  .callout strong {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 0.8rem;
+    letter-spacing: 0.05em;
+  }
+
+  .callout p { margin-bottom: 0; font-size: 0.88rem; }
+
+  /* ── Badges ─────────────────────────────────────── */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 10px;
+    border-radius: 100px;
+    font-family: 'Geist Mono', monospace;
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+  }
+
+  .badge-cyan { background: var(--cyan-dim); color: var(--cyan); border: 1px solid rgba(0,229,255,0.2); }
+  .badge-magenta { background: var(--magenta-dim); color: var(--magenta); border: 1px solid rgba(255,45,123,0.2); }
+  .badge-amber { background: var(--amber-dim); color: var(--amber); border: 1px solid rgba(255,171,0,0.2); }
+  .badge-emerald { background: var(--emerald-dim); color: var(--emerald); border: 1px solid rgba(0,230,118,0.2); }
+  .badge-violet { background: var(--violet-dim); color: var(--violet); border: 1px solid rgba(179,136,255,0.2); }
+
+  /* ── Checklist ──────────────────────────────────── */
+  .checklist {
+    list-style: none;
+    margin: 16px 0;
+    padding: 0;
+  }
+
+  .checklist li {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px 16px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 8px;
+    font-size: 0.9rem;
+  }
+
+  .checklist li .check {
+    font-size: 1rem;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  .checklist li.done { opacity: 0.6; }
+  .checklist li.done .check { color: var(--emerald); }
+
+  /* ── Steps ──────────────────────────────────────── */
+  .steps {
+    margin: 24px 0;
+    counter-reset: step;
+  }
+
+  .step {
+    display: flex;
+    gap: 20px;
+    padding: 20px 0;
+    border-bottom: 1px solid var(--border);
+    counter-increment: step;
+  }
+
+  .step::before {
+    content: counter(step, decimal-leading-zero);
+    font-family: 'Geist Mono', monospace;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--cyan);
+    background: var(--cyan-dim);
+    min-width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    flex-shrink: 0;
+  }
+
+  .step-content h4 { margin-top: 0; color: var(--text-1); }
+  .step-content p { font-size: 0.88rem; margin-bottom: 0; }
+
+  /* ── Footer ────────────────────────────────────── */
+  footer {
+    text-align: center;
+    padding: 60px 24px;
+    border-top: 1px solid var(--border);
+    color: var(--text-3);
+    font-size: 0.8rem;
+    font-family: 'Geist Mono', monospace;
+  }
+
+  /* ── Responsive ────────────────────────────────── */
+  @media (max-width: 700px) {
+    .hero h1 { font-size: 2.2rem; }
+    .hero-mission { flex-direction: column; gap: 8px; }
+    .card-grid { grid-template-columns: 1fr; }
+    .toc-grid { grid-template-columns: 1fr; }
+    .diagram { padding: 16px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════
+     HERO
+     ═══════════════════════════════════════════════════ -->
+<div class="hero">
+  <div class="hero-version">Ship Roadmap &mdash; February 2026</div>
+  <h1>The Road to the First<br><em>Agentic Presenter</em></h1>
+  <p class="hero-sub">
+    An AI agent with a full presentation environment &mdash; animated illustrations,
+    voice narration, and adaptive scaffolding &mdash; that can teach any subject visually,
+    from calculus to quantum mechanics, giving humans the superpower of learning at the speed of thought.
+  </p>
+  <div class="hero-mission">
+    <span class="mission-item mission-math">Mathematics</span>
+    <span class="mission-item mission-physics">Physics</span>
+    <span class="mission-item mission-cs">Computer Science</span>
+    <span class="mission-item mission-any">... Anything</span>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     TABLE OF CONTENTS
+     ═══════════════════════════════════════════════════ -->
+<div class="toc">
+  <div class="toc-label">Roadmap Phases</div>
+  <div class="toc-grid">
+    <a href="#current-state" class="toc-item"><span class="toc-num">00</span> Where We Are Today</a>
+    <a href="#phase0" class="toc-item"><span class="toc-num">P0</span> Stabilize &amp; Harden</a>
+    <a href="#phase1" class="toc-item"><span class="toc-num">P1</span> Universal Visual Vocabulary</a>
+    <a href="#phase2" class="toc-item"><span class="toc-num">P2</span> Domain Engines</a>
+    <a href="#phase3" class="toc-item"><span class="toc-num">P3</span> Learning Loop</a>
+    <a href="#phase4" class="toc-item"><span class="toc-num">P4</span> Production Readiness</a>
+    <a href="#phase5" class="toc-item"><span class="toc-num">P5</span> Differentiation</a>
+    <a href="#timeline" class="toc-item"><span class="toc-num">&rarr;</span> Execution Timeline</a>
+  </div>
+</div>
+
+<div class="container">
+
+<!-- ═══════════════════════════════════════════════════
+     CURRENT STATE
+     ═══════════════════════════════════════════════════ -->
+<section id="current-state">
+  <div class="section-header">
+    <div class="section-tag">Current State</div>
+    <h2>Where We Are <em>Today</em></h2>
+    <p class="section-desc">
+      The project has a solid architectural skeleton with sophisticated subsystems.
+      Here is an honest assessment of what works and what is missing.
+    </p>
+  </div>
+
+  <div class="card-grid">
+    <div class="card" style="border-color: rgba(0,230,118,0.3);">
+      <div class="card-icon">&#x2705;</div>
+      <h4>Working</h4>
+      <ul>
+        <li>Claude-powered topic reasoning</li>
+        <li>Knowledge graph construction</li>
+        <li>Scene planning with RL ordering</li>
+        <li>Visual script generation (AI-driven)</li>
+        <li>30+ SVG entity types</li>
+        <li>Frame-based renderer with animations</li>
+        <li>ElevenLabs TTS + Deepgram STT</li>
+        <li>Word-level audio/visual sync</li>
+        <li>Subtitle display</li>
+        <li>RL scaffolding (Thompson Sampling)</li>
+        <li>5-step interrupt protocol</li>
+        <li>Docker Compose deployment</li>
+        <li>Concurrent scene preparation pipeline</li>
+      </ul>
+    </div>
+    <div class="card" style="border-color: rgba(255,45,123,0.3);">
+      <div class="card-icon">&#x26A0;&#xFE0F;</div>
+      <h4>Missing / Stub</h4>
+      <ul>
+        <li>Math rendering (LaTeX, equations)</li>
+        <li>Physics diagrams (vectors, circuits)</li>
+        <li>Code execution sandbox</li>
+        <li>Data visualization (charts, graphs)</li>
+        <li>Function / curve plotting</li>
+        <li>Persistence layer (sessions, profiles)</li>
+        <li>Comprehension checks (quizzing)</li>
+        <li>CI/CD pipeline</li>
+        <li>Multi-modal input (image uploads)</li>
+        <li>Authentication &amp; multi-tenancy</li>
+        <li>Frontend test framework</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="callout callout-magenta">
+    <strong>THE CRITICAL GAP</strong>
+    <p>The visual vocabulary is heavily skewed toward IT infrastructure diagrams (Server, Database, Pod, Container). There is <strong>zero support</strong> for equations, coordinate systems, geometric constructions, function plots, or scientific illustrations. The agent cannot teach calculus if it can only draw servers. <strong>Phase 1 is the make-or-break investment.</strong></p>
+  </div>
+
+  <div class="diagram">
+    <div class="diagram-label">Architecture Overview</div>
+    <div class="mermaid">
+flowchart TB
+    subgraph backend [Backend]
+        Agent[AgentService]
+        KG[KnowledgeGraphService]
+        Planner[PresentationPlanner]
+        VSG[VisualScriptGenerator]
+        Voice[VoiceService]
+        Pipeline[ScenePipelineOrchestrator]
+        RL[RLService]
+        Interrupt[InterruptHandler]
+    end
+
+    subgraph frontend [Frontend]
+        Store[Zustand SessionStore]
+        Presenter[ScenePresenter]
+        Canvas[IllustrationCanvas]
+        Renderer[FrameRenderer]
+        SVGLib["SVGLibrary (30+)"]
+        Audio[AudioPlaybackManager]
+    end
+
+    Agent --> KG
+    KG --> Planner
+    Planner --> Pipeline
+    Pipeline --> VSG
+    Pipeline --> Voice
+    Pipeline -->|WebSocket| Store
+    Store --> Presenter
+    Presenter --> Canvas
+    Canvas --> Renderer
+    Renderer --> SVGLib
+    Voice -->|Binary Audio| Audio
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════
+     PHASE 0
+     ═══════════════════════════════════════════════════ -->
+<section id="phase0">
+  <div class="section-header">
+    <div class="section-tag">Phase 0 &mdash; 1 Week</div>
+    <h2>Stabilize and <em>Harden</em></h2>
+    <p class="section-desc">
+      Fix what is broken or fragile so we have a reliable foundation to build on.
+    </p>
+  </div>
+
+  <ul class="checklist">
+    <li class="done">
+      <span class="check">&#x2705;</span>
+      <div><strong>Position drift fix</strong> &mdash; Double-<code>&lt;g&gt;</code> structure in SVGLibrary separates positioning from CSS animations; deep-copy entities across frames to prevent cross-frame mutation.</div>
+    </li>
+    <li>
+      <span class="check">&#x2B1C;</span>
+      <div><strong>Frontend test framework</strong> &mdash; Wire up Vitest with config in <code>frontend/vitest.config.ts</code>; port existing <code>entityPositionDrift.test.ts</code> to run via <code>npm test</code>.</div>
+    </li>
+    <li>
+      <span class="check">&#x2B1C;</span>
+      <div><strong>Error boundaries</strong> &mdash; Add React error boundaries in <code>App.tsx</code> around <code>ScenePresenter</code> and <code>Sidebar</code> so rendering failures don't crash the app.</div>
+    </li>
+    <li>
+      <span class="check">&#x2B1C;</span>
+      <div><strong>WebSocket reconnection</strong> &mdash; Auto-reconnect with exponential backoff in <code>sessionStore.ts</code>; currently a disconnect kills the session permanently.</div>
+    </li>
+    <li>
+      <span class="check">&#x2B1C;</span>
+      <div><strong>Backend test gaps</strong> &mdash; Add integration tests for <code>AgentService.reason()</code> and <code>VoiceService</code> to catch regressions.</div>
+    </li>
+  </ul>
+</section>
+
+<!-- ═══════════════════════════════════════════════════
+     PHASE 1
+     ═══════════════════════════════════════════════════ -->
+<section id="phase1">
+  <div class="section-header">
+    <div class="section-tag">Phase 1 &mdash; 2-3 Weeks</div>
+    <h2>Universal Visual <em>Vocabulary</em></h2>
+    <p class="section-desc">
+      The highest-priority phase. The agent cannot teach math or physics if it can only draw
+      servers and databases. We need a visual vocabulary that works for any subject.
+    </p>
+  </div>
+
+  <div class="callout callout-cyan">
+    <strong>WHY THIS IS THE MAKE-OR-BREAK PHASE</strong>
+    <p>The rendering pipeline (<code>VisualScript</code> &rarr; <code>IllustrationFrame</code> &rarr; <code>FrameRenderer</code> &rarr; <code>SVGLibrary</code>) is designed to be extensible. Adding new entity types is mechanical: define the type, add the SVG component, teach the agent about it. The pipeline itself does not need to change. <strong>Once the agent can render equations, plot functions, and draw force diagrams, everything else already works.</strong></p>
+  </div>
+
+  <h3>1a. Math Rendering <span class="accent">Engine</span></h3>
+  <p>Add LaTeX-to-SVG rendering so the agent can display equations, expressions, and derivations.</p>
+
+  <div class="card-grid">
+    <div class="card">
+      <div class="card-icon">&#x1F4D0;</div>
+      <h4>New Entity Types</h4>
+      <p><span class="badge badge-cyan">Equation</span> <span class="badge badge-cyan">Expression</span> <span class="badge badge-cyan">Matrix</span> <span class="badge badge-violet">Graph2D</span> <span class="badge badge-violet">NumberLine</span> <span class="badge badge-violet">CoordinateSystem</span></p>
+    </div>
+    <div class="card">
+      <div class="card-icon">&#x2699;&#xFE0F;</div>
+      <h4>MathVisualizationService</h4>
+      <p>LaTeX &rarr; SVG via KaTeX server-side. Step-by-step equation animation. Function plotting as SVG <code>&lt;path&gt;</code> data.</p>
+    </div>
+    <div class="card">
+      <div class="card-icon">&#x1F3A8;</div>
+      <h4>SVG Components</h4>
+      <p><code>EquationEntity</code> (LaTeX with step reveal), <code>Graph2DEntity</code> (axes + curves), <code>NumberLineEntity</code>, <code>CoordinateSystemEntity</code> (grid + points + vectors).</p>
+    </div>
+  </div>
+
+  <h3>1b. Science &amp; General Visual <span class="accent">Primitives</span></h3>
+  <p>Expand the entity types beyond IT infrastructure to serve physics, chemistry, biology, and general education.</p>
+
+  <div class="card-grid">
+    <div class="card" style="border-color: rgba(255,45,123,0.2);">
+      <div class="card-icon">&#x269B;&#xFE0F;</div>
+      <h4>Physics Entities</h4>
+      <p><span class="badge badge-magenta">FreeBodyDiagram</span> <span class="badge badge-magenta">Circuit</span> <span class="badge badge-magenta">Wave</span> <span class="badge badge-magenta">Vector</span> <span class="badge badge-magenta">Field</span> <span class="badge badge-magenta">Particle</span></p>
+    </div>
+    <div class="card" style="border-color: rgba(255,171,0,0.2);">
+      <div class="card-icon">&#x1F4CA;</div>
+      <h4>General Entities</h4>
+      <p><span class="badge badge-amber">Table</span> <span class="badge badge-amber">Histogram</span> <span class="badge badge-amber">PieChart</span> <span class="badge badge-amber">FlowDiagram</span> <span class="badge badge-amber">VennDiagram</span> <span class="badge badge-amber">Annotation</span></p>
+    </div>
+  </div>
+
+  <h3>1c. Data Visualization <span class="accent">Service</span></h3>
+  <p>
+    Implement <code>DataVisualizationService</code> (currently a stub). Generate chart entities from structured data &mdash;
+    bar, line, scatter, pie &mdash; so the agent can say "here's how the data compares" and produce animated charts.
+  </p>
+
+  <h3>1d. Update the AI's Visual <span class="accent">Understanding</span></h3>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-content">
+        <h4>Expand the Environment Guide</h4>
+        <p>Add math/science entity examples and composition patterns to <code>presentationEnvironmentGuide.ts</code>.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-content">
+        <h4>Add Domain-Specific Visual Strategies</h4>
+        <p>"When explaining derivatives, use a <code>Graph2D</code> with a tangent line animation." "When explaining Newton's second law, use a <code>FreeBodyDiagram</code> with labeled force vectors."</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-content">
+        <h4>Update Reasoning Prompts</h4>
+        <p>Teach Claude to produce <code>visualHint</code> with appropriate <code>dataType</code> for math/science topics. Update the classifier to recognize academic content types.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════
+     PHASE 2
+     ═══════════════════════════════════════════════════ -->
+<section id="phase2">
+  <div class="section-header">
+    <div class="section-tag">Phase 2 &mdash; 2-3 Weeks</div>
+    <h2>Domain <em>Engines</em></h2>
+    <p class="section-desc">
+      Build specialized capabilities for key domains: code execution, interactive math solving,
+      and physics simulation.
+    </p>
+  </div>
+
+  <div class="card-grid">
+    <div class="card" style="border-color: rgba(0,229,255,0.3);">
+      <div class="card-icon">&#x1F4BB;</div>
+      <h4>2a. Code Execution Engine</h4>
+      <p>Sandboxed execution (Docker-in-Docker or WebAssembly). Agent generates + runs code snippets during explanations. Output rendered as syntax-highlighted <code>CodeBlock</code> entities. Critical for CS topics.</p>
+    </div>
+    <div class="card" style="border-color: rgba(179,136,255,0.3);">
+      <div class="card-icon">&#x1F9EE;</div>
+      <h4>2b. Interactive Math Solver</h4>
+      <p>Agent solves equations step-by-step, showing each algebraic transformation. Each step = a visual frame with the equation entity animating the change. Supports algebra, calculus, linear algebra.</p>
+    </div>
+    <div class="card" style="border-color: rgba(255,45,123,0.3);">
+      <div class="card-icon">&#x1F680;</div>
+      <h4>2c. Physics Simulation</h4>
+      <p>Projectile motion, wave propagation, orbital mechanics, spring/pendulum. Animated SVG paths with time-based interpolation. Parameters driven by narration context.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════
+     PHASE 3
+     ═══════════════════════════════════════════════════ -->
+<section id="phase3">
+  <div class="section-header">
+    <div class="section-tag">Phase 3 &mdash; 2 Weeks</div>
+    <h2>Learning Loop and <em>Interaction</em></h2>
+    <p class="section-desc">
+      Turn the system from a one-way presenter into an interactive tutor with
+      comprehension checks, persistent learning profiles, and multi-modal input.
+    </p>
+  </div>
+
+  <div class="card-grid">
+    <div class="card" style="border-color: rgba(0,230,118,0.3);">
+      <div class="card-icon">&#x1F3AF;</div>
+      <h4>3a. Comprehension Checks</h4>
+      <p>The RL service already has <code>shouldCheckComprehension()</code> but it is never exercised. Implement pause-and-quiz: agent poses a question, evaluates the answer, and adjusts the RL policy. Extend <code>InterruptHandler</code> for agent-initiated pauses.</p>
+    </div>
+    <div class="card" style="border-color: rgba(255,171,0,0.3);">
+      <div class="card-icon">&#x1F4BE;</div>
+      <h4>3b. Learner Model Persistence</h4>
+      <p>Add PostgreSQL/SQLite for session persistence. Store session history, learner profiles, RL parameters, and KG snapshots. Enable "continue where you left off" across sessions.</p>
+    </div>
+    <div class="card" style="border-color: rgba(179,136,255,0.3);">
+      <div class="card-icon">&#x1F4F7;</div>
+      <h4>3c. Multi-Modal Input</h4>
+      <p>Accept image uploads (homework photos, whiteboard, textbook pages). Use Claude's vision to extract the problem. Generate a presentation that solves/explains the captured content.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════
+     PHASE 4
+     ═══════════════════════════════════════════════════ -->
+<section id="phase4">
+  <div class="section-header">
+    <div class="section-tag">Phase 4 &mdash; 1-2 Weeks</div>
+    <h2>Production <em>Readiness</em></h2>
+    <p class="section-desc">
+      Ship-quality infrastructure: CI/CD, monitoring, performance, and multi-tenancy.
+    </p>
+  </div>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-content">
+        <h4>CI/CD Pipeline</h4>
+        <p>GitHub Actions: lint, type-check, test (backend + frontend), build Docker images, deploy. Automated PR checks with coverage thresholds.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-content">
+        <h4>Monitoring &amp; Observability</h4>
+        <p>Structured logging with correlation IDs. Health dashboard: API latency, TTS/STT success rates, WebSocket connections. Error tracking (Sentry).</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-content">
+        <h4>Performance Optimization</h4>
+        <p>Tune concurrent scene preparation pool sizes. Lazy-load SVG components. CDN for static assets. WebSocket message batching.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-content">
+        <h4>Authentication &amp; Multi-Tenancy</h4>
+        <p>User accounts (JWT + OAuth). Session isolation. Rate limiting per user. Usage tracking.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════
+     PHASE 5
+     ═══════════════════════════════════════════════════ -->
+<section id="phase5">
+  <div class="section-header">
+    <div class="section-tag">Phase 5 &mdash; Ongoing</div>
+    <h2>Differentiation <em>Features</em></h2>
+    <p class="section-desc">
+      The features that make the system magical, built after the core is solid.
+    </p>
+  </div>
+
+  <div class="card-grid">
+    <div class="card">
+      <div class="card-icon">&#x1F465;</div>
+      <h4>Collaborative Mode</h4>
+      <p>Multiple learners in one session, shared canvas, individual RL profiles.</p>
+    </div>
+    <div class="card">
+      <div class="card-icon">&#x1F5BC;&#xFE0F;</div>
+      <h4>AI-Generated Illustrations</h4>
+      <p>Image generation models for photorealistic diagrams when SVG is insufficient.</p>
+    </div>
+    <div class="card">
+      <div class="card-icon">&#x1F30D;</div>
+      <h4>3D Visualizations</h4>
+      <p>WebGL/Three.js for molecular structures, 3D geometry, spatial reasoning.</p>
+    </div>
+    <div class="card">
+      <div class="card-icon">&#x1F9E0;</div>
+      <h4>Adaptive Pacing</h4>
+      <p>Feed RL policy with real engagement signals: response latency, quiz scores, time-on-concept.</p>
+    </div>
+    <div class="card">
+      <div class="card-icon">&#x1F4DA;</div>
+      <h4>Curriculum Planning</h4>
+      <p>Multi-session learning paths with prerequisite tracking and spaced repetition.</p>
+    </div>
+    <div class="card">
+      <div class="card-icon">&#x1F4E4;</div>
+      <h4>Export</h4>
+      <p>Generate PDF/video recordings of presentations for offline review.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════
+     TIMELINE
+     ═══════════════════════════════════════════════════ -->
+<section id="timeline">
+  <div class="section-header">
+    <div class="section-tag">Execution Order</div>
+    <h2>Recommended <em>Timeline</em></h2>
+    <p class="section-desc">
+      A Gantt chart showing how the phases interleave, with parallelizable work
+      stacked for maximum throughput.
+    </p>
+  </div>
+
+  <div class="diagram">
+    <div class="diagram-label">Ship Roadmap &mdash; Gantt View</div>
+    <div class="mermaid">
+gantt
+    title Ship Roadmap
+    dateFormat  YYYY-MM-DD
+    axisFormat  %b %d
+
+    section Phase0
+    Stabilize_and_Harden :p0, 2026-02-17, 7d
+
+    section Phase1
+    Math_Rendering_Engine :p1a, after p0, 10d
+    Science_Visual_Primitives :p1b, after p0, 7d
+    Data_Viz_Service :p1c, after p1b, 5d
+    Update_AI_Visual_Knowledge :p1d, after p1a, 3d
+
+    section Phase2
+    Code_Execution :p2a, after p1d, 10d
+    Interactive_Math :p2b, after p1a, 10d
+    Physics_Simulation :p2c, after p1b, 10d
+
+    section Phase3
+    Comprehension_Checks :p3a, after p2a, 7d
+    Persistence_Layer :p3b, after p2a, 7d
+    Multimodal_Input :p3c, after p3a, 7d
+
+    section Phase4
+    CI_CD :p4a, after p3b, 5d
+    Monitoring :p4b, after p4a, 5d
+    Auth_and_Scale :p4c, after p4b, 5d
+    </div>
+  </div>
+
+  <div class="callout callout-emerald">
+    <strong>THE BOTTOM LINE</strong>
+    <p>The architecture is strong. The concurrent scene pipeline, the RL scaffolding, the interrupt protocol, the frame-based visual system &mdash; these are genuinely sophisticated. The biggest risk is not architecture; it is <strong>visual expressiveness</strong>. An agentic tutor that can only draw IT diagrams will fail to teach calculus or Newtonian mechanics.</p>
+    <p style="margin-top: 12px;"><strong>Ship Phase 0+1, and you have a demo that can teach math. Ship through Phase 3, and you have a product.</strong></p>
+  </div>
+</section>
+
+</div><!-- .container -->
+
+<footer>
+  Agentic Presentation System &mdash; Ship Roadmap<br>
+  The First AI Agent with a Visual Presentation Environment<br>
+  <span style="color: var(--cyan);">February 2026</span>
+</footer>
+
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'dark',
+    themeVariables: {
+      primaryColor: '#1a2332',
+      primaryTextColor: '#e8eaed',
+      primaryBorderColor: '#00e5ff',
+      lineColor: '#5f6368',
+      secondaryColor: '#151924',
+      tertiaryColor: '#0d1117',
+      fontFamily: 'DM Sans, system-ui, sans-serif',
+      fontSize: '13px',
+      noteBkgColor: '#1a1f2e',
+      noteTextColor: '#e8eaed',
+      noteBorderColor: '#5f6368',
+      actorBkg: '#151924',
+      actorBorder: '#00e5ff',
+      actorTextColor: '#e8eaed',
+      signalColor: '#9aa0a6',
+      labelBoxBkgColor: '#151924',
+      labelBoxBorderColor: '#5f6368',
+      labelTextColor: '#e8eaed',
+    },
+    flowchart: { curve: 'basis', padding: 20 },
+    sequence: { mirrorActors: false, width: 180 },
+  });
+</script>
+</body>
+</html>
