@@ -124,6 +124,10 @@ export class VisualScriptGenerator {
       }
     }
 
+    // Enrich frames with specialized visualization services
+    await this.enrichWithMathVisualization(narration, dataType, frames, durationMs);
+    await this.enrichWithDataVisualization(narration, dataType, frames, durationMs);
+
     // Collect all entities
     const allEntities: Record<string, VisualEntity> = {};
     frames.forEach(frame => {
@@ -138,6 +142,135 @@ export class VisualScriptGenerator {
       totalDuration: durationMs,
       entities: allEntities,
     };
+  }
+
+  /**
+   * Enrich frames with math visualization entities when narration contains mathematical content
+   */
+  private async enrichWithMathVisualization(
+    narration: string,
+    dataType: DataType,
+    frames: IllustrationFrame[],
+    durationMs: number,
+  ): Promise<void> {
+    try {
+      const mathViz = await this.mathViz.generateVisualization(narration, dataType);
+      if (!mathViz) return;
+
+      const targetFrame = frames.length > 0 ? frames[Math.floor(frames.length / 2)] : null;
+      if (!targetFrame) return;
+
+      for (const component of mathViz.components) {
+        let entityType: VisualEntityType = 'Equation';
+        const metadata: Record<string, any> = {};
+
+        switch (component.type) {
+          case 'equation':
+            entityType = 'Equation';
+            metadata.latex = mathViz.latex || '';
+            break;
+          case 'graph':
+            entityType = 'Graph2D';
+            metadata.expression = component.data?.expression || '';
+            metadata.domain = component.data?.domain || [-5, 5];
+            metadata.range = component.data?.range || [-5, 5];
+            metadata.showGrid = true;
+            break;
+          case 'matrix':
+            entityType = 'Matrix';
+            metadata.latex = component.data?.latex || mathViz.latex || '';
+            break;
+          case 'vector':
+            entityType = 'Vector';
+            metadata.magnitude = component.data?.magnitude || 80;
+            metadata.angle = component.data?.angle || 0;
+            break;
+          case 'shape':
+            entityType = 'CoordinateSystem';
+            metadata.points = component.data?.points || [];
+            break;
+          default:
+            metadata.latex = mathViz.latex || '';
+        }
+
+        const entity = this.createEntity(
+          entityType,
+          component.data?.label || '',
+          component.position || { x: 50, y: 50 },
+          '#00e5ff',
+          1.0,
+          { type: 'fadeIn', delay: targetFrame.entities.length * 200 },
+          { metadata },
+        );
+        // Attach metadata to the entity
+        entity.metadata = { ...entity.metadata, ...metadata };
+        targetFrame.entities.push(entity);
+      }
+    } catch (err: any) {
+      console.warn('[VisualScript] Math enrichment skipped:', err.message);
+    }
+  }
+
+  /**
+   * Enrich frames with data visualization entities when narration contains data references
+   */
+  private async enrichWithDataVisualization(
+    narration: string,
+    dataType: DataType,
+    frames: IllustrationFrame[],
+    durationMs: number,
+  ): Promise<void> {
+    try {
+      const dataViz = await this.dataViz.generateVisualization(narration, dataType);
+      if (!dataViz) return;
+
+      const targetFrame = frames.length > 0 ? frames[Math.max(0, frames.length - 2)] : null;
+      if (!targetFrame) return;
+
+      let entityType: VisualEntityType = 'Histogram';
+      const metadata: Record<string, any> = {};
+
+      switch (dataViz.type) {
+        case 'bar':
+          entityType = 'Histogram';
+          metadata.bins = dataViz.data?.bins || dataViz.data?.categories?.map((c: any) => ({ label: c.label, value: c.value })) || [];
+          break;
+        case 'pie':
+          entityType = 'PieChart';
+          metadata.segments = dataViz.data?.segments || dataViz.data?.categories?.map((c: any) => ({ label: c.label, value: c.value, color: c.color })) || [];
+          break;
+        case 'line':
+        case 'scatter':
+          entityType = 'Graph2D';
+          metadata.points = dataViz.data?.points || [];
+          metadata.domain = dataViz.config?.xAxis?.domain || [-10, 10];
+          metadata.range = dataViz.config?.yAxis?.domain || [-10, 10];
+          metadata.showGrid = true;
+          break;
+        case 'network':
+          entityType = 'FlowDiagram';
+          metadata.steps = dataViz.data?.nodes?.map((n: any) => ({ label: n.label || n.id, type: n.type })) || [];
+          break;
+        default:
+          entityType = 'Table';
+          metadata.headers = dataViz.data?.headers || [];
+          metadata.rows = dataViz.data?.rows || [];
+      }
+
+      const entity = this.createEntity(
+        entityType,
+        dataViz.title || '',
+        { x: dataViz.position?.x || 50, y: dataViz.position?.y || 50 },
+        '#00e676',
+        1.0,
+        { type: 'fadeIn', delay: targetFrame.entities.length * 200 },
+        { metadata },
+      );
+      entity.metadata = { ...entity.metadata, ...metadata };
+      targetFrame.entities.push(entity);
+    } catch (err: any) {
+      console.warn('[VisualScript] Data viz enrichment skipped:', err.message);
+    }
   }
 
   /**
@@ -606,6 +739,27 @@ Generate the visual script now:`;
     Tree: { width: 100, height: 100 },
     Badge: { width: 60, height: 30 },
     Quote: { width: 200, height: 120 },
+    // Math & Science types
+    Equation: { width: 280, height: 80 },
+    Expression: { width: 160, height: 50 },
+    Matrix: { width: 200, height: 160 },
+    Graph2D: { width: 300, height: 280 },
+    NumberLine: { width: 320, height: 60 },
+    CoordinateSystem: { width: 320, height: 300 },
+    // Physics types
+    FreeBodyDiagram: { width: 220, height: 220 },
+    Circuit: { width: 300, height: 200 },
+    Wave: { width: 320, height: 120 },
+    Vector: { width: 160, height: 20 },
+    Field: { width: 280, height: 280 },
+    Particle: { width: 40, height: 40 },
+    // General purpose types
+    Table: { width: 300, height: 200 },
+    Histogram: { width: 280, height: 220 },
+    PieChart: { width: 200, height: 200 },
+    FlowDiagram: { width: 300, height: 240 },
+    VennDiagram: { width: 260, height: 200 },
+    Annotation: { width: 180, height: 60 },
   };
 
   /**
@@ -624,6 +778,7 @@ Generate the visual script now:`;
       parent?: string;
       textContent?: string[];
       codeLanguage?: string;
+      metadata?: Record<string, any>;
     },
   ): VisualEntity {
 
@@ -665,6 +820,8 @@ Generate the visual script now:`;
     // Rich text
     if (extra?.textContent) entity.textContent = extra.textContent;
     if (extra?.codeLanguage) entity.codeLanguage = extra.codeLanguage;
+    // Metadata (math, data viz, physics parameters)
+    if (extra?.metadata) entity.metadata = extra.metadata;
 
     return entity;
   }

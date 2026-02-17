@@ -20,6 +20,12 @@ import {
   LoadBalancerShape, QueueShape, CacheShape, ServiceShape, ProcessShape,
   FirewallShape, APIGatewayShape, LambdaShape, SubnetShape, VolumeShape,
   RegistryShape, MonitorShape, PipelineShape, DecisionShape, ClusterShape,
+  // Math & Science types
+  EquationEntity, ExpressionEntity, MatrixEntity, Graph2DEntity, NumberLineEntity, CoordinateSystemEntity,
+  // Physics types
+  VectorEntity, WaveEntity, FreeBodyDiagramEntity, ParticleEntity, CircuitEntity, FieldEntity,
+  // General purpose types
+  TableEntity, HistogramEntity, PieChartEntity, FlowDiagramEntity, VennDiagramEntity, AnnotationEntity,
 } from './svg/SVGLibrary';
 
 interface FrameRendererProps {
@@ -509,6 +515,117 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({
             className={combinedClass} animationDelay={animDelay} />
           {entity.textContent && renderMultiLineText(x, y, entity.textContent, color, entity.size.width)}
         </g>
+      );
+
+    // ═══ Math & Science Types ═══
+    case 'Equation':
+      return (
+        <EquationEntity x={x} y={y} width={entity.size.width} height={entity.size.height} color={color}
+          label={entity.label} className={combinedClass} animationDelay={animDelay} metadata={entity.metadata} />
+      );
+
+    case 'Expression':
+      return (
+        <ExpressionEntity x={x} y={y} width={entity.size.width} height={entity.size.height} color={color}
+          label={entity.label} className={combinedClass} animationDelay={animDelay} metadata={entity.metadata} />
+      );
+
+    case 'Matrix':
+      return (
+        <MatrixEntity x={x} y={y} width={entity.size.width} height={entity.size.height} color={color}
+          label={entity.label} className={combinedClass} animationDelay={animDelay} metadata={entity.metadata} />
+      );
+
+    case 'Graph2D':
+      return (
+        <Graph2DEntity x={x} y={y} width={entity.size.width} height={entity.size.height} color={color}
+          label={entity.label} className={combinedClass} animationDelay={animDelay} metadata={entity.metadata} />
+      );
+
+    case 'NumberLine':
+      return (
+        <NumberLineEntity x={x} y={y} width={entity.size.width} height={entity.size.height} color={color}
+          label={entity.label} className={combinedClass} animationDelay={animDelay} metadata={entity.metadata} />
+      );
+
+    case 'CoordinateSystem':
+      return (
+        <CoordinateSystemEntity x={x} y={y} width={entity.size.width} height={entity.size.height} color={color}
+          label={entity.label} className={combinedClass} animationDelay={animDelay} metadata={entity.metadata} />
+      );
+
+    // ═══ Physics Types ═══
+    case 'Vector':
+      return (
+        <VectorEntity x={x} y={y} width={entity.size.width} color={color}
+          label={entity.label} className={combinedClass} animationDelay={animDelay} metadata={entity.metadata} />
+      );
+
+    case 'Wave':
+      return (
+        <WaveEntity x={x} y={y} width={entity.size.width} height={entity.size.height} color={color}
+          label={entity.label} className={combinedClass} animationDelay={animDelay} metadata={entity.metadata} />
+      );
+
+    case 'FreeBodyDiagram':
+      return (
+        <FreeBodyDiagramEntity x={x} y={y} width={entity.size.width} height={entity.size.height} color={color}
+          label={entity.label} className={combinedClass} animationDelay={animDelay} metadata={entity.metadata} />
+      );
+
+    case 'Particle':
+      return (
+        <ParticleEntity x={x} y={y} color={color}
+          label={entity.label} className={combinedClass} animationDelay={animDelay} metadata={entity.metadata} />
+      );
+
+    case 'Circuit':
+      return (
+        <CircuitEntity x={x} y={y} width={entity.size.width} height={entity.size.height} color={color}
+          label={entity.label} className={combinedClass} animationDelay={animDelay} metadata={entity.metadata} />
+      );
+
+    case 'Field':
+      return (
+        <FieldEntity x={x} y={y} width={entity.size.width} height={entity.size.height} color={color}
+          label={entity.label} className={combinedClass} animationDelay={animDelay} metadata={entity.metadata} />
+      );
+
+    // ═══ General Purpose Types ═══
+    case 'Table':
+      return (
+        <TableEntity x={x} y={y} width={entity.size.width} height={entity.size.height} color={color}
+          label={entity.label} className={combinedClass} animationDelay={animDelay} metadata={entity.metadata} />
+      );
+
+    case 'Histogram':
+      return (
+        <HistogramEntity x={x} y={y} width={entity.size.width} height={entity.size.height} color={color}
+          label={entity.label} className={combinedClass} animationDelay={animDelay} metadata={entity.metadata} />
+      );
+
+    case 'PieChart':
+      return (
+        <PieChartEntity x={x} y={y} width={entity.size.width} color={color}
+          label={entity.label} className={combinedClass} animationDelay={animDelay} metadata={entity.metadata} />
+      );
+
+    case 'FlowDiagram':
+      return (
+        <FlowDiagramEntity x={x} y={y} width={entity.size.width} height={entity.size.height} color={color}
+          label={entity.label} className={combinedClass} animationDelay={animDelay} metadata={entity.metadata} />
+      );
+
+    case 'VennDiagram':
+      return (
+        <VennDiagramEntity x={x} y={y} width={entity.size.width} height={entity.size.height} color={color}
+          label={entity.label} className={combinedClass} animationDelay={animDelay} metadata={entity.metadata} />
+      );
+
+    case 'Annotation':
+      return (
+        <AnnotationEntity x={x} y={y} width={entity.size.width} height={entity.size.height} color={color}
+          label={entity.label} className={combinedClass} animationDelay={animDelay} metadata={entity.metadata} />
       );
 
     default:

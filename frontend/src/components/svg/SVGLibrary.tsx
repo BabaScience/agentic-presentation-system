@@ -591,3 +591,605 @@ export const QuoteEntity: React.FC<SVGComponentProps> = ({ x, y, size = 100, col
     </g>
   </g>
 );
+
+// ═══ Extended props for entities that accept metadata ═══
+interface MetadataComponentProps extends SVGComponentProps {
+  metadata?: Record<string, any>;
+  width?: number;
+  height?: number;
+}
+
+// ═══ MATH & SCIENCE TYPES ═══
+
+export const EquationEntity: React.FC<MetadataComponentProps> = ({ x, y, width = 280, height = 80, color = '#00e5ff', label, className = '', animationDelay = 0, metadata }) => {
+  const latex = metadata?.latex || label || 'E = mc^2';
+  let rendered = '';
+  try {
+    const katex = (window as any).__katex;
+    if (katex) {
+      rendered = katex.renderToString(latex, { throwOnError: false, displayMode: true });
+    }
+  } catch { /* fallback below */ }
+
+  return (
+    <g transform={`translate(${x}, ${y})`}>
+      <g className={className} style={ANIM_STYLE(animationDelay)}>
+        <rect x={-width/2} y={-height/2} width={width} height={height} rx={8} fill="#0b0d1480" stroke={color} strokeWidth={1.5} strokeDasharray="6 3" />
+        {rendered ? (
+          <foreignObject x={-width/2 + 8} y={-height/2 + 4} width={width - 16} height={height - 8}>
+            <div style={{ color, fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', overflow: 'hidden' }}
+              dangerouslySetInnerHTML={{ __html: rendered }} />
+          </foreignObject>
+        ) : (
+          <text x={0} y={5} textAnchor="middle" fill={color} fontSize={16} fontFamily="'Geist Mono', monospace">{latex}</text>
+        )}
+        {label && !metadata?.latex && <text x={0} y={height/2 + 16} textAnchor="middle" fill={`${color}80`} fontSize={10}>{label}</text>}
+      </g>
+    </g>
+  );
+};
+
+export const ExpressionEntity: React.FC<MetadataComponentProps> = ({ x, y, width = 160, height = 50, color = '#00e5ff', label, className = '', animationDelay = 0, metadata }) => {
+  const latex = metadata?.latex || label || 'x^2';
+  let rendered = '';
+  try {
+    const katex = (window as any).__katex;
+    if (katex) {
+      rendered = katex.renderToString(latex, { throwOnError: false, displayMode: false });
+    }
+  } catch { /* fallback */ }
+
+  return (
+    <g transform={`translate(${x}, ${y})`}>
+      <g className={className} style={ANIM_STYLE(animationDelay)}>
+        <rect x={-width/2} y={-height/2} width={width} height={height} rx={6} fill="#0b0d1440" stroke={color} strokeWidth={1} strokeDasharray="4 2" />
+        {rendered ? (
+          <foreignObject x={-width/2 + 6} y={-height/2 + 4} width={width - 12} height={height - 8}>
+            <div style={{ color, fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', overflow: 'hidden' }}
+              dangerouslySetInnerHTML={{ __html: rendered }} />
+          </foreignObject>
+        ) : (
+          <text x={0} y={4} textAnchor="middle" fill={color} fontSize={14} fontFamily="'Geist Mono', monospace">{latex}</text>
+        )}
+      </g>
+    </g>
+  );
+};
+
+export const MatrixEntity: React.FC<MetadataComponentProps> = ({ x, y, width = 200, height = 160, color = '#b388ff', label, className = '', animationDelay = 0, metadata }) => {
+  const latex = metadata?.latex || '\\begin{bmatrix} a & b \\\\ c & d \\end{bmatrix}';
+  let rendered = '';
+  try {
+    const katex = (window as any).__katex;
+    if (katex) {
+      rendered = katex.renderToString(latex, { throwOnError: false, displayMode: true });
+    }
+  } catch { /* fallback */ }
+
+  return (
+    <g transform={`translate(${x}, ${y})`}>
+      <g className={className} style={ANIM_STYLE(animationDelay)}>
+        <rect x={-width/2} y={-height/2} width={width} height={height} rx={8} fill="#0b0d1460" stroke={color} strokeWidth={1.5} />
+        {rendered ? (
+          <foreignObject x={-width/2 + 8} y={-height/2 + 8} width={width - 16} height={height - 16}>
+            <div style={{ color, fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', overflow: 'hidden' }}
+              dangerouslySetInnerHTML={{ __html: rendered }} />
+          </foreignObject>
+        ) : (
+          <text x={0} y={5} textAnchor="middle" fill={color} fontSize={14} fontFamily="'Geist Mono', monospace">[Matrix]</text>
+        )}
+        {label && <text x={0} y={height/2 + 16} textAnchor="middle" fill={color} fontSize={11}>{label}</text>}
+      </g>
+    </g>
+  );
+};
+
+export const Graph2DEntity: React.FC<MetadataComponentProps> = ({ x, y, width = 300, height = 280, color = '#00e5ff', label, className = '', animationDelay = 0, metadata }) => {
+  const pad = 30;
+  const gw = width - pad * 2;
+  const gh = height - pad * 2;
+  const domain = metadata?.domain || [-5, 5];
+  const range = metadata?.range || [-5, 5];
+  const showGrid = metadata?.showGrid !== false;
+
+  const mapX = (v: number) => -width/2 + pad + ((v - domain[0]) / (domain[1] - domain[0])) * gw;
+  const mapY = (v: number) => height/2 - pad - ((v - range[0]) / (range[1] - range[0])) * gh;
+
+  const points: { x: number; y: number }[] = metadata?.points || [];
+  let curvePath = '';
+  if (metadata?.expression && points.length === 0) {
+    const steps = 60;
+    const dx = (domain[1] - domain[0]) / steps;
+    const pathParts: string[] = [];
+    for (let i = 0; i <= steps; i++) {
+      const xv = domain[0] + i * dx;
+      let yv: number;
+      try { yv = Function('x', `return (${metadata.expression})`)(xv); } catch { yv = 0; }
+      if (!isFinite(yv)) continue;
+      const px = mapX(xv);
+      const py = mapY(yv);
+      pathParts.push(`${pathParts.length === 0 ? 'M' : 'L'}${px.toFixed(1)},${py.toFixed(1)}`);
+    }
+    curvePath = pathParts.join(' ');
+  }
+
+  const gridLines: React.ReactNode[] = [];
+  if (showGrid) {
+    for (let v = Math.ceil(domain[0]); v <= Math.floor(domain[1]); v++) {
+      const px = mapX(v);
+      gridLines.push(<line key={`gx${v}`} x1={px} y1={-height/2 + pad} x2={px} y2={height/2 - pad} stroke="#ffffff08" strokeWidth={1} />);
+      if (v !== 0) gridLines.push(<text key={`lx${v}`} x={px} y={mapY(0) + 14} textAnchor="middle" fill="#ffffff40" fontSize={9}>{v}</text>);
+    }
+    for (let v = Math.ceil(range[0]); v <= Math.floor(range[1]); v++) {
+      const py = mapY(v);
+      gridLines.push(<line key={`gy${v}`} x1={-width/2 + pad} y1={py} x2={width/2 - pad} y2={py} stroke="#ffffff08" strokeWidth={1} />);
+      if (v !== 0) gridLines.push(<text key={`ly${v}`} x={mapX(0) - 10} y={py + 3} textAnchor="end" fill="#ffffff40" fontSize={9}>{v}</text>);
+    }
+  }
+
+  return (
+    <g transform={`translate(${x}, ${y})`}>
+      <g className={className} style={ANIM_STYLE(animationDelay)}>
+        <rect x={-width/2} y={-height/2} width={width} height={height} rx={8} fill="#0b0d1460" stroke={color} strokeWidth={1} />
+        {gridLines}
+        <line x1={-width/2 + pad} y1={mapY(0)} x2={width/2 - pad} y2={mapY(0)} stroke="#ffffff30" strokeWidth={1.5} />
+        <line x1={mapX(0)} y1={-height/2 + pad} x2={mapX(0)} y2={height/2 - pad} stroke="#ffffff30" strokeWidth={1.5} />
+        {curvePath && <path d={curvePath} fill="none" stroke={color} strokeWidth={2.5} className="graph-line-draw" />}
+        {points.map((p: any, i: number) => (
+          <circle key={i} cx={mapX(p.x)} cy={mapY(p.y)} r={4} fill={color} stroke="#0b0d14" strokeWidth={1.5} />
+        ))}
+        {label && <text x={0} y={-height/2 + 16} textAnchor="middle" fill={color} fontSize={12} fontWeight={600}>{label}</text>}
+      </g>
+    </g>
+  );
+};
+
+export const NumberLineEntity: React.FC<MetadataComponentProps> = ({ x, y, width = 320, height = 60, color = '#00e5ff', label, className = '', animationDelay = 0, metadata }) => {
+  const min = metadata?.min ?? -5;
+  const max = metadata?.max ?? 5;
+  const ticks: number[] = metadata?.ticks || Array.from({ length: max - min + 1 }, (_, i) => min + i);
+  const highlights: { from: number; to: number; color?: string }[] = metadata?.highlights || [];
+  const pad = 20;
+  const lineW = width - pad * 2;
+  const mapX = (v: number) => -width/2 + pad + ((v - min) / (max - min)) * lineW;
+  const cy = 0;
+
+  return (
+    <g transform={`translate(${x}, ${y})`}>
+      <g className={className} style={ANIM_STYLE(animationDelay)}>
+        {highlights.map((h, i) => (
+          <rect key={i} x={mapX(h.from)} y={cy - 8} width={mapX(h.to) - mapX(h.from)} height={16} rx={3} fill={`${h.color || color}30`} />
+        ))}
+        <line x1={-width/2 + pad} y1={cy} x2={width/2 - pad} y2={cy} stroke={color} strokeWidth={2} />
+        <polygon points={`${width/2 - pad},${cy} ${width/2 - pad - 8},${cy - 4} ${width/2 - pad - 8},${cy + 4}`} fill={color} />
+        {ticks.map(t => (
+          <g key={t}>
+            <line x1={mapX(t)} y1={cy - 6} x2={mapX(t)} y2={cy + 6} stroke={color} strokeWidth={1.5} />
+            <text x={mapX(t)} y={cy + 20} textAnchor="middle" fill={color} fontSize={10} fontFamily="'Geist Mono', monospace">{t}</text>
+          </g>
+        ))}
+        {label && <text x={0} y={-height/2 + 10} textAnchor="middle" fill={color} fontSize={11} fontWeight={500}>{label}</text>}
+      </g>
+    </g>
+  );
+};
+
+export const CoordinateSystemEntity: React.FC<MetadataComponentProps> = ({ x, y, width = 320, height = 300, color = '#00e5ff', label, className = '', animationDelay = 0, metadata }) => {
+  const pad = 30;
+  const gw = width - pad * 2;
+  const gh = height - pad * 2;
+  const gridSpacing = metadata?.gridSpacing || 1;
+  const xRange = metadata?.xRange || [-5, 5];
+  const yRange = metadata?.yRange || [-5, 5];
+  const points: { x: number; y: number; label?: string; color?: string }[] = metadata?.points || [];
+  const vectors: { dx: number; dy: number; label?: string; color?: string }[] = metadata?.vectors || [];
+
+  const mapX = (v: number) => -width/2 + pad + ((v - xRange[0]) / (xRange[1] - xRange[0])) * gw;
+  const mapY = (v: number) => height/2 - pad - ((v - yRange[0]) / (yRange[1] - yRange[0])) * gh;
+
+  const gridLines: React.ReactNode[] = [];
+  for (let v = Math.ceil(xRange[0] / gridSpacing) * gridSpacing; v <= xRange[1]; v += gridSpacing) {
+    gridLines.push(<line key={`gx${v}`} x1={mapX(v)} y1={-height/2 + pad} x2={mapX(v)} y2={height/2 - pad} stroke="#ffffff08" strokeWidth={1} />);
+  }
+  for (let v = Math.ceil(yRange[0] / gridSpacing) * gridSpacing; v <= yRange[1]; v += gridSpacing) {
+    gridLines.push(<line key={`gy${v}`} x1={-width/2 + pad} y1={mapY(v)} x2={width/2 - pad} y2={mapY(v)} stroke="#ffffff08" strokeWidth={1} />);
+  }
+
+  return (
+    <g transform={`translate(${x}, ${y})`}>
+      <g className={className} style={ANIM_STYLE(animationDelay)}>
+        <rect x={-width/2} y={-height/2} width={width} height={height} rx={8} fill="#0b0d1440" stroke={`${color}30`} strokeWidth={1} />
+        {gridLines}
+        <line x1={-width/2 + pad} y1={mapY(0)} x2={width/2 - pad} y2={mapY(0)} stroke="#ffffff40" strokeWidth={1.5} />
+        <line x1={mapX(0)} y1={-height/2 + pad} x2={mapX(0)} y2={height/2 - pad} stroke="#ffffff40" strokeWidth={1.5} />
+        <text x={width/2 - pad + 6} y={mapY(0) + 4} fill="#ffffff60" fontSize={10}>x</text>
+        <text x={mapX(0) + 6} y={-height/2 + pad - 4} fill="#ffffff60" fontSize={10}>y</text>
+        {points.map((p, i) => (
+          <g key={`p${i}`}>
+            <circle cx={mapX(p.x)} cy={mapY(p.y)} r={5} fill={p.color || color} stroke="#0b0d14" strokeWidth={1.5} />
+            {p.label && <text x={mapX(p.x) + 8} y={mapY(p.y) - 8} fill={p.color || color} fontSize={10}>{p.label}</text>}
+          </g>
+        ))}
+        {vectors.map((v, i) => {
+          const ox = mapX(0);
+          const oy = mapY(0);
+          const tx = mapX(v.dx);
+          const ty = mapY(v.dy);
+          const vc = v.color || color;
+          return (
+            <g key={`v${i}`}>
+              <line x1={ox} y1={oy} x2={tx} y2={ty} stroke={vc} strokeWidth={2} markerEnd="url(#arrowhead)" />
+              {v.label && <text x={(ox + tx)/2 + 8} y={(oy + ty)/2 - 8} fill={vc} fontSize={10} fontWeight={600}>{v.label}</text>}
+            </g>
+          );
+        })}
+        {label && <text x={0} y={-height/2 + 16} textAnchor="middle" fill={color} fontSize={12} fontWeight={600}>{label}</text>}
+      </g>
+    </g>
+  );
+};
+
+// ═══ PHYSICS TYPES ═══
+
+export const VectorEntity: React.FC<MetadataComponentProps> = ({ x, y, width = 160, color = '#ff6b9d', label, className = '', animationDelay = 0, metadata }) => {
+  const mag = metadata?.magnitude || width;
+  const angle = (metadata?.angle || 0) * Math.PI / 180;
+  const ex = Math.cos(angle) * mag * 0.8;
+  const ey = -Math.sin(angle) * mag * 0.8;
+  const headLen = 10;
+  const ha = Math.atan2(ey, ex);
+  const hx1 = ex - headLen * Math.cos(ha - 0.4);
+  const hy1 = ey - headLen * Math.sin(ha - 0.4);
+  const hx2 = ex - headLen * Math.cos(ha + 0.4);
+  const hy2 = ey - headLen * Math.sin(ha + 0.4);
+
+  return (
+    <g transform={`translate(${x}, ${y})`}>
+      <g className={className} style={ANIM_STYLE(animationDelay)}>
+        <line x1={0} y1={0} x2={ex} y2={ey} stroke={color} strokeWidth={2.5} />
+        <polygon points={`${ex},${ey} ${hx1},${hy1} ${hx2},${hy2}`} fill={color} />
+        {label && <text x={ex/2 + 10} y={ey/2 - 10} fill={color} fontSize={11} fontWeight={600}>{label}</text>}
+        {metadata?.magnitude && <text x={ex/2 - 10} y={ey/2 + 16} fill={`${color}80`} fontSize={9} fontFamily="'Geist Mono', monospace">|{metadata.magnitude}|</text>}
+      </g>
+    </g>
+  );
+};
+
+export const WaveEntity: React.FC<MetadataComponentProps> = ({ x, y, width = 320, height = 120, color = '#00bcd4', label, className = '', animationDelay = 0, metadata }) => {
+  const amp = metadata?.amplitude || height * 0.35;
+  const freq = metadata?.frequency || 2;
+  const steps = 80;
+  const dx = width / steps;
+  const pathParts: string[] = [];
+  for (let i = 0; i <= steps; i++) {
+    const px = -width/2 + i * dx;
+    const py = -amp * Math.sin((i / steps) * freq * 2 * Math.PI);
+    pathParts.push(`${i === 0 ? 'M' : 'L'}${px.toFixed(1)},${py.toFixed(1)}`);
+  }
+
+  return (
+    <g transform={`translate(${x}, ${y})`}>
+      <g className={className} style={ANIM_STYLE(animationDelay)}>
+        <rect x={-width/2} y={-height/2} width={width} height={height} rx={6} fill="#0b0d1430" stroke={`${color}20`} strokeWidth={1} />
+        <line x1={-width/2} y1={0} x2={width/2} y2={0} stroke="#ffffff15" strokeWidth={1} strokeDasharray="4 3" />
+        <path d={pathParts.join(' ')} fill="none" stroke={color} strokeWidth={2.5} className="graph-line-draw" />
+        {label && <text x={0} y={height/2 + 16} textAnchor="middle" fill={color} fontSize={11} fontWeight={500}>{label}</text>}
+      </g>
+    </g>
+  );
+};
+
+export const FreeBodyDiagramEntity: React.FC<MetadataComponentProps> = ({ x, y, width = 220, height = 220, color = '#ffab00', label, className = '', animationDelay = 0, metadata }) => {
+  const r = Math.min(width, height) * 0.15;
+  const forces: { label: string; magnitude: number; angle: number; color?: string }[] = metadata?.forces || [
+    { label: 'F₁', magnitude: 60, angle: 90, color: '#00e5ff' },
+    { label: 'F₂', magnitude: 50, angle: 0, color: '#ff6b9d' },
+    { label: 'W', magnitude: 55, angle: 270, color: '#ffab00' },
+  ];
+
+  return (
+    <g transform={`translate(${x}, ${y})`}>
+      <g className={className} style={ANIM_STYLE(animationDelay)}>
+        <rect x={-width/2} y={-height/2} width={width} height={height} rx={8} fill="#0b0d1430" stroke={`${color}20`} strokeWidth={1} />
+        <circle cx={0} cy={0} r={r} fill={`${color}20`} stroke={color} strokeWidth={2} />
+        {forces.map((f, i) => {
+          const a = f.angle * Math.PI / 180;
+          const startX = Math.cos(a) * r;
+          const startY = -Math.sin(a) * r;
+          const endX = Math.cos(a) * (r + f.magnitude);
+          const endY = -Math.sin(a) * (r + f.magnitude);
+          const fc = f.color || color;
+          const headLen = 8;
+          const ha = Math.atan2(endY - startY, endX - startX);
+          return (
+            <g key={i}>
+              <line x1={startX} y1={startY} x2={endX} y2={endY} stroke={fc} strokeWidth={2.5} />
+              <polygon points={`${endX},${endY} ${endX - headLen * Math.cos(ha - 0.4)},${endY - headLen * Math.sin(ha - 0.4)} ${endX - headLen * Math.cos(ha + 0.4)},${endY - headLen * Math.sin(ha + 0.4)}`} fill={fc} />
+              <text x={endX + Math.cos(a) * 12} y={endY - Math.sin(a) * 12} textAnchor="middle" fill={fc} fontSize={10} fontWeight={600}>{f.label}</text>
+            </g>
+          );
+        })}
+        {label && <text x={0} y={height/2 + 16} textAnchor="middle" fill={color} fontSize={11} fontWeight={500}>{label}</text>}
+      </g>
+    </g>
+  );
+};
+
+export const ParticleEntity: React.FC<MetadataComponentProps> = ({ x, y, color = '#ff6b9d', label, className = '', animationDelay = 0, metadata }) => {
+  const r = 8;
+  const trajectory: { x: number; y: number }[] = metadata?.trajectory || [];
+  let trajPath = '';
+  if (trajectory.length > 1) {
+    trajPath = trajectory.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`).join(' ');
+  }
+
+  return (
+    <g transform={`translate(${x}, ${y})`}>
+      <g className={className} style={ANIM_STYLE(animationDelay)}>
+        {trajPath && <path d={trajPath} fill="none" stroke={`${color}40`} strokeWidth={1.5} strokeDasharray="4 3" />}
+        <circle cx={0} cy={0} r={r} fill={color} />
+        <circle cx={0} cy={0} r={r + 4} fill="none" stroke={`${color}40`} strokeWidth={1} />
+        {label && <text x={r + 8} y={4} fill={color} fontSize={10} fontWeight={600}>{label}</text>}
+      </g>
+    </g>
+  );
+};
+
+export const CircuitEntity: React.FC<MetadataComponentProps> = ({ x, y, width = 300, height = 200, color = '#ffab00', label, className = '', animationDelay = 0, metadata }) => {
+  const components: { type: string; label?: string }[] = metadata?.components || [
+    { type: 'battery', label: 'V' }, { type: 'resistor', label: 'R₁' }, { type: 'resistor', label: 'R₂' },
+  ];
+  const pad = 20;
+  const cw = width - pad * 2;
+  const ch = height - pad * 2;
+
+  return (
+    <g transform={`translate(${x}, ${y})`}>
+      <g className={className} style={ANIM_STYLE(animationDelay)}>
+        <rect x={-width/2} y={-height/2} width={width} height={height} rx={8} fill="#0b0d1440" stroke={`${color}30`} strokeWidth={1} />
+        <rect x={-cw/2} y={-ch/2} width={cw} height={ch} rx={4} fill="none" stroke={color} strokeWidth={2} />
+        {components.map((c, i) => {
+          const px = -cw/2 + ((i + 0.5) / components.length) * cw;
+          const py = -ch/2;
+          if (c.type === 'battery') {
+            return (
+              <g key={i}>
+                <line x1={px - 6} y1={py - 8} x2={px - 6} y2={py + 8} stroke={color} strokeWidth={3} />
+                <line x1={px + 6} y1={py - 14} x2={px + 6} y2={py + 14} stroke={color} strokeWidth={1.5} />
+                {c.label && <text x={px} y={py - 18} textAnchor="middle" fill={color} fontSize={9}>{c.label}</text>}
+              </g>
+            );
+          }
+          return (
+            <g key={i}>
+              <path d={`M${px - 15},${py} l3,-6 6,12 6,-12 6,12 6,-12 3,6`} fill="none" stroke={color} strokeWidth={1.5} />
+              {c.label && <text x={px} y={py - 12} textAnchor="middle" fill={color} fontSize={9}>{c.label}</text>}
+            </g>
+          );
+        })}
+        {label && <text x={0} y={height/2 + 16} textAnchor="middle" fill={color} fontSize={11} fontWeight={500}>{label}</text>}
+      </g>
+    </g>
+  );
+};
+
+export const FieldEntity: React.FC<MetadataComponentProps> = ({ x, y, width = 280, height = 280, color = '#b388ff', label, className = '', animationDelay = 0, metadata }) => {
+  const gridSize = metadata?.gridSize || 6;
+  const arrows: React.ReactNode[] = [];
+  const cellW = (width - 40) / gridSize;
+  const cellH = (height - 40) / gridSize;
+  for (let row = 0; row < gridSize; row++) {
+    for (let col = 0; col < gridSize; col++) {
+      const cx = -width/2 + 20 + (col + 0.5) * cellW;
+      const cy = -height/2 + 20 + (row + 0.5) * cellH;
+      const angle = metadata?.fieldAngle ? metadata.fieldAngle(col, row) : ((col + row) * 30) * Math.PI / 180;
+      const len = cellW * 0.3;
+      arrows.push(
+        <line key={`${row}-${col}`} x1={cx - Math.cos(angle) * len} y1={cy + Math.sin(angle) * len}
+          x2={cx + Math.cos(angle) * len} y2={cy - Math.sin(angle) * len}
+          stroke={color} strokeWidth={1.2} opacity={0.7} markerEnd="url(#arrowhead)" />
+      );
+    }
+  }
+
+  return (
+    <g transform={`translate(${x}, ${y})`}>
+      <g className={className} style={ANIM_STYLE(animationDelay)}>
+        <rect x={-width/2} y={-height/2} width={width} height={height} rx={8} fill="#0b0d1430" stroke={`${color}20`} strokeWidth={1} />
+        {arrows}
+        {label && <text x={0} y={height/2 + 16} textAnchor="middle" fill={color} fontSize={11} fontWeight={500}>{label}</text>}
+      </g>
+    </g>
+  );
+};
+
+// ═══ GENERAL PURPOSE TYPES ═══
+
+export const TableEntity: React.FC<MetadataComponentProps> = ({ x, y, width = 300, height = 200, color = '#00e5ff', label, className = '', animationDelay = 0, metadata }) => {
+  const headers: string[] = metadata?.headers || ['Column A', 'Column B'];
+  const rows: string[][] = metadata?.rows || [['val 1', 'val 2'], ['val 3', 'val 4']];
+  const rowH = 24;
+  const colW = (width - 16) / headers.length;
+  const tableH = (rows.length + 1) * rowH;
+
+  return (
+    <g transform={`translate(${x}, ${y})`}>
+      <g className={className} style={ANIM_STYLE(animationDelay)}>
+        <rect x={-width/2} y={-height/2} width={width} height={height} rx={8} fill="#0b0d1460" stroke={color} strokeWidth={1.5} />
+        {label && <text x={0} y={-height/2 + 16} textAnchor="middle" fill={color} fontSize={11} fontWeight={600}>{label}</text>}
+        <g transform={`translate(${-width/2 + 8}, ${-height/2 + 26})`}>
+          {headers.map((h, i) => (
+            <text key={`h${i}`} x={i * colW + colW/2} y={12} textAnchor="middle" fill={color} fontSize={10} fontWeight={600} fontFamily="'Geist Mono', monospace">{h}</text>
+          ))}
+          <line x1={0} y1={rowH - 2} x2={headers.length * colW} y2={rowH - 2} stroke={`${color}30`} strokeWidth={1} />
+          {rows.slice(0, Math.floor((height - 50) / rowH)).map((row, ri) => (
+            <g key={`r${ri}`}>
+              {row.map((cell, ci) => (
+                <text key={`c${ri}-${ci}`} x={ci * colW + colW/2} y={(ri + 1) * rowH + 12} textAnchor="middle" fill="#ffffff90" fontSize={10} fontFamily="'Geist Mono', monospace">{cell}</text>
+              ))}
+            </g>
+          ))}
+        </g>
+      </g>
+    </g>
+  );
+};
+
+export const HistogramEntity: React.FC<MetadataComponentProps> = ({ x, y, width = 280, height = 220, color = '#00e676', label, className = '', animationDelay = 0, metadata }) => {
+  const bins: { label: string; value: number; color?: string }[] = metadata?.bins || [
+    { label: 'A', value: 40 }, { label: 'B', value: 70 }, { label: 'C', value: 55 }, { label: 'D', value: 90 }, { label: 'E', value: 30 },
+  ];
+  const pad = 30;
+  const chartW = width - pad * 2;
+  const chartH = height - pad * 2 - 10;
+  const maxVal = Math.max(...bins.map(b => b.value), 1);
+  const barW = chartW / bins.length * 0.7;
+  const gap = chartW / bins.length * 0.3;
+
+  return (
+    <g transform={`translate(${x}, ${y})`}>
+      <g className={className} style={ANIM_STYLE(animationDelay)}>
+        <rect x={-width/2} y={-height/2} width={width} height={height} rx={8} fill="#0b0d1440" stroke={`${color}30`} strokeWidth={1} />
+        {label && <text x={0} y={-height/2 + 16} textAnchor="middle" fill={color} fontSize={12} fontWeight={600}>{label}</text>}
+        <line x1={-width/2 + pad} y1={height/2 - pad} x2={width/2 - pad} y2={height/2 - pad} stroke="#ffffff30" strokeWidth={1} />
+        <line x1={-width/2 + pad} y1={-height/2 + pad + 10} x2={-width/2 + pad} y2={height/2 - pad} stroke="#ffffff30" strokeWidth={1} />
+        {bins.map((b, i) => {
+          const bx = -width/2 + pad + i * (barW + gap) + gap/2;
+          const bh = (b.value / maxVal) * chartH;
+          const by = height/2 - pad - bh;
+          const bc = b.color || color;
+          return (
+            <g key={i}>
+              <rect x={bx} y={by} width={barW} height={bh} rx={3} fill={`${bc}60`} stroke={bc} strokeWidth={1.5} className="histogram-bar-grow" style={{ animationDelay: `${animationDelay + i * 100}ms` }} />
+              <text x={bx + barW/2} y={height/2 - pad + 14} textAnchor="middle" fill="#ffffff80" fontSize={9}>{b.label}</text>
+            </g>
+          );
+        })}
+      </g>
+    </g>
+  );
+};
+
+export const PieChartEntity: React.FC<MetadataComponentProps> = ({ x, y, width = 200, color = '#00e5ff', label, className = '', animationDelay = 0, metadata }) => {
+  const r = width * 0.35;
+  const segments: { label: string; value: number; color?: string }[] = metadata?.segments || [
+    { label: 'A', value: 40, color: '#00e5ff' }, { label: 'B', value: 30, color: '#ff6b9d' }, { label: 'C', value: 30, color: '#00e676' },
+  ];
+  const total = segments.reduce((sum, s) => sum + s.value, 0) || 1;
+  let currentAngle = -Math.PI / 2;
+  const paths = segments.map((s, i) => {
+    const angle = (s.value / total) * 2 * Math.PI;
+    const startX = Math.cos(currentAngle) * r;
+    const startY = Math.sin(currentAngle) * r;
+    currentAngle += angle;
+    const endX = Math.cos(currentAngle) * r;
+    const endY = Math.sin(currentAngle) * r;
+    const largeArc = angle > Math.PI ? 1 : 0;
+    const midAngle = currentAngle - angle / 2;
+    const labelX = Math.cos(midAngle) * (r + 16);
+    const labelY = Math.sin(midAngle) * (r + 16);
+    return (
+      <g key={i}>
+        <path d={`M0,0 L${startX},${startY} A${r},${r} 0 ${largeArc},1 ${endX},${endY} Z`}
+          fill={`${s.color || color}50`} stroke="#0b0d14" strokeWidth={1.5} />
+        <text x={labelX} y={labelY + 3} textAnchor="middle" fill={s.color || color} fontSize={9} fontWeight={600}>{s.label}</text>
+      </g>
+    );
+  });
+
+  return (
+    <g transform={`translate(${x}, ${y})`}>
+      <g className={className} style={ANIM_STYLE(animationDelay)}>
+        {paths}
+        {label && <text x={0} y={r + 30} textAnchor="middle" fill={color} fontSize={11} fontWeight={500}>{label}</text>}
+      </g>
+    </g>
+  );
+};
+
+export const FlowDiagramEntity: React.FC<MetadataComponentProps> = ({ x, y, width = 300, height = 240, color = '#00bcd4', label, className = '', animationDelay = 0, metadata }) => {
+  const steps: { label: string; type?: string }[] = metadata?.steps || [
+    { label: 'Start' }, { label: 'Process' }, { label: 'Decision', type: 'decision' }, { label: 'End' },
+  ];
+  const stepH = 30;
+  const stepW = width * 0.6;
+  const gap = 16;
+  const totalH = steps.length * (stepH + gap) - gap;
+  const startY = -totalH / 2;
+
+  return (
+    <g transform={`translate(${x}, ${y})`}>
+      <g className={className} style={ANIM_STYLE(animationDelay)}>
+        <rect x={-width/2} y={-height/2} width={width} height={height} rx={8} fill="#0b0d1430" stroke={`${color}20`} strokeWidth={1} />
+        {label && <text x={0} y={-height/2 + 16} textAnchor="middle" fill={color} fontSize={12} fontWeight={600}>{label}</text>}
+        {steps.map((s, i) => {
+          const sy = startY + i * (stepH + gap);
+          const isDiamond = s.type === 'decision';
+          return (
+            <g key={i}>
+              {i > 0 && <line x1={0} y1={sy - gap} x2={0} y2={sy} stroke={color} strokeWidth={1.5} markerEnd="url(#arrowhead)" />}
+              {isDiamond ? (
+                <polygon points={`0,${sy} ${stepW/3},${sy + stepH/2} 0,${sy + stepH} ${-stepW/3},${sy + stepH/2}`}
+                  fill={`${color}15`} stroke={color} strokeWidth={1.5} />
+              ) : (
+                <rect x={-stepW/2} y={sy} width={stepW} height={stepH} rx={isDiamond ? 0 : 6} fill={`${color}15`} stroke={color} strokeWidth={1.5} />
+              )}
+              <text x={0} y={sy + stepH/2 + 4} textAnchor="middle" fill={color} fontSize={10} fontWeight={500}>{s.label}</text>
+            </g>
+          );
+        })}
+      </g>
+    </g>
+  );
+};
+
+export const VennDiagramEntity: React.FC<MetadataComponentProps> = ({ x, y, width = 260, height = 200, color = '#00e5ff', label, className = '', animationDelay = 0, metadata }) => {
+  const sets: { label: string; color?: string }[] = metadata?.sets || [
+    { label: 'Set A', color: '#00e5ff' }, { label: 'Set B', color: '#ff6b9d' },
+  ];
+  const intersection = metadata?.intersection || '';
+  const r = Math.min(width, height) * 0.3;
+  const overlap = r * 0.6;
+  const positions = sets.length === 2
+    ? [{ cx: -overlap / 2, cy: 0 }, { cx: overlap / 2, cy: 0 }]
+    : sets.length === 3
+    ? [{ cx: 0, cy: -overlap * 0.4 }, { cx: -overlap / 2, cy: overlap * 0.3 }, { cx: overlap / 2, cy: overlap * 0.3 }]
+    : [{ cx: 0, cy: 0 }];
+
+  return (
+    <g transform={`translate(${x}, ${y})`}>
+      <g className={className} style={ANIM_STYLE(animationDelay)}>
+        <rect x={-width/2} y={-height/2} width={width} height={height} rx={8} fill="#0b0d1420" stroke={`${color}20`} strokeWidth={1} />
+        {sets.map((s, i) => {
+          const pos = positions[i] || { cx: 0, cy: 0 };
+          const sc = s.color || color;
+          return (
+            <g key={i}>
+              <circle cx={pos.cx} cy={pos.cy} r={r} fill={`${sc}15`} stroke={sc} strokeWidth={2} />
+              <text x={pos.cx + (pos.cx >= 0 ? r * 0.5 : -r * 0.5)} y={pos.cy - r * 0.2}
+                textAnchor="middle" fill={sc} fontSize={10} fontWeight={600}>{s.label}</text>
+            </g>
+          );
+        })}
+        {intersection && <text x={0} y={8} textAnchor="middle" fill="#ffffff80" fontSize={9}>{intersection}</text>}
+        {label && <text x={0} y={height/2 + 16} textAnchor="middle" fill={color} fontSize={11} fontWeight={500}>{label}</text>}
+      </g>
+    </g>
+  );
+};
+
+export const AnnotationEntity: React.FC<MetadataComponentProps> = ({ x, y, width = 180, height = 60, color = '#ffab00', label, className = '', animationDelay = 0, metadata }) => {
+  const targetX = metadata?.targetX || 0;
+  const targetY = metadata?.targetY || 40;
+
+  return (
+    <g transform={`translate(${x}, ${y})`}>
+      <g className={className} style={ANIM_STYLE(animationDelay)}>
+        <line x1={0} y1={height/2} x2={targetX} y2={targetY} stroke={`${color}60`} strokeWidth={1.5} strokeDasharray="4 3" />
+        <circle cx={targetX} cy={targetY} r={3} fill={color} />
+        <rect x={-width/2} y={-height/2} width={width} height={height} rx={6} fill="#0b0d1480" stroke={color} strokeWidth={1.5} />
+        <text x={0} y={4} textAnchor="middle" fill={color} fontSize={11} fontWeight={500} fontFamily="'Geist Mono', monospace">{label || 'Note'}</text>
+      </g>
+    </g>
+  );
+};

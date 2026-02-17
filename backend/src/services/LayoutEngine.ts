@@ -229,6 +229,58 @@ export function applyLayoutPattern(
       });
       return true;
 
+    case 'equation-flow':
+      // Vertical stack, left-aligned — for step-by-step equations/proofs
+      movable.forEach((e, i) => {
+        e.position = {
+          x: 40,
+          y: 12 + (i / Math.max(movable.length - 1, 1)) * 76,
+        };
+      });
+      return true;
+
+    case 'coordinate':
+      // Single large entity centered, annotations around the edges
+      if (movable.length >= 1) {
+        movable[0].position = { x: 50, y: 48 };
+        const annotations = movable.slice(1);
+        const corners = [
+          { x: 12, y: 12 }, { x: 88, y: 12 }, { x: 12, y: 85 }, { x: 88, y: 85 },
+          { x: 12, y: 48 }, { x: 88, y: 48 },
+        ];
+        annotations.forEach((e, i) => {
+          const pos = corners[i % corners.length];
+          e.position = { x: pos.x, y: pos.y };
+        });
+      }
+      return true;
+
+    case 'force-diagram':
+      // Central object with radial vectors/labels
+      if (movable.length >= 1) {
+        movable[0].position = { x: 50, y: 48 };
+        const satellites = movable.slice(1);
+        const satRadius = 32;
+        satellites.forEach((e, i) => {
+          const angle = (i / satellites.length) * Math.PI * 2 - Math.PI / 2;
+          e.position = {
+            x: Math.max(10, Math.min(90, 50 + satRadius * Math.cos(angle))),
+            y: Math.max(10, Math.min(90, 48 + satRadius * Math.sin(angle))),
+          };
+        });
+      }
+      return true;
+
+    case 'proof-steps':
+      // Numbered vertical sequence with tighter vertical packing
+      movable.forEach((e, i) => {
+        e.position = {
+          x: 45,
+          y: 10 + (i / Math.max(movable.length, 1)) * 80,
+        };
+      });
+      return true;
+
     default:
       return false;
   }

@@ -25,7 +25,7 @@ You must output ONLY valid JSON (no markdown fences, no explanation) conforming 
             "role": "primary | secondary | connector | decoration"
           }
         ],
-        "layoutPattern": "flow-lr | flow-tb | hierarchical | circular | comparison | layered | central-radial | timeline",
+        "layoutPattern": "flow-lr | flow-tb | hierarchical | circular | comparison | layered | central-radial | timeline | equation-flow | coordinate | force-diagram | proof-steps",
         "visualMetaphor": "optional string — concrete metaphor (e.g., 'assembly line', 'tree growth', 'river flowing')",
         "colorScheme": "cool | warm | neutral | contrasting"
       }
@@ -64,6 +64,30 @@ Universal (use for ANY topic — science, history, art, business, etc.):
   Badge — small accent tag
   Quote — text callout with accent bar (for definitions, quotes)
 
+Math & Science (use for math, physics, science topics):
+  Equation — LaTeX-rendered formula (metadata.latex: "E=mc^2")
+  Expression — inline math fragment (metadata.latex: "x^2")
+  Matrix — matrix display (metadata.latex: "\\begin{bmatrix}...")
+  Graph2D — function plot with axes (metadata.expression: "Math.sin(x)", metadata.domain: [-5,5])
+  NumberLine — annotated number line (metadata.min, max, ticks, highlights)
+  CoordinateSystem — XY grid with points/vectors (metadata.points, vectors)
+
+Physics:
+  Vector — labeled arrow with magnitude/angle (metadata.magnitude, angle)
+  Wave — sinusoidal wave (metadata.amplitude, frequency)
+  FreeBodyDiagram — object with force vectors (metadata.forces: [{label, magnitude, angle}])
+  Particle — point mass with trajectory (metadata.trajectory: [{x,y}])
+  Circuit — electrical circuit (metadata.components: [{type, label}])
+  Field — vector field grid (metadata.gridSize)
+
+Data & Structure:
+  Table — data table (metadata.headers, rows)
+  Histogram — bar chart (metadata.bins: [{label, value}])
+  PieChart — proportional segments (metadata.segments: [{label, value, color}])
+  FlowDiagram — generic flowchart (metadata.steps: [{label, type}])
+  VennDiagram — overlapping sets (metadata.sets: [{label, color}], intersection)
+  Annotation — callout with leader line (metadata.targetX, targetY)
+
 CONTENT RULES:
 - Create 5-8 conceptual primitives for depth
 - Always include at least one ANALOGY and one EXAMPLE
@@ -82,6 +106,9 @@ VISUAL RULES:
 - Use "connector" role for Arrow/DataFlow entities showing relationships
 - For TECHNICAL topics: prefer infrastructure types (Server, Database, Pod, etc.)
 - For NON-TECHNICAL topics: prefer universal types (Concept, Entity, Cycle, Timeline, etc.)
+- For MATH topics: prefer math types (Equation, Graph2D, NumberLine, Matrix, Expression)
+- For PHYSICS topics: prefer physics types (FreeBodyDiagram, Vector, Wave, Circuit, Field)
+- For DATA topics: prefer data types (Histogram, PieChart, Table, FlowDiagram, VennDiagram)
 - layoutPattern should match narrative structure:
     flow-lr or flow-tb: step-by-step processes
     hierarchical: parent-child relationships
@@ -89,6 +116,19 @@ VISUAL RULES:
     comparison: contrasting ideas (ANALOGY, COUNTERPOINT)
     central-radial: concept with radiating details (CONCEPT, DEFINITION)
     timeline: historical or sequential events
+    equation-flow: step-by-step equations/proofs (vertical stack, left-aligned)
+    coordinate: single large graph/diagram centered with annotations around edges
+    force-diagram: central object (FreeBodyDiagram) with radial vectors
+    proof-steps: numbered vertical sequence for mathematical proofs
+
+DOMAIN-SPECIFIC STRATEGIES:
+- When explaining derivatives: use Graph2D (function + tangent line) + Equation (derivative formula)
+- When explaining Newton's laws: use FreeBodyDiagram + Equation (F=ma) + Vector entities
+- When comparing quantities: use Histogram or PieChart + Table for raw data
+- When proving theorems: use multiple Equation entities with equation-flow layout
+- When teaching wave phenomena: use Wave + Equation (wave equation) + NumberLine (wavelength)
+- When teaching linear algebra: use Matrix + CoordinateSystem + Vector entities
+- When solving equations: use sequential Equation entities showing each step with proof-steps layout
 - visualMetaphor makes illustrations more intuitive — always include when possible
 - If you cannot determine appropriate visuals, omit the visualHint field entirely`;
 
@@ -148,4 +188,11 @@ RULES:
 - Always connect new nodes to existing graph nodes via edges
 - Narration should directly address the user's question
 - Begin narration with an engaging acknowledgment like "Great question!"
-- Keep scenes focused: 1-2 nodes per scene`;
+- Keep scenes focused: 1-2 nodes per scene
+
+VISUAL ENTITY TYPES for interrupt responses:
+  Infrastructure: User, Server, Database, Container, Pod, Cloud, Network, Device, Arrow, DataFlow, Process, Queue, Cache, LoadBalancer, Service
+  Universal: Concept, Entity, Group, Label, Comparison, Timeline, Metric, Cycle, Stack, Tree, Badge, Quote
+  Math: Equation (metadata.latex), Expression, Matrix, Graph2D (metadata.expression, domain, range), NumberLine, CoordinateSystem
+  Physics: Vector, Wave, FreeBodyDiagram, Particle, Circuit, Field
+  Data: Table (metadata.headers, rows), Histogram (metadata.bins), PieChart (metadata.segments), FlowDiagram, VennDiagram, Annotation`;

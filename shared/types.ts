@@ -177,7 +177,14 @@ export type VisualEntityType =
   // Universal types (topic-agnostic)
   | 'Concept' | 'Entity' | 'Group' | 'Label'
   | 'Comparison' | 'Timeline' | 'Metric' | 'Cycle'
-  | 'Stack' | 'Tree' | 'Badge' | 'Quote';
+  | 'Stack' | 'Tree' | 'Badge' | 'Quote'
+  // Math & Science types
+  | 'Equation' | 'Expression' | 'Matrix'
+  | 'Graph2D' | 'NumberLine' | 'CoordinateSystem'
+  // Physics types
+  | 'FreeBodyDiagram' | 'Circuit' | 'Wave' | 'Vector' | 'Field' | 'Particle'
+  // General purpose types
+  | 'Table' | 'Histogram' | 'PieChart' | 'FlowDiagram' | 'VennDiagram' | 'Annotation';
 
 // Visual entity instance
 export interface VisualEntity {
@@ -347,7 +354,8 @@ export interface ReasoningOutput {
 // ── Visual Hint (Agent → Visual Script Pipeline) ────────────
 export type LayoutPattern =
   | 'flow-lr' | 'flow-tb' | 'hierarchical' | 'circular'
-  | 'comparison' | 'layered' | 'central-radial' | 'timeline';
+  | 'comparison' | 'layered' | 'central-radial' | 'timeline'
+  | 'equation-flow' | 'coordinate' | 'force-diagram' | 'proof-steps';
 
 export interface VisualHintEntity {
   type: string;

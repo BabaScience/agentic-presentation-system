@@ -220,9 +220,150 @@ When the narration is about NON-TECHNICAL topics, prefer universal entity types:
 **Business/Economics**: Metric (KPIs), Comparison (analysis), Entity (companies), Arrow (flows), Stack (strategies)
 **Art/Music/Literature**: Quote (themes), Concept (movements), Comparison (styles), Entity (creators), Group (genres)
 **Philosophy/Psychology**: Concept (ideas), Quote (principles), Comparison (schools), Tree (frameworks), Cycle (dialectics)
-**Mathematics/Physics**: Metric (values), Concept (theorems), Cycle (systems), Arrow (causation), Stack (layers)
+**Mathematics/Physics**: Equation (formulas), Graph2D (functions), NumberLine (intervals), CoordinateSystem (geometry), Vector (forces), Matrix (linear algebra), FreeBodyDiagram (mechanics), Wave (oscillations)
 
 Use infrastructure types (Server, Database, Pod, etc.) ONLY when the topic is actually about software, infrastructure, or technology.
+
+### Math & Science Types
+
+These entities are purpose-built for teaching math, physics, and science topics. They accept rich data through the \`metadata\` field.
+
+- **Equation**: LaTeX-rendered mathematical expression
+  - Size: 280x80px
+  - metadata: \`{ latex: "E = mc^2", steps: ["step1 latex", "step2 latex"] }\`
+  - Best for: Formulas, derivations, theorems, identities
+  - Example: "The quadratic formula is..." → Equation with latex: "x = \\\\frac{-b \\\\pm \\\\sqrt{b^2 - 4ac}}{2a}"
+
+- **Expression**: Inline math fragment (smaller than Equation)
+  - Size: 160x50px
+  - metadata: \`{ latex: "x^2 + 1" }\`
+  - Best for: Variable references, short formulas inside explanations
+
+- **Matrix**: Matrix/determinant display
+  - Size: 200x160px
+  - metadata: \`{ latex: "\\\\begin{bmatrix} a & b \\\\\\\\ c & d \\\\end{bmatrix}" }\`
+  - Best for: Linear algebra, transformations, systems of equations
+
+- **Graph2D**: 2D coordinate system with function curves
+  - Size: 300x280px
+  - metadata: \`{ expression: "Math.sin(x)", domain: [-5, 5], range: [-2, 2], points: [{x:1, y:1}], showGrid: true }\`
+  - Best for: Function plots, data visualization, slope/tangent demonstrations
+  - The expression is evaluated as JavaScript (use Math.sin, Math.cos, Math.pow, etc.)
+
+- **NumberLine**: Annotated number line
+  - Size: 320x60px
+  - metadata: \`{ min: -5, max: 5, ticks: [-5,-4,-3,-2,-1,0,1,2,3,4,5], highlights: [{from: -2, to: 3, color: "#00e5ff"}] }\`
+  - Best for: Intervals, inequalities, absolute value, real number concepts
+
+- **CoordinateSystem**: XY grid with points, vectors, regions
+  - Size: 320x300px
+  - metadata: \`{ points: [{x:2, y:3, label: "P"}], vectors: [{dx:3, dy:2, label: "v"}], gridSpacing: 1, xRange: [-5,5], yRange: [-5,5] }\`
+  - Best for: Geometry, vector spaces, coordinate geometry
+
+### Physics Types
+
+- **Vector**: Labeled arrow with magnitude/direction
+  - Size: 160x20px
+  - metadata: \`{ magnitude: 80, angle: 45 }\` (angle in degrees, 0=right, 90=up)
+  - Best for: Force vectors, velocity, acceleration, displacement
+
+- **Wave**: Sinusoidal/standing wave
+  - Size: 320x120px
+  - metadata: \`{ amplitude: 40, frequency: 2 }\`
+  - Best for: Sound waves, electromagnetic waves, oscillations
+
+- **FreeBodyDiagram**: Central object with force vectors
+  - Size: 220x220px
+  - metadata: \`{ forces: [{label: "F_g", magnitude: 60, angle: 270, color: "#ffab00"}] }\`
+  - Best for: Newton's laws, equilibrium, mechanics problems
+
+- **Particle**: Point mass with optional trajectory
+  - Size: 40x40px
+  - metadata: \`{ trajectory: [{x:-20, y:0}, {x:0, y:-30}, {x:20, y:0}] }\`
+  - Best for: Projectile motion, orbital mechanics, particle physics
+
+- **Circuit**: Basic electrical circuit
+  - Size: 300x200px
+  - metadata: \`{ components: [{type: "battery", label: "V"}, {type: "resistor", label: "R1"}] }\`
+  - Best for: Ohm's law, Kirchhoff's laws, circuit analysis
+
+- **Field**: Vector field visualization
+  - Size: 280x280px
+  - metadata: \`{ gridSize: 6 }\`
+  - Best for: Electric fields, magnetic fields, gravitational fields
+
+### General Purpose Types (Data & Structure)
+
+- **Table**: Data table with headers and rows
+  - Size: 300x200px
+  - metadata: \`{ headers: ["x", "f(x)"], rows: [["1", "1"], ["2", "4"], ["3", "9"]] }\`
+  - Best for: Function tables, comparison data, experimental results
+
+- **Histogram**: Bar chart for frequency distributions
+  - Size: 280x220px
+  - metadata: \`{ bins: [{label: "A", value: 40}, {label: "B", value: 70}] }\`
+  - Best for: Data distributions, comparisons, statistical analysis
+
+- **PieChart**: Proportional segment chart
+  - Size: 200x200px
+  - metadata: \`{ segments: [{label: "A", value: 40, color: "#00e5ff"}, {label: "B", value: 60, color: "#ff6b9d"}] }\`
+  - Best for: Proportions, percentages, composition breakdowns
+
+- **FlowDiagram**: Generic flowchart with steps
+  - Size: 300x240px
+  - metadata: \`{ steps: [{label: "Start"}, {label: "Process"}, {label: "Decision", type: "decision"}, {label: "End"}] }\`
+  - Best for: Algorithms, workflows, decision processes
+
+- **VennDiagram**: Overlapping set visualization
+  - Size: 260x200px
+  - metadata: \`{ sets: [{label: "Set A", color: "#00e5ff"}, {label: "Set B", color: "#ff6b9d"}], intersection: "A ∩ B" }\`
+  - Best for: Set theory, classification overlaps, shared properties
+
+- **Annotation**: Callout with leader line
+  - Size: 180x60px
+  - metadata: \`{ targetX: 0, targetY: 40 }\`
+  - Best for: Pointing out specific parts of other entities, notes
+
+### Math/Science Composition Patterns
+
+When teaching math/science topics, combine entities for maximum clarity:
+
+- **Derivative explanation**: Graph2D (showing function + tangent) + Equation (derivative formula) + Annotation (pointing to slope)
+  - Layout: \`coordinate\` — graph centered, equation and annotation around edges
+
+- **Newton's second law**: FreeBodyDiagram (object with forces) + Equation (F=ma) + Vector (net force)
+  - Layout: \`force-diagram\` — FBD centered, equation and labels radially
+
+- **Solving equations step-by-step**: Multiple Equation entities, each showing a step
+  - Layout: \`equation-flow\` — vertical stack, left-aligned
+
+- **Proof structure**: Equation (hypothesis) → Equation (steps) → Equation (conclusion)
+  - Layout: \`proof-steps\` — numbered vertical sequence
+
+- **Data comparison**: Histogram or PieChart + Table (raw data) + Annotation (key insight)
+  - Layout: \`comparison\` — chart on left, table on right
+
+- **Wave behavior**: Wave (visualization) + Equation (wave equation) + NumberLine (wavelength)
+  - Layout: \`flow-tb\` — wave on top, equation middle, number line bottom
+
+### Math/Science Semantic Triggers
+
+Map these narration keywords to entity types:
+
+- "equation", "formula", "solve", "equals", "simplify" → **Equation**
+- "graph", "plot", "curve", "function f(x)" → **Graph2D**
+- "vector", "force", "direction", "magnitude" → **Vector** or **FreeBodyDiagram**
+- "wave", "frequency", "amplitude", "oscillation" → **Wave**
+- "matrix", "determinant", "eigenvalue", "transform" → **Matrix**
+- "number line", "interval", "inequality", "absolute value" → **NumberLine**
+- "coordinate", "point", "geometry", "plot point" → **CoordinateSystem**
+- "circuit", "resistance", "voltage", "current" → **Circuit**
+- "field", "gradient", "divergence", "flux" → **Field**
+- "compare", "distribution", "percentage", "proportion" → **Histogram**, **PieChart**, or **Table**
+- "proof", "therefore", "QED", "we can show" → **Equation** with steps + \`proof-steps\` layout
+- "table", "values", "data" → **Table**
+- "flow", "algorithm", "process steps" → **FlowDiagram**
+- "set", "union", "intersection", "subset" → **VennDiagram**
 
 ## ═══════════════════════════════════════════════════════
 ## 2. ANIMATION TYPES
