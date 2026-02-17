@@ -63,6 +63,16 @@ export class MathVisualizationService {
       'theorem',
       'proof',
       'calculate',
+      'parametric',
+      'implicit',
+      'ellipse',
+      'hyperbola',
+      'parabola',
+      'conic',
+      'lissajous',
+      'cycloid',
+      'polar',
+      'curve',
       '=',
       '+',
       '-',
@@ -86,7 +96,7 @@ export class MathVisualizationService {
     narration: string,
     context: string,
   ): Promise<{
-    type: 'equation' | 'function' | 'geometric' | 'calculus' | 'linear_algebra';
+    type: 'equation' | 'function' | 'geometric' | 'calculus' | 'linear_algebra' | 'parametric' | 'implicit';
     latex?: string;
     components: MathComponent[];
     interactive?: boolean;
@@ -97,19 +107,19 @@ Narration: "${narration}"
 Context: "${context}"
 
 If mathematical visualization is appropriate, extract:
-1. Type (equation, function, geometric, calculus, linear_algebra)
+1. Type (equation, function, geometric, calculus, linear_algebra, parametric, implicit)
 2. LaTeX representation of the main equation/formula
-3. Components to visualize (equation, graph, shape, etc.)
+3. Components to visualize (equation, graph, shape, parametric_curve, implicit_curve, etc.)
 4. Animation steps if applicable
 
 Return JSON:
 {
   "needsMathViz": true/false,
-  "type": "equation" | "function" | "calculus" | etc.,
+  "type": "equation" | "function" | "calculus" | "parametric" | "implicit" | etc.,
   "latex": "LaTeX string of main equation",
   "components": [
     {
-      "type": "equation" | "graph" | "integral",
+      "type": "equation" | "graph" | "integral" | "parametric_curve" | "implicit_curve",
       "data": { ... },
       "position": { "x": 50, "y": 30 }
     }
@@ -121,6 +131,8 @@ Examples:
 - "f(x) = x²" → function plot with equation
 - "integral from 0 to 5 of x²" → calculus with area visualization
 - "matrix multiplication" → linear algebra with matrix visualization
+- "parametric curve x = cos(t), y = sin(t)" → parametric with type "parametric_curve", data: { xExpression: "cos(t)", yExpression: "sin(t)", tRange: [0, 6.283] }
+- "ellipse x²/4 + y²/9 = 1" → implicit with type "implicit_curve", data: { expression: "x*x/4 + y*y/9 - 1", xRange: [-3, 3], yRange: [-4, 4] }
 
 If no math visualization needed, return { "needsMathViz": false }`;
 
@@ -403,6 +415,114 @@ If no math visualization needed, return { "needsMathViz": false }`;
   }
 
   /**
+   * Generate parametric curve visualization: x(t), y(t) over a parameter range.
+   * Supports circles, ellipses, Lissajous figures, cycloids, spirals, etc.
+   */
+  generateParametricPlot(
+    xExpression: string,
+    yExpression: string,
+    tRange: [number, number] = [0, 2 * Math.PI],
+    options?: {
+      label?: string;
+      numPoints?: number;
+    },
+  ): MathVisualization {
+    const components: MathComponent[] = [];
+    const numPoints = options?.numPoints ?? 200;
+    const label = options?.label ?? `x(t) = ${xExpression},\\; y(t) = ${yExpression}`;
+
+    // LaTeX label for the parametric equations
+    components.push({
+      type: 'equation',
+      data: {
+        latex: `\\begin{cases} x(t) = ${this.toLatex(xExpression)} \\\\ y(t) = ${this.toLatex(yExpression)} \\end{cases},\\quad t \\in [${tRange[0].toFixed(2)},\\, ${tRange[1].toFixed(2)}]`,
+      },
+      position: { x: 50, y: 10 },
+      animation: { type: 'highlight', steps: [], duration: 500 },
+    });
+
+    // Evaluate the parametric curve
+    const points = this.evaluateParametric(xExpression, yExpression, tRange, numPoints);
+
+    components.push({
+      type: 'graph',
+      data: {
+        points,
+        parametric: true,
+        color: '#e040fb',
+        thickness: 2,
+      },
+      position: { x: 50, y: 50 },
+      animation: { type: 'draw', steps: points, duration: 2500 },
+    });
+
+    return {
+      id: uuid(),
+      type: 'function',
+      latex: label,
+      components,
+      interactive: true,
+    };
+  }
+
+  /**
+   * Generate implicit function visualization: F(x, y) = 0.
+   * Uses a marching-squares algorithm to trace the zero-contour.
+   * Supports conic sections (ellipses, hyperbolas, parabolas), circles, etc.
+   */
+  generateImplicitPlot(
+    expression: string,
+    xRange: [number, number] = [-5, 5],
+    yRange: [number, number] = [-5, 5],
+    options?: {
+      label?: string;
+      resolution?: number;
+    },
+  ): MathVisualization {
+    const components: MathComponent[] = [];
+    const resolution = options?.resolution ?? 80;
+    const label = options?.label ?? `${expression} = 0`;
+
+    // LaTeX label
+    components.push({
+      type: 'equation',
+      data: { latex: this.toLatex(label) },
+      position: { x: 50, y: 10 },
+      animation: { type: 'highlight', steps: [], duration: 500 },
+    });
+
+    // Marching squares to find contour segments
+    const segments = this.marchingSquares(expression, xRange, yRange, resolution);
+
+    // Flatten segments into a points array for the graph component
+    const points: Array<{ x: number; y: number }> = [];
+    for (const seg of segments) {
+      points.push(seg.start, seg.end);
+    }
+
+    components.push({
+      type: 'graph',
+      data: {
+        points,
+        segments,
+        implicit: true,
+        color: '#ff9100',
+        thickness: 2,
+      },
+      position: { x: 50, y: 50 },
+      animation: { type: 'draw', steps: points, duration: 2000 },
+    });
+
+    return {
+      id: uuid(),
+      type: 'function',
+      latex: this.toLatex(label),
+      components,
+      interactive: true,
+    };
+  }
+
+  /**
    * Convert expression to LaTeX
    */
   private toLatex(expression: string): string {
@@ -491,5 +611,167 @@ If no math visualization needed, return { "needsMathViz": false }`;
     }
 
     return (h / 2) * sum;
+  }
+
+  /**
+   * Evaluate a parametric curve x(t), y(t) over [tMin, tMax]
+   */
+  private evaluateParametric(
+    xExpr: string,
+    yExpr: string,
+    tRange: [number, number],
+    numPoints: number,
+  ): Array<{ x: number; y: number }> {
+    const [tMin, tMax] = tRange;
+    const step = (tMax - tMin) / numPoints;
+    const result: Array<{ x: number; y: number }> = [];
+
+    for (let i = 0; i <= numPoints; i++) {
+      const t = tMin + i * step;
+      try {
+        const xVal = this.safeEvalParam(xExpr, t);
+        const yVal = this.safeEvalParam(yExpr, t);
+        if (isFinite(xVal) && isFinite(yVal)) {
+          result.push({ x: xVal, y: yVal });
+        }
+      } catch {
+        // Skip invalid points
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Evaluate an expression with parameter t substituted
+   */
+  private safeEvalParam(expression: string, t: number): number {
+    const sanitized = expression
+      .replace(/\bt\b/g, `(${t})`)
+      .replace(/\^/g, '**')
+      .replace(/sqrt/g, 'Math.sqrt')
+      .replace(/sin/g, 'Math.sin')
+      .replace(/cos/g, 'Math.cos')
+      .replace(/tan/g, 'Math.tan')
+      .replace(/abs/g, 'Math.abs')
+      .replace(/exp/g, 'Math.exp')
+      .replace(/log/g, 'Math.log')
+      .replace(/pi/gi, 'Math.PI');
+
+    try {
+      const func = new Function('Math', `return ${sanitized}`);
+      return func(Math);
+    } catch {
+      return NaN;
+    }
+  }
+
+  /**
+   * Evaluate F(x, y) for an implicit function
+   */
+  private safeEval2D(expression: string, x: number, y: number): number {
+    const sanitized = expression
+      .replace(/\bx\b/g, `(${x})`)
+      .replace(/\by\b/g, `(${y})`)
+      .replace(/\^/g, '**')
+      .replace(/sqrt/g, 'Math.sqrt')
+      .replace(/sin/g, 'Math.sin')
+      .replace(/cos/g, 'Math.cos')
+      .replace(/tan/g, 'Math.tan')
+      .replace(/abs/g, 'Math.abs')
+      .replace(/exp/g, 'Math.exp')
+      .replace(/log/g, 'Math.log')
+      .replace(/pi/gi, 'Math.PI');
+
+    try {
+      const func = new Function('Math', `return ${sanitized}`);
+      return func(Math);
+    } catch {
+      return NaN;
+    }
+  }
+
+  /**
+   * Marching squares algorithm for tracing the zero-contour of F(x,y) = 0.
+   * Returns an array of line segments that approximate the contour.
+   */
+  private marchingSquares(
+    expression: string,
+    xRange: [number, number],
+    yRange: [number, number],
+    resolution: number,
+  ): Array<{ start: { x: number; y: number }; end: { x: number; y: number } }> {
+    const [xMin, xMax] = xRange;
+    const [yMin, yMax] = yRange;
+    const dx = (xMax - xMin) / resolution;
+    const dy = (yMax - yMin) / resolution;
+
+    // Pre-compute the grid of F(x,y) values
+    const grid: number[][] = [];
+    for (let j = 0; j <= resolution; j++) {
+      const row: number[] = [];
+      for (let i = 0; i <= resolution; i++) {
+        const gx = xMin + i * dx;
+        const gy = yMin + j * dy;
+        row.push(this.safeEval2D(expression, gx, gy));
+      }
+      grid.push(row);
+    }
+
+    const segments: Array<{ start: { x: number; y: number }; end: { x: number; y: number } }> = [];
+
+    // Walk each cell and classify its corners
+    for (let j = 0; j < resolution; j++) {
+      for (let i = 0; i < resolution; i++) {
+        const x0 = xMin + i * dx;
+        const y0 = yMin + j * dy;
+
+        const bl = grid[j][i];       // bottom-left
+        const br = grid[j][i + 1];   // bottom-right
+        const tr = grid[j + 1][i + 1]; // top-right
+        const tl = grid[j + 1][i];   // top-left
+
+        // Classify corners: 1 if positive, 0 if negative/zero
+        const cellCase =
+          (bl > 0 ? 1 : 0) |
+          (br > 0 ? 2 : 0) |
+          (tr > 0 ? 4 : 0) |
+          (tl > 0 ? 8 : 0);
+
+        if (cellCase === 0 || cellCase === 15) continue; // fully inside or outside
+
+        // Linear interpolation helper
+        const lerp = (v1: number, v2: number, f1: number, f2: number): number => {
+          if (Math.abs(f1 - f2) < 1e-12) return (v1 + v2) / 2;
+          return v1 + (v2 - v1) * (-f1 / (f2 - f1));
+        };
+
+        // Edge midpoints via interpolation
+        const bottom = { x: lerp(x0, x0 + dx, bl, br), y: y0 };
+        const right  = { x: x0 + dx, y: lerp(y0, y0 + dy, br, tr) };
+        const top    = { x: lerp(x0, x0 + dx, tl, tr), y: y0 + dy };
+        const left   = { x: x0, y: lerp(y0, y0 + dy, bl, tl) };
+
+        // Lookup table for the 16 marching squares cases
+        switch (cellCase) {
+          case 1:  case 14: segments.push({ start: bottom, end: left });   break;
+          case 2:  case 13: segments.push({ start: right,  end: bottom }); break;
+          case 3:  case 12: segments.push({ start: right,  end: left });   break;
+          case 4:  case 11: segments.push({ start: top,    end: right });  break;
+          case 5:
+            segments.push({ start: bottom, end: right });
+            segments.push({ start: top, end: left });
+            break;
+          case 6:  case 9:  segments.push({ start: top,    end: bottom }); break;
+          case 7:  case 8:  segments.push({ start: top,    end: left });   break;
+          case 10:
+            segments.push({ start: bottom, end: left });
+            segments.push({ start: top, end: right });
+            break;
+        }
+      }
+    }
+
+    return segments;
   }
 }

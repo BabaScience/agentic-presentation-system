@@ -697,7 +697,77 @@ export const Graph2DEntity: React.FC<MetadataComponentProps> = ({ x, y, width = 
 
   const points: { x: number; y: number }[] = metadata?.points || [];
   let curvePath = '';
-  if (metadata?.expression && points.length === 0) {
+
+  if (metadata?.parametric) {
+    // Parametric curve: evaluate x(t), y(t)
+    const xExpr = metadata.xExpression || 'Math.cos(t)';
+    const yExpr = metadata.yExpression || 'Math.sin(t)';
+    const tRange = metadata.tRange || [0, 2 * Math.PI];
+    const steps = 200;
+    const dt = (tRange[1] - tRange[0]) / steps;
+    const pathParts: string[] = [];
+    for (let i = 0; i <= steps; i++) {
+      const t = tRange[0] + i * dt;
+      try {
+        const xv = Function('t', 'Math', `return (${xExpr})`)(t, Math);
+        const yv = Function('t', 'Math', `return (${yExpr})`)(t, Math);
+        if (!isFinite(xv) || !isFinite(yv)) continue;
+        const px = mapX(xv);
+        const py = mapY(yv);
+        pathParts.push(`${pathParts.length === 0 ? 'M' : 'L'}${px.toFixed(1)},${py.toFixed(1)}`);
+      } catch { /* skip */ }
+    }
+    curvePath = pathParts.join(' ');
+  } else if (metadata?.implicit) {
+    // Implicit curve F(x,y) = 0 via marching squares
+    const expr = metadata.implicitExpression || '';
+    if (expr) {
+      const res = 60;
+      const dx = (domain[1] - domain[0]) / res;
+      const dy = (range[1] - range[0]) / res;
+      const grid: number[][] = [];
+      for (let j = 0; j <= res; j++) {
+        const row: number[] = [];
+        for (let i = 0; i <= res; i++) {
+          const gx = domain[0] + i * dx;
+          const gy = range[0] + j * dy;
+          try { row.push(Function('x', 'y', 'Math', `return (${expr})`)(gx, gy, Math)); }
+          catch { row.push(NaN); }
+        }
+        grid.push(row);
+      }
+      const segParts: string[] = [];
+      const lerp = (v1: number, v2: number, f1: number, f2: number): number =>
+        Math.abs(f1 - f2) < 1e-12 ? (v1 + v2) / 2 : v1 + (v2 - v1) * (-f1 / (f2 - f1));
+      for (let j = 0; j < res; j++) {
+        for (let i = 0; i < res; i++) {
+          const x0 = domain[0] + i * dx, y0 = range[0] + j * dy;
+          const bl = grid[j][i], br = grid[j][i+1], tr = grid[j+1][i+1], tl = grid[j+1][i];
+          const cc = (bl > 0 ? 1 : 0) | (br > 0 ? 2 : 0) | (tr > 0 ? 4 : 0) | (tl > 0 ? 8 : 0);
+          if (cc === 0 || cc === 15) continue;
+          const b = { x: lerp(x0, x0+dx, bl, br), y: y0 };
+          const r = { x: x0+dx, y: lerp(y0, y0+dy, br, tr) };
+          const tp = { x: lerp(x0, x0+dx, tl, tr), y: y0+dy };
+          const l = { x: x0, y: lerp(y0, y0+dy, bl, tl) };
+          const addSeg = (s: {x:number;y:number}, e: {x:number;y:number}) => {
+            segParts.push(`M${mapX(s.x).toFixed(1)},${mapY(s.y).toFixed(1)}L${mapX(e.x).toFixed(1)},${mapY(e.y).toFixed(1)}`);
+          };
+          switch (cc) {
+            case 1: case 14: addSeg(b, l); break;
+            case 2: case 13: addSeg(r, b); break;
+            case 3: case 12: addSeg(r, l); break;
+            case 4: case 11: addSeg(tp, r); break;
+            case 5: addSeg(b, r); addSeg(tp, l); break;
+            case 6: case 9: addSeg(tp, b); break;
+            case 7: case 8: addSeg(tp, l); break;
+            case 10: addSeg(b, l); addSeg(tp, r); break;
+          }
+        }
+      }
+      curvePath = segParts.join(' ');
+    }
+  } else if (metadata?.expression && points.length === 0) {
+    // Standard explicit function y = f(x)
     const steps = 60;
     const dx = (domain[1] - domain[0]) / steps;
     const pathParts: string[] = [];
@@ -734,7 +804,7 @@ export const Graph2DEntity: React.FC<MetadataComponentProps> = ({ x, y, width = 
         {gridLines}
         <line x1={-width/2 + pad} y1={mapY(0)} x2={width/2 - pad} y2={mapY(0)} stroke="#ffffff30" strokeWidth={1.5} />
         <line x1={mapX(0)} y1={-height/2 + pad} x2={mapX(0)} y2={height/2 - pad} stroke="#ffffff30" strokeWidth={1.5} />
-        {curvePath && <path d={curvePath} fill="none" stroke={color} strokeWidth={2.5} className="graph-line-draw" />}
+        {curvePath && <path d={curvePath} fill="none" stroke={metadata?.parametric ? '#e040fb' : metadata?.implicit ? '#ff9100' : color} strokeWidth={2.5} className="graph-line-draw" />}
         {points.map((p: any, i: number) => (
           <circle key={i} cx={mapX(p.x)} cy={mapY(p.y)} r={4} fill={color} stroke="#0b0d14" strokeWidth={1.5} />
         ))}

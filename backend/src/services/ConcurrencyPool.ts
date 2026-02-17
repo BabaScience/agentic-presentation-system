@@ -55,6 +55,15 @@ export class ConcurrencyPool {
     this.queue = [];
   }
 
+  /**
+   * Reset the pool so it can accept new tasks after a cancelAll().
+   * Active tasks are allowed to finish; only the cancelled flag and queue are reset.
+   */
+  reset(): void {
+    this.cancelled = false;
+    this.queue = [];
+  }
+
   get stats() {
     return {
       activeTotal: this.activeTotal,

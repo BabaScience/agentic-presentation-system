@@ -15,6 +15,7 @@ You must output ONLY valid JSON (no markdown fences, no explanation) conforming 
     {
       "label": "string — short name for KG node (3-5 words)",
       "type": "CONCEPT | DEFINITION | EXAMPLE | ANALOGY | PROCESS | RESOURCE | COUNTERPOINT",
+      "domain": "mathematics | physics | chemistry | biology | computer-science | engineering | general",
       "content": "string — full text content (2-3 sentences)",
       "narration": "string — spoken narration for TTS (conversational, clear, 1-3 sentences)",
       "visualHint": {
@@ -68,7 +69,10 @@ Math & Science (use for math, physics, science topics):
   Equation — LaTeX-rendered formula (metadata.latex: "E=mc^2")
   Expression — inline math fragment (metadata.latex: "x^2")
   Matrix — matrix display (metadata.latex: "\\begin{bmatrix}...")
-  Graph2D — function plot with axes (metadata.expression: "Math.sin(x)", metadata.domain: [-5,5])
+  Graph2D — function plot with axes; supports three modes:
+    Explicit: metadata.expression: "Math.sin(x)", metadata.domain: [-5,5]
+    Parametric: metadata.parametric: true, metadata.xExpression: "Math.cos(t)", metadata.yExpression: "Math.sin(t)", metadata.tRange: [0, 6.283]
+    Implicit: metadata.implicit: true, metadata.implicitExpression: "x*x/4 + y*y/9 - 1", metadata.domain: [-3,3], metadata.range: [-4,4]
   NumberLine — annotated number line (metadata.min, max, ticks, highlights)
   CoordinateSystem — XY grid with points/vectors (metadata.points, vectors)
 
@@ -87,6 +91,18 @@ Data & Structure:
   FlowDiagram — generic flowchart (metadata.steps: [{label, type}])
   VennDiagram — overlapping sets (metadata.sets: [{label, color}], intersection)
   Annotation — callout with leader line (metadata.targetX, targetY)
+
+DOMAIN CLASSIFICATION:
+- Set the "domain" field for EACH conceptual primitive to the most specific academic domain:
+  "mathematics" — equations, proofs, algebra, calculus, geometry, statistics, number theory, linear algebra
+  "physics" — mechanics, thermodynamics, electromagnetism, quantum, relativity, optics, waves
+  "chemistry" — molecules, reactions, bonding, organic/inorganic, thermochemistry
+  "biology" — cells, genetics, evolution, ecology, anatomy, physiology
+  "computer-science" — algorithms, data structures, programming, networks, databases, OS, AI/ML
+  "engineering" — circuits, signals, control systems, materials, structures
+  "general" — history, literature, philosophy, business, art, or anything else
+- Domain classification guides entity selection: math nodes get Equation/Graph2D, physics nodes get Vector/FreeBodyDiagram, etc.
+- If a topic spans multiple domains (e.g., "machine learning"), classify each node by its most relevant domain
 
 CONTENT RULES:
 - Create 5-8 conceptual primitives for depth
@@ -129,12 +145,15 @@ DOMAIN-SPECIFIC STRATEGIES:
 - When teaching wave phenomena: use Wave + Equation (wave equation) + NumberLine (wavelength)
 - When teaching linear algebra: use Matrix + CoordinateSystem + Vector entities
 - When solving equations: use sequential Equation entities showing each step with proof-steps layout
+- When teaching parametric curves (circles, Lissajous, cycloids): use Graph2D with parametric: true + Equation showing x(t), y(t)
+- When teaching conic sections (ellipses, hyperbolas): use Graph2D with implicit: true + Equation showing standard form
 - visualMetaphor makes illustrations more intuitive — always include when possible
 - If you cannot determine appropriate visuals, omit the visualHint field entirely`;
 
 export const CLASSIFIER_SYSTEM_PROMPT = `You are an information classifier for a knowledge graph presentation system.
-Given raw text content, classify each piece of information into exactly one data type:
+Given raw text content, classify each piece of information by data type AND academic domain.
 
+DATA TYPES (exactly one per chunk):
 - CONCEPT: Core idea or abstraction
 - DEFINITION: Formal specification or meaning
 - EXAMPLE: Concrete, specific instance
@@ -143,7 +162,23 @@ Given raw text content, classify each piece of information into exactly one data
 - RESOURCE: External reference (link, paper, doc)
 - COUNTERPOINT: Common misconception or alternative view
 
-Output ONLY a JSON array of classified chunks.`;
+ACADEMIC DOMAINS (exactly one per chunk):
+- mathematics: Equations, proofs, algebra, calculus, geometry, statistics, number theory, linear algebra, topology
+- physics: Mechanics, thermodynamics, electromagnetism, quantum, relativity, optics, waves, fields
+- chemistry: Molecules, reactions, bonding, organic/inorganic, thermochemistry, electrochemistry
+- biology: Cells, genetics, evolution, ecology, anatomy, physiology, microbiology
+- computer-science: Algorithms, data structures, programming, networks, databases, OS, AI/ML, systems
+- engineering: Circuits, signals, control systems, materials, structures, design
+- general: History, literature, philosophy, business, art, or any topic not fitting the above domains
+
+Output ONLY a JSON array of classified chunks:
+[
+  {
+    "text": "string — the chunk of content",
+    "dataType": "CONCEPT | DEFINITION | EXAMPLE | ...",
+    "domain": "mathematics | physics | chemistry | biology | computer-science | engineering | general"
+  }
+]`;
 
 export const INTERRUPT_SYSTEM_PROMPT = `You are a knowledge graph mutation engine for an Active Presentation System.
 The user has interrupted a presentation with a question. You must:

@@ -62,6 +62,7 @@ export interface KGNode {
   id: string;
   label: string;
   type: DataType;
+  domain?: AcademicDomain;
   depth: number;
   content: string;
   narration: string;
@@ -342,9 +343,11 @@ export interface UserPreferences {
 }
 
 // ── Agent Reasoning Output ───────────────────────────────────
+export type AcademicDomain = 'mathematics' | 'physics' | 'chemistry' | 'biology' | 'computer-science' | 'engineering' | 'general';
+
 export interface ReasoningOutput {
   topic: string;
-  conceptualPrimitives: { label: string; type: DataType; content: string; narration: string; visualHint?: VisualHint }[];
+  conceptualPrimitives: { label: string; type: DataType; content: string; narration: string; visualHint?: VisualHint; domain?: AcademicDomain }[];
   relationships: { from: string; to: string; type: EdgeType; label: string }[];
   prerequisiteDependencies: string[];
   complexityGradient: string[];
@@ -702,14 +705,14 @@ export interface ThreeDAnimation {
 // ── Mathematical Visualization ───────────────────────────────────
 export interface MathVisualization {
   id: string;
-  type: 'equation' | 'function' | 'geometric' | 'calculus' | 'linear_algebra';
+  type: 'equation' | 'function' | 'geometric' | 'calculus' | 'linear_algebra' | 'parametric' | 'implicit';
   latex?: string;
   components: MathComponent[];
   interactive?: boolean;
 }
 
 export interface MathComponent {
-  type: 'equation' | 'graph' | 'shape' | 'vector' | 'matrix' | 'integral';
+  type: 'equation' | 'graph' | 'shape' | 'vector' | 'matrix' | 'integral' | 'parametric_curve' | 'implicit_curve';
   data: any;
   position: { x: number; y: number };
   animation?: MathAnimation;

@@ -43,6 +43,7 @@ export class KnowledgeGraphService {
         id: nodeId,
         label: primitive.label,
         type: primitive.type,
+        domain: primitive.domain || 'general',
         depth: index === 0 ? 0 : 1,
         content: primitive.content,
         narration: primitive.narration,

@@ -244,11 +244,18 @@ These entities are purpose-built for teaching math, physics, and science topics.
   - metadata: \`{ latex: "\\\\begin{bmatrix} a & b \\\\\\\\ c & d \\\\end{bmatrix}" }\`
   - Best for: Linear algebra, transformations, systems of equations
 
-- **Graph2D**: 2D coordinate system with function curves
+- **Graph2D**: 2D coordinate system with function curves, parametric curves, or implicit curves
   - Size: 300x280px
-  - metadata: \`{ expression: "Math.sin(x)", domain: [-5, 5], range: [-2, 2], points: [{x:1, y:1}], showGrid: true }\`
-  - Best for: Function plots, data visualization, slope/tangent demonstrations
-  - The expression is evaluated as JavaScript (use Math.sin, Math.cos, Math.pow, etc.)
+  - **Explicit function** (y = f(x)):
+    metadata: \`{ expression: "Math.sin(x)", domain: [-5, 5], range: [-2, 2], points: [{x:1, y:1}], showGrid: true }\`
+  - **Parametric curve** (x(t), y(t)):
+    metadata: \`{ parametric: true, xExpression: "Math.cos(t)", yExpression: "Math.sin(t)", tRange: [0, 6.283], domain: [-2, 2], range: [-2, 2], showGrid: true }\`
+    Use for: circles, ellipses, Lissajous figures, cycloids, spirals, epicycloids
+  - **Implicit curve** (F(x,y) = 0):
+    metadata: \`{ implicit: true, implicitExpression: "x*x/4 + y*y/9 - 1", domain: [-3, 3], range: [-4, 4], showGrid: true }\`
+    Use for: conic sections (ellipses, hyperbolas, parabolas), level curves, algebraic curves
+  - Best for: Function plots, data visualization, slope/tangent demonstrations, parametric geometry, conic sections
+  - Expressions are evaluated as JavaScript (use Math.sin, Math.cos, Math.pow, Math.PI, etc.)
 
 - **NumberLine**: Annotated number line
   - Size: 320x60px
@@ -346,12 +353,22 @@ When teaching math/science topics, combine entities for maximum clarity:
 - **Wave behavior**: Wave (visualization) + Equation (wave equation) + NumberLine (wavelength)
   - Layout: \`flow-tb\` — wave on top, equation middle, number line bottom
 
+- **Parametric curves**: Graph2D (parametric: true, xExpression/yExpression) + Equation (parametric equations)
+  - Layout: \`coordinate\` — graph centered, equation on top or side
+  - Example: circle x=cos(t), y=sin(t); Lissajous x=sin(2t), y=sin(3t); cycloid x=t-sin(t), y=1-cos(t)
+
+- **Conic sections / implicit curves**: Graph2D (implicit: true, implicitExpression) + Equation (standard form)
+  - Layout: \`coordinate\` — graph centered, equation as annotation
+  - Example: ellipse x^2/a^2 + y^2/b^2 - 1 = 0; hyperbola x^2/a^2 - y^2/b^2 - 1 = 0
+
 ### Math/Science Semantic Triggers
 
 Map these narration keywords to entity types:
 
 - "equation", "formula", "solve", "equals", "simplify" → **Equation**
-- "graph", "plot", "curve", "function f(x)" → **Graph2D**
+- "graph", "plot", "curve", "function f(x)" → **Graph2D** (explicit)
+- "parametric", "Lissajous", "cycloid", "spiral", "epicycloid" → **Graph2D** with \`parametric: true\`
+- "ellipse", "hyperbola", "parabola", "conic", "implicit", "level curve" → **Graph2D** with \`implicit: true\`
 - "vector", "force", "direction", "magnitude" → **Vector** or **FreeBodyDiagram**
 - "wave", "frequency", "amplitude", "oscillation" → **Wave**
 - "matrix", "determinant", "eigenvalue", "transform" → **Matrix**

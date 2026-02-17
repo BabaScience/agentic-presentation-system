@@ -20,6 +20,7 @@ import {
   type VisualEntityType,
   type WordTimestamp,
   type VisualHint,
+  type AcademicDomain,
   DataType,
   FRAME_DURATION_MIN_MS,
   INTER_ENTITY_STAGGER_MIN_MS,
@@ -88,10 +89,11 @@ export class VisualScriptGenerator {
     wordTimestamps: WordTimestamp[],
     durationMs: number,
     visualHint?: VisualHint,
+    domain?: AcademicDomain,
   ): Promise<VisualScript> {
 
     // Use Claude to analyze narration and generate visual segments
-    const segments = await this.analyzeNarration(narration, dataType, wordTimestamps, durationMs, visualHint);
+    const segments = await this.analyzeNarration(narration, dataType, wordTimestamps, durationMs, visualHint, domain);
 
     // Convert segments to frames
     const frames = this.segmentsToFrames(segments, durationMs);
@@ -189,6 +191,22 @@ export class VisualScriptGenerator {
             entityType = 'CoordinateSystem';
             metadata.points = component.data?.points || [];
             break;
+          case 'parametric_curve':
+            entityType = 'Graph2D';
+            metadata.parametric = true;
+            metadata.xExpression = component.data?.xExpression || 'cos(t)';
+            metadata.yExpression = component.data?.yExpression || 'sin(t)';
+            metadata.tRange = component.data?.tRange || [0, 2 * Math.PI];
+            metadata.showGrid = true;
+            break;
+          case 'implicit_curve':
+            entityType = 'Graph2D';
+            metadata.implicit = true;
+            metadata.implicitExpression = component.data?.expression || '';
+            metadata.domain = component.data?.xRange || [-5, 5];
+            metadata.range = component.data?.yRange || [-5, 5];
+            metadata.showGrid = true;
+            break;
           default:
             metadata.latex = mathViz.latex || '';
         }
@@ -282,6 +300,7 @@ export class VisualScriptGenerator {
     wordTimestamps: WordTimestamp[],
     durationMs: number,
     visualHint?: VisualHint,
+    domain?: AcademicDomain,
   ): Promise<VisualSegment[]> {
 
     const environmentGuide = getEnvironmentGuideForPrompt();
@@ -301,13 +320,22 @@ IMPORTANT: Use the agent's suggested entities as your starting point. Map them t
 ${layoutInstructions}
 ` : '';
 
+    const domainHint = domain && domain !== 'general' ? `
+**Academic Domain**: ${domain}
+  - For mathematics: prefer Equation, Graph2D, NumberLine, Matrix, Expression, CoordinateSystem entities
+  - For physics: prefer FreeBodyDiagram, Vector, Wave, Field, Particle, Circuit entities
+  - For chemistry/biology: prefer Entity, Cycle, FlowDiagram, Annotation entities
+  - For computer-science: prefer Server, Database, Process, FlowDiagram, Table, CodeBlock entities
+  - For engineering: prefer Circuit, Vector, Graph2D, Table, FlowDiagram entities
+` : '';
+
     const prompt = `${environmentGuide}
 
 ## YOUR TASK: Generate Visual Script for Narration
 
 You are generating a frame-by-frame visual script for the following narration.
 Use the complete presentation environment guide above to make intelligent decisions.
-${visualHintSection}
+${visualHintSection}${domainHint}
 **Narration**: "${narration}"
 **Data Type**: ${dataType}
 **Duration**: ${durationMs}ms (${Math.round(durationMs / 1000)}s)

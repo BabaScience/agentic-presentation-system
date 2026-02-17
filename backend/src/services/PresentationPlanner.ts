@@ -172,6 +172,7 @@ export class PresentationPlanner {
           estimatedTimestamps,
           Math.max(durationMs, 4000),
           focusNode.visualHint,
+          focusNode.domain,
         );
       } catch (error) {
         console.error('[PresentationPlanner] Visual script generation failed:', error);

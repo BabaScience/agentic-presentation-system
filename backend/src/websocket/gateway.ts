@@ -191,6 +191,8 @@ export class WebSocketGateway {
     this.transition(session, SessionState.PRESENTING);
 
     // Phase 5: Fire off concurrent scene preparation
+    // Reset pool in case a previous session cancelled it
+    this.pool.reset();
     const pipeline = new ScenePipelineOrchestrator(
       this.planner,
       this.voice,
@@ -737,12 +739,17 @@ export class WebSocketGateway {
   }
 
   private delay(ms: number, signal?: AbortSignal): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const timeout = setTimeout(resolve, ms);
-      signal?.addEventListener('abort', () => {
+    return new Promise((resolve) => {
+      if (signal?.aborted) { resolve(); return; }
+      const timeout = setTimeout(() => {
+        signal?.removeEventListener('abort', onAbort);
+        resolve();
+      }, ms);
+      const onAbort = () => {
         clearTimeout(timeout);
-        resolve(); // Resolve instead of reject for clean abort
-      });
+        resolve();
+      };
+      signal?.addEventListener('abort', onAbort, { once: true });
     });
   }
 }

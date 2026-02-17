@@ -99,6 +99,7 @@ export class ScenePipelineOrchestrator {
         estimatedTimestamps,
         scene.durationEstimate,
         focusNode.visualHint,
+        focusNode.domain,
       ),
     ).catch((err) => {
       console.error(`[Pipeline] Visual script failed for scene ${index}:`, err.message);
