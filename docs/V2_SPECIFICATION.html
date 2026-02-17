@@ -509,7 +509,7 @@
      HERO
      ═══════════════════════════════════════════════════ -->
 <div class="hero">
-  <div class="hero-version">Version 2.0 — Technical Specification</div>
+  <div class="hero-version">Version 2.0 — Technical Specification (Updated Feb 2026)</div>
   <h1>The <em>Active Presenter</em><br>with Personalized Cognitive Scaffolding</h1>
   <p class="hero-sub">
     An AI agent that constructs live knowledge graphs from classified response data,
@@ -519,7 +519,7 @@
   </p>
   <div class="hero-paradigm">
     <span class="paradigm-old">Passive Responder (text dump)</span>
-    <span class="paradigm-arrow">→</span>
+    <span class="paradigm-arrow">&rarr;</span>
     <span class="paradigm-new">Active Presenter (knowledge graph + voice)</span>
   </div>
 </div>
@@ -541,7 +541,7 @@
     <a href="#state-machine" class="toc-item"><span class="toc-num">09</span> Session State Machine</a>
     <a href="#data-schemas" class="toc-item"><span class="toc-num">10</span> Data Schemas</a>
     <a href="#api-surface" class="toc-item"><span class="toc-num">11</span> API Surface</a>
-    <a href="#deployment" class="toc-item"><span class="toc-num">12</span> Deployment & Stack</a>
+    <a href="#deployment" class="toc-item"><span class="toc-num">12</span> Deployment &amp; Stack</a>
   </div>
 </div>
 
@@ -567,36 +567,31 @@
 graph LR
     subgraph V1["V1 — Passive Responder"]
         direction LR
-        Q1["🗣️ User Question"] --> LLM1["🧠 LLM"] --> TEXT["📄 Text Wall"]
-        TEXT --> USER1["👤 User Reads<br/>(unaided)"]
+        Q1["User Question"] --> LLM1["LLM"] --> TEXT["Text Wall"]
+        TEXT --> USER1["User Reads"]
     end
 
     subgraph V2["V2 — Active Presenter"]
         direction LR
-        Q2["🗣️ Voice Question"] --> AGENT["🧠 Agent<br/>Reasoning"]
-        AGENT --> CLASSIFY["📊 Fetch &<br/>Classify"]
-        CLASSIFY --> KG["🕸️ Knowledge<br/>Graph"]
-        KG --> PRESENT["🎬 Live<br/>Presentation"]
-        PRESENT --> VOICE_OUT["🔊 Voice<br/>Narration"]
-        VOICE_OUT --> LISTEN["👂 Listens for<br/>Interrupts"]
+        Q2["Voice Question"] --> AGENT["Agent Reasoning"]
+        AGENT --> KG_BUILD["Knowledge Graph"]
+        KG_BUILD --> PRESENT["Live Presentation"]
+        PRESENT --> VOICE_OUT["Voice Narration"]
+        VOICE_OUT --> LISTEN["Listens for Interrupts"]
         LISTEN -->|"Question"| AGENT
-        UP["⚙️ User Prefs"] --> CLASSIFY
-        RL["🎯 RL Engine"] --> CLASSIFY
+        RL["RL Engine"] --> AGENT
     end
-
-    style V1 fill:#1a0a0a,stroke:#ff2d7b,stroke-width:2px,color:#e8eaed
-    style V2 fill:#0a1a1a,stroke:#00e5ff,stroke-width:2px,color:#e8eaed
     </div>
   </div>
 
   <div class="card-grid">
     <div class="card">
-      <div class="card-icon">📄</div>
+      <div class="card-icon">&#x1F4C4;</div>
       <h4>V1: Passive Responder</h4>
       <p>Generates monolithic text. User must self-navigate. No adaptation. No visual aids. No interruptibility. Knowledge vanishes after scrolling.</p>
     </div>
     <div class="card">
-      <div class="card-icon">🎬</div>
+      <div class="card-icon">&#x1F3AC;</div>
       <h4>V2: Active Presenter</h4>
       <p>Constructs a knowledge graph, presents visually with voice narration, handles interruptions, adapts to how the user learns, and resumes seamlessly.</p>
     </div>
@@ -605,6 +600,11 @@ graph LR
   <div class="callout callout-cyan">
     <strong>CORE PRINCIPLE</strong>
     <p>The Agent is not answering a question — it is <strong>teaching a concept</strong>. Every response is a structured lesson derived from a live knowledge graph, delivered through voice and visuals, adapted in real-time to the learner's comprehension patterns.</p>
+  </div>
+
+  <div class="callout callout-amber">
+    <strong>CURRENT VISUAL SCOPE</strong>
+    <p>The system currently has 30+ SVG entity types optimized for <strong>IT/CS infrastructure topics</strong> (servers, databases, pods, containers, networks). The visual vocabulary is actively being expanded to support <strong>math, physics, and general education</strong> — see the <a href="ROADMAP.html" style="color: var(--amber);">Ship Roadmap</a> for planned entity types including equations, coordinate systems, and physics diagrams.</p>
   </div>
 </section>
 
@@ -616,98 +616,81 @@ graph LR
     <div class="section-tag">Section 02</div>
     <h2>Macroscopic System Architecture</h2>
     <p class="section-desc">
-      The system decomposes into six principal subsystems communicating through event-driven
-      message passing and shared state via a centralized Knowledge Graph store.
+      The system is composed of a React frontend communicating over WebSocket with a monolithic
+      Node.js backend that orchestrates all services — reasoning, knowledge graph construction,
+      voice I/O, presentation planning, and reinforcement learning — in a single process.
     </p>
   </div>
 
   <div class="diagram">
-    <div class="diagram-label">Fig 2.1 — Complete System Topology</div>
+    <div class="diagram-label">Fig 2.1 — System Topology (Current Implementation)</div>
     <div class="mermaid">
 graph TB
-    subgraph CLIENT["🖥️ Client Layer"]
+    subgraph CLIENT["Browser — React SPA"]
         direction TB
-        MIC["🎤 Microphone<br/>WebRTC VAD"]
-        SPEAKER["🔊 Speaker<br/>Audio Output"]
-        CANVAS["🎨 Presentation<br/>Canvas (SVG)"]
-        GRAPH_VIS["🕸️ Knowledge Graph<br/>Visualizer"]
-        UI["📱 Control UI<br/>Timeline + Sidebar"]
+        MIC["MediaRecorder API"]
+        SPEAKER["AudioPlaybackManager"]
+        SFX["SoundEffectEngine"]
+        CANVAS["IllustrationCanvas + FrameRenderer"]
+        SVG["SVGLibrary — 30+ Components"]
+        SUBTITLE["SubtitleDisplay"]
+        STORE["Zustand SessionStore"]
     end
 
-    subgraph GATEWAY["🔀 WebSocket Gateway"]
-        WS["Bidirectional<br/>WebSocket Server"]
-        STREAM["Audio Stream<br/>Multiplexer"]
+    subgraph GATEWAY["Express + ws Server :4000"]
+        WS["WebSocket Gateway"]
+        REST["REST API — /api/sessions, /api/users"]
+        HEALTH["/health endpoint"]
     end
 
-    subgraph VOICE["🗣️ Voice Pipeline"]
-        STT["Speech-to-Text<br/>(Whisper / Deepgram)"]
-        TTS["Text-to-Speech<br/>(ElevenLabs / OpenAI)"]
-        VAD_SRV["Voice Activity<br/>Detection (server)"]
-        INTERRUPT_DET["Interrupt<br/>Detector"]
+    subgraph SERVICES["Backend Services — Single Process"]
+        REASONER["AgentService — Claude Sonnet 4.5"]
+        KG_SVC["KnowledgeGraphService — In-Memory"]
+        VOICE["VoiceService — Deepgram STT + ElevenLabs TTS"]
+        PLANNER["PresentationPlanner"]
+        VSG["VisualScriptGenerator"]
+        INTERRUPT["InterruptHandler"]
+        RL_SVC["RLService — Thompson Sampling"]
+        PIPELINE["ScenePipelineOrchestrator"]
+        POOL["ConcurrencyPool"]
     end
 
-    subgraph AGENT_CORE["🧠 Agent Core"]
-        REASONER["Reasoning Engine<br/>(Claude Opus)"]
-        CLASSIFIER["Information<br/>Classifier"]
-        FETCHER["Resource Fetcher<br/>& Chunker"]
-        PLANNER["Presentation<br/>Planner"]
+    subgraph DATA["Data Layer"]
+        REDIS["Redis — Session Cache"]
     end
 
-    subgraph KG_ENGINE["🕸️ Knowledge Graph Engine"]
-        KG_STORE["Graph Store<br/>(Neo4j / In-Memory)"]
-        KG_BUILDER["Async Graph<br/>Builder"]
-        KG_TRAVERSER["Graph Traverser<br/>& Path Planner"]
-        KG_MUTATOR["Live Graph<br/>Mutator"]
+    subgraph EXTERNAL["External APIs"]
+        CLAUDE["Anthropic API — Claude Sonnet 4.5"]
+        ELEVEN["ElevenLabs — TTS"]
+        DEEPGRAM["Deepgram — STT"]
     end
 
-    subgraph RL_SYSTEM["🎯 RL Scaffolding Engine"]
-        RL_AGENT["RL Policy Agent"]
-        STATE_ENCODER["Learner State<br/>Encoder"]
-        REWARD_MODEL["Reward Model<br/>(comprehension signals)"]
-        PREF_STORE["User Preference<br/>& History Store"]
-    end
+    MIC -->|"binary audio blob"| WS
+    WS -->|"binary TTS audio"| SPEAKER
+    WS -->|"visual commands"| STORE
+    STORE --> CANVAS
+    CANVAS --> SVG
+    SPEAKER --> SUBTITLE
 
-    MIC -->|"audio chunks"| WS
-    WS --> STT
-    STT --> VAD_SRV
-    VAD_SRV --> INTERRUPT_DET
-    STT -->|"transcript"| REASONER
-
-    REASONER --> CLASSIFIER
-    CLASSIFIER --> FETCHER
-    FETCHER -->|"classified chunks"| KG_BUILDER
-    CLASSIFIER -->|"data types"| KG_BUILDER
-    KG_BUILDER --> KG_STORE
-    KG_TRAVERSER --> KG_STORE
-
-    PLANNER --> KG_TRAVERSER
+    WS --> REASONER
+    REASONER --> KG_SVC
     REASONER --> PLANNER
+    PLANNER --> PIPELINE
+    PIPELINE --> VSG
+    PIPELINE --> VOICE
+    PIPELINE --> POOL
+    INTERRUPT --> REASONER
 
-    PLANNER -->|"scene sequence"| TTS
-    PLANNER -->|"visual commands"| WS
-    TTS -->|"audio stream"| STREAM
-    STREAM --> SPEAKER
-    WS -->|"render commands"| CANVAS
-    WS -->|"graph updates"| GRAPH_VIS
-
-    INTERRUPT_DET -->|"interrupt signal"| PLANNER
-    INTERRUPT_DET -->|"user question"| REASONER
-    KG_MUTATOR --> KG_STORE
-    REASONER -->|"new connections"| KG_MUTATOR
-
-    RL_AGENT --> PLANNER
-    STATE_ENCODER --> RL_AGENT
-    REWARD_MODEL --> RL_AGENT
-    PREF_STORE --> STATE_ENCODER
-    PREF_STORE --> CLASSIFIER
-
-    style CLIENT fill:#0d1117,stroke:#00e5ff,stroke-width:2px,color:#e8eaed
-    style GATEWAY fill:#0d1117,stroke:#9aa0a6,stroke-width:1px,color:#e8eaed
-    style VOICE fill:#0d1117,stroke:#ffab00,stroke-width:2px,color:#e8eaed
-    style AGENT_CORE fill:#0d1117,stroke:#ff2d7b,stroke-width:2px,color:#e8eaed
-    style KG_ENGINE fill:#0d1117,stroke:#b388ff,stroke-width:2px,color:#e8eaed
-    style RL_SYSTEM fill:#0d1117,stroke:#00e676,stroke-width:2px,color:#e8eaed
+    KG_SVC --> REDIS
+    REASONER --> CLAUDE
+    VOICE --> ELEVEN
+    VOICE --> DEEPGRAM
     </div>
+  </div>
+
+  <div class="callout callout-amber">
+    <strong>PLANNED — FUTURE ARCHITECTURE</strong>
+    <p>The current monolithic backend is designed for extraction into microservices when scale demands it. Planned additions include: <strong>Neo4j</strong> for persistent knowledge graph storage, <strong>PostgreSQL</strong> for user profiles and session history, and <strong>Silero VAD</strong> for client-side voice activity detection. See the <a href="ROADMAP.html" style="color: var(--amber);">Ship Roadmap</a> Phase 3b and Phase 4.</p>
   </div>
 </section>
 
@@ -719,52 +702,43 @@ graph TB
     <div class="section-tag">Section 03</div>
     <h2>Agent Internal Reasoning <em>Pipeline</em></h2>
     <p class="section-desc">
-      When the user asks a question, the Agent doesn't simply generate text. It orchestrates a
-      multi-phase pipeline that reasons, classifies, fetches, builds a knowledge graph, plans
-      a presentation path, and begins narrating — all while asynchronously expanding the graph
-      for potential follow-up questions.
+      When the user asks a question, the Agent orchestrates a multi-phase pipeline:
+      it reasons about the topic, builds a classified knowledge graph, plans a scene sequence,
+      generates visual scripts and TTS audio concurrently, and streams the presentation
+      to the frontend — all while asynchronously expanding the graph for potential follow-ups.
     </p>
   </div>
 
   <div class="diagram">
-    <div class="diagram-label">Fig 3.1 — Agent Internal Pipeline (Sequential + Async Phases)</div>
+    <div class="diagram-label">Fig 3.1 — Agent Internal Pipeline (Sequential + Concurrent Phases)</div>
     <div class="mermaid">
 sequenceDiagram
     participant User
-    participant STT as Speech-to-Text
-    participant Reasoner as Reasoning Engine
-    participant Classifier as Information Classifier
-    participant Fetcher as Resource Fetcher
-    participant KGBuilder as KG Builder (Async)
-    participant KGStore as Knowledge Graph
-    participant RLAgent as RL Policy Agent
-    participant Planner as Presentation Planner
-    participant TTS as Text-to-Speech
+    participant STT as Deepgram STT
+    participant Agent as AgentService — Claude Sonnet 4.5
+    participant KGBuilder as KnowledgeGraphService
+    participant KGStore as In-Memory Graph
+    participant RLAgent as RLService
+    participant Planner as PresentationPlanner
+    participant Pipeline as ScenePipelineOrchestrator
+    participant VSG as VisualScriptGenerator
+    participant TTS as ElevenLabs TTS
     participant Canvas as Visual Canvas
 
     User->>STT: "Explain Kubernetes networking"
-    STT->>Reasoner: transcript text
+    STT->>Agent: transcript text
 
     rect rgb(26, 10, 30)
-        Note over Reasoner: Phase 1 — Internal Reasoning
-        Reasoner->>Reasoner: Decompose topic into<br/>conceptual primitives
-        Reasoner->>Reasoner: Identify prerequisite knowledge
-        Reasoner->>Reasoner: Plan complexity gradient
+        Note over Agent: Phase 1 — Reasoning + Classification
+        Agent->>Agent: Decompose topic into conceptual<br/>primitives with data types
+        Agent->>Agent: Classify as CONCEPT, DEFINITION,<br/>EXAMPLE, ANALOGY, PROCESS, etc.
+        Agent->>Agent: Generate relationships and<br/>complexity gradient
     end
 
-    Reasoner->>Classifier: Structured reasoning output
-
-    rect rgb(10, 26, 30)
-        Note over Classifier: Phase 2 — Classification
-        Classifier->>Classifier: Classify into data types:<br/>CONCEPT | RELATIONSHIP | EXAMPLE<br/>ANALOGY | DEFINITION | PROCESS<br/>RESOURCE | COUNTERPOINT
-        Classifier->>Fetcher: Resource requests (links, chunks)
-        Fetcher-->>Classifier: Fetched & chunked resources
-    end
-
-    Classifier->>KGBuilder: Classified data nodes + edges
+    Agent->>KGBuilder: Classified nodes + edges (JSON)
 
     rect rgb(20, 10, 40)
-        Note over KGBuilder,KGStore: Phase 3 — Knowledge Graph Construction
+        Note over KGBuilder,KGStore: Phase 2 — Knowledge Graph Construction
         KGBuilder->>KGStore: Build core graph (depth 0-1)
         KGBuilder-->>KGStore: Async: expand depth 2+ (background)
     end
@@ -773,17 +747,25 @@ sequenceDiagram
     RLAgent->>Planner: Optimal traversal policy
 
     rect rgb(10, 30, 20)
-        Note over Planner: Phase 4 — Presentation Planning
+        Note over Planner: Phase 3 — Presentation Planning
         Planner->>Planner: Select traversal path through graph
-        Planner->>Planner: Map nodes → visual scenes
-        Planner->>Planner: Generate narration per scene
+        Planner->>Planner: Map nodes to scenes (1 node per scene)
+    end
+
+    rect rgb(10, 20, 30)
+        Note over Pipeline,TTS: Phase 4 — Concurrent Scene Preparation
+        Pipeline->>VSG: Generate visual script (entities + frames)
+        Pipeline->>TTS: Generate narration audio + timestamps
+        VSG-->>Pipeline: VisualScript with frames[]
+        TTS-->>Pipeline: Audio buffer + WordTimestamp[]
+        Pipeline->>Pipeline: Rescale visual script to match<br/>actual audio duration
     end
 
     par Presentation begins (streaming)
-        Planner->>TTS: Scene 1 narration text
-        TTS-->>User: 🔊 Voice narration
-        Planner->>Canvas: Scene 1 visual elements
-        Canvas-->>User: 🎨 Visual presentation
+        Pipeline->>TTS: Scene audio stream
+        TTS-->>User: Voice narration
+        Pipeline->>Canvas: Scene visual script + commands
+        Canvas-->>User: Animated SVG presentation
     and Async Graph Expansion
         KGBuilder->>KGStore: Continue building depth 2-3 nodes
         Note over KGBuilder: Bounded expansion:<br/>max 50 nodes, prioritized<br/>by RL relevance scores
@@ -791,21 +773,40 @@ sequenceDiagram
     </div>
   </div>
 
-  <h3>Phase 1 — <span class="accent">Internal Reasoning</span></h3>
+  <h3>Phase 1 — <span class="accent">Reasoning + Classification (Combined)</span></h3>
   <p>
-    The Reasoning Engine (Claude Opus) performs <strong>conceptual decomposition</strong> of the user's query.
-    Rather than generating a flat text response, it produces a structured reasoning artifact containing:
-    conceptual primitives (atomic knowledge units), prerequisite dependencies (what must be understood first),
-    a complexity gradient (ordering from simple to complex), and anticipated follow-up vectors
-    (questions the user is likely to ask next).
+    The Agent uses <strong>Claude Sonnet 4.5</strong> (<code>claude-sonnet-4-5-20250929</code>) to perform
+    conceptual decomposition <em>and</em> classification in a single reasoning call. Rather than separate
+    Reasoner and Classifier services, the system prompt instructs Claude to output a structured JSON artifact
+    containing: conceptual primitives with their <code>DataType</code>, relationships with their <code>EdgeType</code>,
+    prerequisite dependencies, complexity gradient, and visual hints for each node.
   </p>
 
-  <h3>Phase 2 — <span class="accent">Information Classification</span></h3>
+  <h3>Phase 2 — <span class="accent">Knowledge Graph Construction</span></h3>
   <p>
-    The Classifier takes the reasoning output and categorizes every piece of information into
-    a discrete <strong>epistemic type</strong>. This classification is critical because different
-    data types demand different visual representations, different narration styles, and different
-    positions within the knowledge graph.
+    The <code>KnowledgeGraphService</code> builds the graph in <strong>concentric depth layers</strong>
+    using in-memory JavaScript objects (<code>Record&lt;string, KGNode&gt;</code>).
+    Depth 0 (root topic) and Depth 1 (immediate sub-concepts) are built synchronously before
+    the presentation begins. Deeper layers (depth 2+) are expanded asynchronously in the background
+    with RL-prioritized node selection.
+  </p>
+
+  <h3>Phase 3 — <span class="accent">Presentation Planning</span></h3>
+  <p>
+    The <code>PresentationPlanner</code> receives the knowledge graph and the RL agent's recommended traversal
+    policy, then generates a <strong>scene sequence</strong> — an ordered list of scenes, each focusing on
+    <strong>1 node</strong> with its connecting edges. The planner enforces single-node-per-scene granularity
+    for fluid presentation pacing.
+  </p>
+
+  <h3>Phase 4 — <span class="accent">Concurrent Scene Preparation</span></h3>
+  <p>
+    The <code>ScenePipelineOrchestrator</code> prepares scenes concurrently via a <code>ConcurrencyPool</code>.
+    For each scene, two tasks run in parallel: the <code>VisualScriptGenerator</code> asks Claude to produce
+    a frame-based visual script (entity types, positions, animations), and the <code>VoiceService</code>
+    generates TTS audio with word-level timestamps from ElevenLabs. Once both complete, the visual script's
+    timing is rescaled to match the actual audio duration. Scenes stream to the frontend as they become ready —
+    no blocking on full preparation.
   </p>
 
   <table>
@@ -814,86 +815,51 @@ sequenceDiagram
         <th>Data Type</th>
         <th>Description</th>
         <th>Visual Representation</th>
-        <th>KG Node Color</th>
       </tr>
     </thead>
     <tbody>
       <tr>
         <td><span class="badge badge-cyan">CONCEPT</span></td>
         <td>Core idea or abstraction (e.g., "Pod", "Service")</td>
-        <td>Filled rectangle with icon</td>
-        <td>Cyan (#00e5ff)</td>
+        <td>Central entity with connections</td>
       </tr>
       <tr>
         <td><span class="badge badge-magenta">RELATIONSHIP</span></td>
         <td>How concepts connect (e.g., "routes traffic to")</td>
-        <td>Labeled directed edge</td>
-        <td>Edge: Magenta (#ff2d7b)</td>
+        <td>Labeled Arrow or DataFlow entity</td>
       </tr>
       <tr>
         <td><span class="badge badge-emerald">EXAMPLE</span></td>
         <td>Concrete instance (e.g., "nginx pod on 10.244.1.5")</td>
-        <td>Dashed-border card with code</td>
-        <td>Emerald (#00e676)</td>
+        <td>Entity with code/label details</td>
       </tr>
       <tr>
         <td><span class="badge badge-amber">ANALOGY</span></td>
         <td>Familiar comparison (e.g., "Service is like a phone book")</td>
-        <td>Split-panel comparison</td>
-        <td>Amber (#ffab00)</td>
+        <td>Comparison entity (side-by-side)</td>
       </tr>
       <tr>
         <td><span class="badge badge-violet">DEFINITION</span></td>
         <td>Formal specification (e.g., "ClusterIP: virtual IP")</td>
-        <td>Highlighted text block</td>
-        <td>Violet (#b388ff)</td>
+        <td>Label or Quote entity</td>
       </tr>
       <tr>
         <td><span class="badge badge-cyan">PROCESS</span></td>
-        <td>Sequential steps (e.g., "DNS → iptables → Pod")</td>
-        <td>Animated flow sequence</td>
-        <td>Cyan gradient</td>
+        <td>Sequential steps (e.g., "DNS &rarr; iptables &rarr; Pod")</td>
+        <td>Animated flow with Arrows</td>
       </tr>
       <tr>
         <td><span class="badge badge-emerald">RESOURCE</span></td>
         <td>External reference (link, doc, paper)</td>
-        <td>Citation card with link</td>
-        <td>Emerald dim</td>
+        <td>Badge or Label entity</td>
       </tr>
       <tr>
         <td><span class="badge badge-magenta">COUNTERPOINT</span></td>
         <td>Common misconception or alternative view</td>
-        <td>Warning-styled callout</td>
-        <td>Magenta dim</td>
+        <td>Highlighted entity with warning styling</td>
       </tr>
     </tbody>
   </table>
-
-  <h3>Phase 3 — <span class="accent">Asynchronous Graph Construction</span></h3>
-  <p>
-    The Knowledge Graph Builder constructs the graph in <strong>concentric depth layers</strong>.
-    Depth 0 (the root topic) and Depth 1 (immediate sub-concepts) are built synchronously before
-    the presentation begins. Deeper layers (depth 2+) are expanded asynchronously in the background
-    while the agent is already presenting. This ensures the presentation starts immediately
-    while anticipating potential deep-dives.
-  </p>
-
-  <div class="callout callout-magenta">
-    <strong>OVERFLOW PREVENTION — BOUNDED ASYNCHRONOUS EXPANSION</strong>
-    <p>The async graph builder is constrained by three hard limits: <strong>max 50 nodes</strong> total per session,
-    <strong>max depth 4</strong> from root, and <strong>RL-prioritized expansion</strong> (only expand nodes the RL agent
-    predicts the user is likely to explore). This prevents combinatorial explosion of nested scenarios
-    while maintaining sufficient anticipatory depth for natural interruptions.</p>
-  </div>
-
-  <h3>Phase 4 — <span class="accent">Presentation Planning</span></h3>
-  <p>
-    The Presentation Planner receives the knowledge graph and the RL agent's recommended traversal
-    policy, then generates a <strong>scene sequence</strong> — an ordered list of visual+narration pairs
-    that walk the user through the graph. Each scene focuses on 1-3 nodes and their connecting edges.
-    The planner also pre-computes <strong>branch entry points</strong> — moments where the user might
-    naturally want to go deeper.
-  </p>
 </section>
 
 <!-- ═══════════════════════════════════════════════════
@@ -904,15 +870,15 @@ sequenceDiagram
     <div class="section-tag">Section 04</div>
     <h2>Knowledge Graph <em>Engine</em></h2>
     <p class="section-desc">
-      The knowledge graph is the central nervous system of V2. Every piece of classified information
+      The knowledge graph is the central nervous system. Every piece of classified information
       becomes a typed node. Every relationship becomes a directed, labeled edge. The graph is
-      live, mutable, and traversable — not a static data structure but an evolving
-      representation of the teaching session.
+      live, mutable, and traversable — stored in-memory as plain JavaScript objects for
+      the current implementation.
     </p>
   </div>
 
   <div class="diagram">
-    <div class="diagram-label">Fig 4.1 — Knowledge Graph Node & Edge Schema</div>
+    <div class="diagram-label">Fig 4.1 — Knowledge Graph Node &amp; Edge Schema</div>
     <div class="mermaid">
 classDiagram
     class KGNode {
@@ -926,7 +892,9 @@ classDiagram
         +number rlRelevanceScore
         +boolean isExpanded
         +boolean isPresented
-        +timestamp createdAt
+        +string parentId
+        +string visualHint
+        +number createdAt
     }
 
     class KGEdge {
@@ -939,33 +907,23 @@ classDiagram
         +boolean isPresented
     }
 
-    class VisualSpec {
-        +ElementType elementType
-        +number x
-        +number y
-        +number width
-        +number height
-        +Style style
-        +Animation animation
-    }
-
     class KnowledgeGraph {
         +string sessionId
         +string rootNodeId
-        +Map~string,KGNode~ nodes
-        +Map~string,KGEdge~ edges
+        +Record nodes
+        +Record edges
         +number maxDepth
-        +number nodeCount
+        +number nodeLimit
         +addNode(KGNode)
         +addEdge(KGEdge)
         +getNeighbors(nodeId)
         +getSubgraph(nodeId, depth)
         +getTraversalPath(policy)
-        +mutate(mutation)
+        +applyMutation(mutation)
     }
 
     class DataType {
-        <<enumeration>>
+        &lt;&lt;enumeration&gt;&gt;
         CONCEPT
         RELATIONSHIP
         EXAMPLE
@@ -977,7 +935,7 @@ classDiagram
     }
 
     class EdgeType {
-        <<enumeration>>
+        &lt;&lt;enumeration&gt;&gt;
         REQUIRES
         CONTAINS
         RELATES_TO
@@ -990,7 +948,6 @@ classDiagram
     KnowledgeGraph --> KGNode
     KnowledgeGraph --> KGEdge
     KGNode --> DataType
-    KGNode --> VisualSpec
     KGEdge --> EdgeType
     </div>
   </div>
@@ -999,22 +956,19 @@ classDiagram
     <div class="diagram-label">Fig 4.2 — Example Knowledge Graph: "Kubernetes Networking"</div>
     <div class="mermaid">
 graph TD
-    ROOT["🕸️ Kubernetes<br/>Networking<br/><i>CONCEPT · depth 0</i>"]
+    ROOT["Kubernetes Networking — CONCEPT depth 0"]
 
-    POD["📦 Pod<br/><i>CONCEPT · depth 1</i>"]
-    SVC["🔵 Service<br/><i>CONCEPT · depth 1</i>"]
-    INGRESS["🌐 Ingress<br/><i>CONCEPT · depth 1</i>"]
-    CNI["🔌 CNI Plugin<br/><i>CONCEPT · depth 1</i>"]
+    POD["Pod — CONCEPT depth 1"]
+    SVC["Service — CONCEPT depth 1"]
+    INGRESS["Ingress — CONCEPT depth 1"]
+    CNI["CNI Plugin — CONCEPT depth 1"]
 
-    POD_IP["Pod gets unique IP<br/><i>DEFINITION · depth 2</i>"]
-    POD_NET["Pod Network Namespace<br/><i>PROCESS · depth 2</i>"]
-    PHONE_BOOK["Service = Phone Book<br/><i>ANALOGY · depth 2</i>"]
-    CLUSTERIP["ClusterIP Type<br/><i>DEFINITION · depth 2</i>"]
-    NODEPORT["NodePort Type<br/><i>DEFINITION · depth 2</i>"]
-    IPTABLES["iptables NAT Rules<br/><i>PROCESS · depth 3</i>"]
-    COREDNS["CoreDNS Resolution<br/><i>PROCESS · depth 3</i>"]
-    NGINX_EX["nginx on 10.244.1.5<br/><i>EXAMPLE · depth 3</i>"]
-    MISCONCEPTION["Pods are not containers<br/><i>COUNTERPOINT · depth 2</i>"]
+    POD_IP["Pod gets unique IP — DEFINITION depth 2"]
+    PHONE_BOOK["Service = Phone Book — ANALOGY depth 2"]
+    CLUSTERIP["ClusterIP Type — DEFINITION depth 2"]
+    IPTABLES["iptables NAT Rules — PROCESS depth 3"]
+    COREDNS["CoreDNS Resolution — PROCESS depth 3"]
+    MISCONCEPTION["Pods are not containers — COUNTERPOINT depth 2"]
 
     ROOT -->|"CONTAINS"| POD
     ROOT -->|"CONTAINS"| SVC
@@ -1022,29 +976,15 @@ graph TD
     ROOT -->|"CONTAINS"| CNI
 
     POD -->|"DEEPENS"| POD_IP
-    POD -->|"DEEPENS"| POD_NET
     POD -->|"CONTRADICTS"| MISCONCEPTION
-    POD_IP -->|"EXEMPLIFIES"| NGINX_EX
 
     SVC -->|"RELATES_TO"| POD
     SVC -->|"DEEPENS"| CLUSTERIP
-    SVC -->|"DEEPENS"| NODEPORT
     SVC -->|"RELATES_TO"| PHONE_BOOK
     CLUSTERIP -->|"LEADS_TO"| IPTABLES
 
     SVC -->|"REQUIRES"| COREDNS
     INGRESS -->|"REQUIRES"| SVC
-
-    style ROOT fill:#00e5ff,stroke:#00e5ff,color:#0a0c10
-    style POD fill:#1a3a4a,stroke:#00e5ff,color:#e8eaed
-    style SVC fill:#1a3a4a,stroke:#00e5ff,color:#e8eaed
-    style INGRESS fill:#1a3a4a,stroke:#00e5ff,color:#e8eaed
-    style CNI fill:#1a3a4a,stroke:#00e5ff,color:#e8eaed
-    style PHONE_BOOK fill:#3a2a0a,stroke:#ffab00,color:#e8eaed
-    style NGINX_EX fill:#0a3a1a,stroke:#00e676,color:#e8eaed
-    style MISCONCEPTION fill:#3a0a1a,stroke:#ff2d7b,color:#e8eaed
-    style IPTABLES fill:#1a1a3a,stroke:#b388ff,color:#e8eaed
-    style COREDNS fill:#1a1a3a,stroke:#b388ff,color:#e8eaed
     </div>
   </div>
 
@@ -1054,39 +994,42 @@ graph TD
     <div class="diagram-label">Fig 4.3 — Bounded Async Expansion with RL Prioritization</div>
     <div class="mermaid">
 flowchart TD
-    START["Graph Builder receives<br/>classified data"] --> CORE["Build Core Graph<br/>(depth 0-1)<br/>SYNCHRONOUS"]
+    START["Graph Builder receives<br/>classified data"] --> CORE["Build Core Graph<br/>depth 0-1 — SYNCHRONOUS"]
 
-    CORE --> PRESENT["✅ Signal: Ready to Present<br/>Presentation begins immediately"]
+    CORE --> PRESENT["Signal: Ready to Present<br/>Presentation begins immediately"]
 
-    CORE --> ASYNC_START["Begin Async Expansion<br/>(depth 2+)"]
+    CORE --> ASYNC_START["Begin Async Expansion<br/>depth 2+"]
 
-    ASYNC_START --> CHECK_LIMITS{"Check Bounds<br/>nodes < 50?<br/>depth < 4?"}
+    ASYNC_START --> CHECK_LIMITS{"Check Bounds<br/>nodes under 50?<br/>depth under 4?"}
 
     CHECK_LIMITS -->|"Within bounds"| RL_SCORE["Query RL Agent:<br/>Score unexpanded nodes<br/>by predicted relevance"]
 
-    CHECK_LIMITS -->|"Exceeded"| STOP["⛔ Stop Expansion<br/>Graph is sufficiently<br/>pre-computed"]
+    CHECK_LIMITS -->|"Exceeded"| STOP["Stop Expansion<br/>Graph is sufficiently<br/>pre-computed"]
 
     RL_SCORE --> SELECT["Select highest-scored<br/>unexpanded node"]
 
-    SELECT --> EXPAND["Expand node:<br/>Generate child nodes<br/>via Agent reasoning"]
+    SELECT --> EXPAND["Expand node via<br/>Agent reasoning"]
 
     EXPAND --> INSERT["Insert nodes + edges<br/>into graph store"]
 
-    INSERT --> NOTIFY["Emit: graph_updated event<br/>(client can show new nodes)"]
+    INSERT --> NOTIFY["Emit graph_updated event<br/>to frontend via WebSocket"]
 
     NOTIFY --> CHECK_LIMITS
-
-    style PRESENT fill:#0a3a1a,stroke:#00e676,stroke-width:2px,color:#e8eaed
-    style STOP fill:#3a0a0a,stroke:#ff2d7b,stroke-width:2px,color:#e8eaed
     </div>
   </div>
 
   <div class="callout callout-violet">
     <strong>WHY BOUNDED EXPANSION MATTERS</strong>
-    <p>Without bounds, "Kubernetes Networking" could expand into hundreds of nested scenarios:
-    every Service type, every CNI plugin, every kernel networking concept, every cloud provider variation.
+    <p>Without bounds, "Kubernetes Networking" could expand into hundreds of nested scenarios.
     The RL agent predicts which 2-3 branches the <em>specific user</em> is most likely to explore,
-    and only pre-expands those. If the user asks an unexpected question, the graph mutates on-demand.</p>
+    and only pre-expands those. If the user asks an unexpected question, the graph mutates on-demand
+    via the interrupt protocol.</p>
+  </div>
+
+  <div class="callout callout-amber">
+    <strong>PLANNED — PERSISTENT GRAPH STORE</strong>
+    <p>Currently graphs are stored in-memory and lost when the session ends. A future Neo4j integration
+    will enable persistent graph storage, cross-session graph reuse, and Cypher-based traversal queries.</p>
   </div>
 </section>
 
@@ -1098,59 +1041,90 @@ flowchart TD
     <div class="section-tag">Section 05</div>
     <h2>Voice-to-Voice + Presentation <em>Pipeline</em></h2>
     <p class="section-desc">
-      Communication is entirely voice-driven with synchronized visual presentation.
-      The user speaks, the agent listens, reasons, and responds through voice narration
-      accompanied by live visual scene transitions on the canvas.
+      Communication is voice-driven with synchronized visual presentation.
+      The user speaks via a microphone toggle, the agent processes the audio server-side,
+      reasons, and responds through ElevenLabs voice narration accompanied by
+      animated SVG illustrations on the canvas.
     </p>
   </div>
 
   <div class="diagram">
-    <div class="diagram-label">Fig 5.1 — Full Duplex Voice Architecture</div>
+    <div class="diagram-label">Fig 5.1 — Voice Architecture</div>
     <div class="mermaid">
 graph LR
-    subgraph INPUT["🎤 Input Pipeline"]
+    subgraph INPUT["Input Pipeline"]
         direction TB
-        MIC["Microphone<br/>WebRTC"] --> VAD["Voice Activity<br/>Detection<br/>(Silero VAD)"]
-        VAD --> BUFFER["Audio Buffer<br/>+ Chunking"]
-        BUFFER --> STT["Speech-to-Text<br/>(Whisper Large V3)"]
+        MIC["MediaRecorder API<br/>audio/webm opus"] --> BLOB["Audio Blob<br/>on mic toggle stop"]
+        BLOB --> WS_SEND["Binary WebSocket<br/>send to backend"]
+        WS_SEND --> STT["Deepgram STT<br/>nova-2 model"]
         STT --> TRANSCRIPT["Transcript<br/>+ Confidence"]
     end
 
-    subgraph PROCESSING["🧠 Agent Processing"]
+    subgraph PROCESSING["Agent Processing"]
         direction TB
-        TRANSCRIPT --> INTENT["Intent<br/>Classification"]
+        TRANSCRIPT --> INTENT["Intent Classification<br/>regex-based"]
         INTENT -->|"Question"| INTERRUPT["Interrupt<br/>Handler"]
         INTENT -->|"Acknowledgment"| CONTINUE["Continue<br/>Presentation"]
         INTENT -->|"Confusion"| REPHRASE["Rephrase<br/>Current Node"]
     end
 
-    subgraph OUTPUT["🔊 Output Pipeline"]
+    subgraph OUTPUT["Output Pipeline"]
         direction TB
-        NARRATION["Narration<br/>Text"] --> TTS["Text-to-Speech<br/>(ElevenLabs)"]
-        TTS --> STREAM["Audio Stream<br/>(WebSocket)"]
-        STREAM --> SPEAKER["Speaker<br/>Output"]
-        NARRATION --> SYNC["Sync Engine<br/>word timestamps"]
-        SYNC --> CANVAS["Visual Canvas<br/>element reveals"]
+        NARRATION["Narration<br/>Text"] --> TTS["ElevenLabs TTS<br/>eleven_turbo_v2_5"]
+        TTS --> AUDIO["Binary Audio<br/>via WebSocket"]
+        AUDIO --> PLAYBACK["AudioPlaybackManager<br/>Web Audio API"]
+        NARRATION --> SYNC["Word Timestamps<br/>character-to-word aligned"]
+        SYNC --> CANVAS["SVG Canvas<br/>entity reveals"]
+        PLAYBACK --> SFX["SoundEffectEngine<br/>procedural Web Audio"]
     end
 
     INTERRUPT --> PROCESSING
     CONTINUE --> NARRATION
     REPHRASE --> NARRATION
-
-    style INPUT fill:#0d1117,stroke:#ffab00,stroke-width:2px,color:#e8eaed
-    style PROCESSING fill:#0d1117,stroke:#ff2d7b,stroke-width:2px,color:#e8eaed
-    style OUTPUT fill:#0d1117,stroke:#00e5ff,stroke-width:2px,color:#e8eaed
     </div>
   </div>
 
-  <h3>Voice-Visual Synchronization</h3>
+  <h3>Input — <span class="accent">MediaRecorder to Deepgram</span></h3>
   <p>
-    The narration text is sent to the TTS engine which returns <strong>word-level timestamps</strong>.
-    These timestamps are used to trigger visual events on the canvas — element reveals, highlights,
-    arrow animations, and scene transitions — precisely synchronized with the spoken word.
-    When the agent says "...the Service routes traffic to the Pod...", the arrow between Service
-    and Pod animates at exactly that moment.
+    The client uses the <strong>MediaRecorder API</strong> (not WebRTC streaming) to capture audio.
+    The user clicks a microphone button to start recording and clicks again to stop. On stop,
+    the recorded audio is combined into a single <code>audio/webm</code> blob and sent as a binary
+    WebSocket message to the backend. The backend forwards this to <strong>Deepgram</strong>
+    (<code>nova-2</code> model) for transcription with word-level timestamps and smart formatting.
   </p>
+
+  <div class="callout callout-amber">
+    <strong>PLANNED — STREAMING VAD</strong>
+    <p>A future version will implement Silero VAD on the client for real-time voice activity detection,
+    enabling continuous listening and streaming audio chunks instead of manual mic toggle.
+    This will reduce latency and enable true conversational interaction.</p>
+  </div>
+
+  <h3>Output — <span class="accent">ElevenLabs + AudioPlaybackManager</span></h3>
+  <p>
+    Narration text is sent to <strong>ElevenLabs</strong> (<code>eleven_turbo_v2_5</code> model,
+    voice "George" <code>JBFqnCBsd6RMkjVDRZzb</code>) using the <code>/with-timestamps</code>
+    endpoint, which returns both audio and character-level alignment. The backend converts character
+    alignments to word-level timestamps. Audio is sent as binary over WebSocket; timestamps and
+    visual scripts are sent as JSON via <code>agent_audio_meta</code>.
+  </p>
+  <p>
+    On the client, the <strong>AudioPlaybackManager</strong> (singleton) manages playback via the Web Audio API.
+    It maintains a single <code>AudioContext</code>, decodes incoming MP3 buffers, and uses latest-wins semantics
+    (new audio cancels any current playback). A <code>requestAnimationFrame</code> loop tracks playback time
+    and drives visual synchronization via a callback into the Zustand store.
+  </p>
+
+  <h3>Sound Effects — <span class="accent">SoundEffectEngine</span></h3>
+  <p>
+    The <strong>SoundEffectEngine</strong> (singleton) generates procedural audio effects using the Web Audio API —
+    no external sound files. It provides four effects: a <strong>reveal pop</strong> (sine 800&rarr;400 Hz, 50ms),
+    a <strong>connect ping</strong> (sine 1200&rarr;800 Hz with echo), a <strong>transition whoosh</strong>
+    (bandpass-filtered white noise sweep), and a <strong>chime</strong> (C5+E5 two-tone sequence).
+    All effects are routed through a master gain node at 15% volume to remain subtle.
+  </p>
+
+  <h3>Voice-Visual Synchronization</h3>
 
   <div class="diagram">
     <div class="diagram-label">Fig 5.2 — Voice-Visual Sync Timeline</div>
@@ -1173,35 +1147,36 @@ gantt
     </div>
   </div>
 
-  <h3>Intent Classification on User Speech</h3>
+  <h3>Intent Classification — <span class="accent">Pattern-Based</span></h3>
   <p>
-    While the agent is presenting, the input microphone remains active. Every utterance from the
-    user is classified into one of four intent categories, each triggering a different agent behavior:
+    While the agent is presenting, incoming user speech is classified into one of four intents
+    using <strong>regex-based pattern matching</strong> (not ML). This provides fast, deterministic
+    classification without additional API calls:
   </p>
 
   <table>
     <thead>
-      <tr><th>Intent</th><th>Signal Examples</th><th>Agent Behavior</th></tr>
+      <tr><th>Intent</th><th>Pattern Examples</th><th>Agent Behavior</th></tr>
     </thead>
     <tbody>
       <tr>
         <td><span class="badge badge-magenta">QUESTION</span></td>
-        <td>"What about NodePort?", "How does DNS work here?"</td>
-        <td>Trigger interrupt protocol (§6)</td>
+        <td>"what", "how", "why", "?", "explain"</td>
+        <td>Trigger interrupt protocol (&sect;6)</td>
       </tr>
       <tr>
         <td><span class="badge badge-emerald">ACKNOWLEDGMENT</span></td>
-        <td>"OK", "Got it", "Makes sense", "Hmm"</td>
+        <td>"OK", "got it", "makes sense", "hmm"</td>
         <td>Continue presentation, log as +reward</td>
       </tr>
       <tr>
         <td><span class="badge badge-amber">CONFUSION</span></td>
-        <td>"Wait what?", "I don't get it", "Can you repeat?"</td>
+        <td>"don't understand", "what?", "confused", "repeat"</td>
         <td>Rephrase current node with alternate analogy/example</td>
       </tr>
       <tr>
         <td><span class="badge badge-violet">COMMAND</span></td>
-        <td>"Go back", "Skip this", "Show the graph"</td>
+        <td>"go back", "skip", "pause", "show graph"</td>
         <td>Execute navigation command</td>
       </tr>
     </tbody>
@@ -1227,80 +1202,79 @@ gantt
     <div class="mermaid">
 sequenceDiagram
     participant User
-    participant VAD as Voice Activity Detector
-    participant Agent as Agent Core
-    participant KG as Knowledge Graph
-    participant Planner as Presentation Planner
-    participant TTS as Voice Output
+    participant Gateway as WebSocket Gateway
+    participant Agent as AgentService
+    participant KG as KnowledgeGraph
+    participant Planner as PresentationPlanner
+    participant TTS as ElevenLabs TTS
     participant Canvas as Visual Canvas
 
-    Note over TTS,Canvas: Agent is presenting Scene 3<br/>(Service → Pod routing)
+    Note over TTS,Canvas: Agent is presenting Scene 3
 
-    User->>VAD: "Wait, how does iptables handle this?"
-    VAD->>Agent: INTERRUPT detected + transcript
+    User->>Gateway: "Wait, how does iptables handle this?"
+    Gateway->>Agent: QUESTION intent detected
 
     rect rgb(60, 10, 10)
-        Note over Agent: Phase A — Pause & Bookmark
-        Agent->>Planner: pausePresentation()
-        Planner->>Planner: Save bookmark:<br/>scene_id: "scene-3"<br/>word_offset: 47<br/>element_state: snapshot
-        Planner->>TTS: Stop audio stream
-        Planner->>Canvas: Freeze current state<br/>(dim elements slightly)
+        Note over Agent: Phase A — Pause and Bookmark
+        Agent->>Planner: abort presentation loop
+        Planner->>Planner: Save bookmark:<br/>sceneId, nodeId,<br/>wordOffset, elementStates
+        Planner->>TTS: Stop audio
+        Planner->>Canvas: Freeze current state
     end
 
     rect rgb(10, 10, 60)
-        Note over Agent,KG: Phase B — Reason & Mutate Graph
-        Agent->>Agent: Reason about "iptables" in context<br/>of current scene (Service routing)
-        Agent->>Agent: Classify response:<br/>PROCESS + EXAMPLE nodes
-        Agent->>KG: addNode("iptables NAT Rules", PROCESS)
-        Agent->>KG: addNode("DNAT Chain", EXAMPLE)
-        Agent->>KG: addEdge(Service → iptables, LEADS_TO)
-        Agent->>KG: addEdge(iptables → DNAT, CONTAINS)
-        KG-->>Canvas: graph_updated event
+        Note over Agent,KG: Phase B — Reason and Mutate Graph
+        Agent->>Agent: Reason about "iptables" in context<br/>of current scene
+        Agent->>Agent: Generate new nodes + edges
+        Agent->>KG: applyMutation — add nodes/edges
+        KG-->>Canvas: graph_update event
     end
 
     rect rgb(10, 40, 20)
         Note over Planner: Phase C — Present Answer
-        Planner->>Planner: Generate branch scenes<br/>from new KG nodes
-        Planner->>Canvas: Animate new nodes into view<br/>(zoom into iptables subgraph)
+        Planner->>Planner: Generate answer scenes<br/>from new KG nodes
+        Planner->>Canvas: Animate new entities into view
         Planner->>TTS: Narrate iptables explanation
-        TTS-->>User: 🔊 "Great question! When a Service receives traffic..."
-        Canvas-->>User: 🎨 iptables flow visualization
+        TTS-->>User: Voice narration
+        Canvas-->>User: Animated answer
     end
 
     rect rgb(40, 30, 10)
         Note over Agent: Phase D — Comprehension Check
-        Agent->>TTS: "Does that clarify how iptables fits in?<br/>Any other questions before I continue?"
-        TTS-->>User: 🔊 Comprehension check
-        User->>VAD: "Yeah, that makes sense!"
-        VAD->>Agent: ACKNOWLEDGMENT intent
-        Agent->>Agent: Log +reward for this explanation style
+        Agent->>TTS: "Does that clarify your question<br/>about iptables?"
+        TTS-->>User: Comprehension check
+        Note over Agent: Wait 4 seconds for response
+        User->>Gateway: "Yeah, that makes sense!"
+        Gateway->>Agent: ACKNOWLEDGMENT intent
+        Agent->>Agent: Log +1.0 reward
     end
 
     rect rgb(10, 30, 30)
         Note over Planner: Phase E — Resume
-        Planner->>Planner: Restore bookmark:<br/>scene-3, word_offset 47
-        Planner->>Canvas: Zoom back to main graph view<br/>Restore element states<br/>New iptables nodes remain visible (dimmed)
-        Planner->>TTS: Resume narration from word 47
-        TTS-->>User: 🔊 "...so as we were saying,<br/>the Service load-balances across Pods..."
+        Planner->>Planner: Restore bookmark
+        Planner->>Canvas: Restore element states<br/>New nodes remain visible (dimmed)
+        Planner->>TTS: Resume with bridging phrase:<br/>"So, as we were saying..."
+        TTS-->>User: Resumed narration
     end
     </div>
   </div>
 
   <h3>Bookmark State Object</h3>
   <pre><code><span class="keyword">interface</span> <span class="type">PresentationBookmark</span> {
-  <span class="fn">sceneId</span>:       <span class="type">string</span>;          <span class="comment">// Scene that was interrupted</span>
-  <span class="fn">nodeId</span>:        <span class="type">string</span>;          <span class="comment">// KG node being presented</span>
-  <span class="fn">wordOffset</span>:    <span class="type">number</span>;          <span class="comment">// Word index in narration text</span>
-  <span class="fn">audioTimestamp</span>: <span class="type">number</span>;         <span class="comment">// Millisecond offset in audio stream</span>
-  <span class="fn">elementStates</span>: <span class="type">Map&lt;string, ElementState&gt;</span>; <span class="comment">// Visual snapshot</span>
-  <span class="fn">traversalIndex</span>: <span class="type">number</span>;        <span class="comment">// Position in planned traversal path</span>
-  <span class="fn">timestamp</span>:     <span class="type">number</span>;          <span class="comment">// When the interrupt occurred</span>
+  <span class="fn">sceneId</span>:        <span class="type">string</span>;                     <span class="comment">// Scene that was interrupted</span>
+  <span class="fn">nodeId</span>:         <span class="type">string</span>;                     <span class="comment">// KG node being presented</span>
+  <span class="fn">wordOffset</span>:     <span class="type">number</span>;                     <span class="comment">// Word index in narration</span>
+  <span class="fn">audioTimestamp</span>: <span class="type">number</span>;                     <span class="comment">// Millisecond offset in audio</span>
+  <span class="fn">elementStates</span>:  <span class="type">Record&lt;string, any&gt;</span>;        <span class="comment">// Visual snapshot</span>
+  <span class="fn">traversalIndex</span>: <span class="type">number</span>;                    <span class="comment">// Position in planned path</span>
+  <span class="fn">timestamp</span>:      <span class="type">number</span>;                     <span class="comment">// When the interrupt occurred</span>
 }</code></pre>
 
   <div class="callout callout-emerald">
     <strong>SEAMLESS RESUMPTION</strong>
-    <p>When resuming, the agent doesn't awkwardly restart the scene. It uses a <strong>bridging phrase</strong>
-    ("So, as we were saying..." / "Coming back to...") and resumes narration from the exact word offset.
+    <p>When resuming, the agent uses a <strong>bridging phrase</strong>
+    ("So, as we were saying..." / "Coming back to..." / "Now, where were we...")
+    and resumes narration from the exact word offset.
     The newly added graph nodes from the interrupt remain visible but dimmed, maintaining spatial context
     of what was just explored.</p>
   </div>
@@ -1315,136 +1289,88 @@ sequenceDiagram
     <h2>Reinforcement Learning for <em>Personalized Cognitive Scaffolding</em></h2>
     <p class="section-desc">
       The RL subsystem continuously learns how the specific user best absorbs new concepts
-      and adapts the presentation strategy in real-time: choosing analogies vs. examples,
-      adjusting pace, selecting which graph branches to pre-expand, and deciding
-      when to offer comprehension checks.
+      and adapts the presentation strategy in real-time. It uses a Contextual Bandit with
+      Thompson Sampling — lightweight enough to update in under 50ms per reward signal.
     </p>
   </div>
 
   <div class="diagram">
-    <div class="diagram-label">Fig 7.1 — RL Agent Architecture (Contextual Bandit with State Encoding)</div>
+    <div class="diagram-label">Fig 7.1 — RL Agent Architecture (Contextual Bandit with Thompson Sampling)</div>
     <div class="mermaid">
 graph TB
-    subgraph STATE_SPACE["📊 Learner State (Observation)"]
+    subgraph STATE_SPACE["Learner State — Observation"]
         direction TB
-        S1["Comprehension Signals<br/>acknowledgments, confusions,<br/>question frequency, hesitations"]
-        S2["Session History<br/>nodes visited, time per node,<br/>interrupts triggered, revisits"]
-        S3["User Profile<br/>expertise level, vocabulary,<br/>preferred modalities, pace"]
-        S4["Content Context<br/>current topic complexity,<br/>depth in graph, data type mix"]
+        S1["Comprehension Signals<br/>acknowledgments, confusions,<br/>question frequency"]
+        S2["Session History<br/>nodes visited, time per node,<br/>interrupts, revisits"]
+        S3["User Profile<br/>expertise level, vocabulary,<br/>preferred modality, pace"]
+        S4["Content Context<br/>topic complexity,<br/>depth in graph, data type"]
     end
 
-    subgraph ACTION_SPACE["🎬 Actions (Policy Decisions)"]
+    subgraph ACTION_SPACE["Actions — Policy Decisions"]
         direction TB
-        A1["Explanation Strategy<br/>analogy-first vs definition-first<br/>vs example-first"]
-        A2["Pacing<br/>slow+detailed vs fast+overview<br/>pause frequency"]
-        A3["Visual Density<br/>minimal (1-2 elements) vs<br/>rich (5+ elements per scene)"]
-        A4["Graph Expansion Priority<br/>which branches to pre-expand<br/>depth vs breadth"]
-        A5["Interaction Style<br/>comprehension check frequency<br/>proactive vs reactive"]
+        A1["Explanation Strategy<br/>analogy_first | definition_first<br/>example_first | process_first"]
+        A2["Pacing<br/>120 | 150 | 190 WPM"]
+        A3["Visual Density<br/>minimal | moderate | rich"]
+        A4["Graph Expansion Priority<br/>which branches to pre-expand"]
+        A5["Comprehension Checks<br/>frequency: 2-4 per session"]
     end
 
-    subgraph REWARD_SIGNALS["🎯 Reward Model"]
+    subgraph REWARD_SIGNALS["Reward Model"]
         direction TB
-        R1["+ Acknowledgment after explanation"]
-        R2["+ Zero interrupts in scene<br/>(concept was clear)"]
-        R3["+ Quick traversal<br/>(user isn't struggling)"]
-        R4["− Confusion signal"]
-        R5["− Repeated revisits to same node"]
-        R6["− Long silence after explanation"]
-        R7["+ User asks deeper question<br/>(engaged, not confused)"]
+        R1["+1.0 Acknowledgment"]
+        R2["+1.5 Deep question — engaged"]
+        R3["+0.5 Fast completion"]
+        R4["-1.0 Confusion signal"]
+        R5["-0.5 Long silence over 5s"]
+        R6["-0.8 Revisit same node 2+ times"]
     end
 
-    STATE_SPACE --> RL_POLICY["🧠 RL Policy<br/>(Contextual Bandit<br/>+ Thompson Sampling)"]
+    STATE_SPACE --> RL_POLICY["RL Policy<br/>Thompson Sampling<br/>Beta priors alpha=2 beta=2"]
     RL_POLICY --> ACTION_SPACE
     ACTION_SPACE -->|"Execute in<br/>presentation"| OUTCOME["Presentation<br/>Outcome"]
     OUTCOME --> REWARD_SIGNALS
-    REWARD_SIGNALS -->|"Update<br/>policy weights"| RL_POLICY
-
-    style STATE_SPACE fill:#0d1117,stroke:#00e5ff,stroke-width:2px,color:#e8eaed
-    style ACTION_SPACE fill:#0d1117,stroke:#ffab00,stroke-width:2px,color:#e8eaed
-    style REWARD_SIGNALS fill:#0d1117,stroke:#00e676,stroke-width:2px,color:#e8eaed
-    style RL_POLICY fill:#0d1117,stroke:#ff2d7b,stroke-width:2px,color:#e8eaed
+    REWARD_SIGNALS -->|"Update<br/>Beta arms"| RL_POLICY
     </div>
   </div>
 
-  <h3>State Encoding</h3>
+  <h3>Thompson Sampling — <span class="accent">Implementation Detail</span></h3>
   <p>
-    The Learner State Encoder constructs a <strong>feature vector</strong> from multiple signal sources.
-    This is not a simple profile — it's a real-time, continuously updated representation of the
-    user's current cognitive state within the session:
+    Each strategy/pace/density option is modeled as a <strong>Beta-distributed arm</strong> with initial
+    priors <code>alpha=2, beta=2</code>. On a positive reward, <code>alpha += reward.value</code>.
+    On a negative reward, <code>beta += |reward.value|</code>. The policy is resampled after each
+    reward signal: for each arm, a random value is drawn from <code>Beta(alpha, beta)</code>, and the
+    arm with the highest sampled value is selected.
   </p>
 
-  <pre><code><span class="keyword">interface</span> <span class="type">LearnerState</span> {
-  <span class="comment">// Real-time session signals</span>
-  <span class="fn">avgTimePerNode</span>:        <span class="type">number</span>;   <span class="comment">// seconds spent per KG node</span>
-  <span class="fn">interruptRate</span>:          <span class="type">number</span>;   <span class="comment">// questions per minute</span>
-  <span class="fn">confusionRate</span>:          <span class="type">number</span>;   <span class="comment">// confusion signals per 5 nodes</span>
-  <span class="fn">acknowledgmentRate</span>:     <span class="type">number</span>;   <span class="comment">// "got it" signals per node</span>
-  <span class="fn">silenceDuration</span>:        <span class="type">number</span>;   <span class="comment">// avg silence after explanations</span>
-  <span class="fn">revisitCount</span>:           <span class="type">number</span>;   <span class="comment">// times user returned to a node</span>
-  <span class="fn">currentDepth</span>:           <span class="type">number</span>;   <span class="comment">// depth in knowledge graph</span>
-
-  <span class="comment">// Persistent user profile (cross-session)</span>
-  <span class="fn">expertiseLevel</span>:         <span class="type">number</span>;   <span class="comment">// 0-1 inferred skill</span>
-  <span class="fn">preferredModality</span>:      <span class="type">string</span>;   <span class="comment">// "visual" | "verbal" | "example"</span>
-  <span class="fn">vocabularyComplexity</span>:   <span class="type">number</span>;   <span class="comment">// 0-1 technical vs layman</span>
-  <span class="fn">optimalPace</span>:            <span class="type">number</span>;   <span class="comment">// words per minute preference</span>
-  <span class="fn">analogyEffectiveness</span>:   <span class="type">number</span>;   <span class="comment">// 0-1 how well analogies work</span>
-  <span class="fn">exampleEffectiveness</span>:   <span class="type">number</span>;   <span class="comment">// 0-1 how well examples work</span>
+  <h3>RLPolicy Output</h3>
+  <pre><code><span class="keyword">interface</span> <span class="type">RLPolicy</span> {
+  <span class="fn">explanationStrategy</span>: <span class="type">'analogy_first' | 'definition_first' | 'example_first' | 'process_first'</span>;
+  <span class="fn">pace</span>:                  <span class="type">number</span>;     <span class="comment">// 120, 150, or 190 WPM</span>
+  <span class="fn">visualDensity</span>:         <span class="type">'minimal' | 'moderate' | 'rich'</span>;
+  <span class="fn">expansionPriority</span>:     <span class="type">DataType[]</span>; <span class="comment">// Which data types to pre-expand</span>
+  <span class="fn">comprehensionCheckFrequency</span>: <span class="type">number</span>; <span class="comment">// 2 to 4</span>
 }</code></pre>
 
-  <h3>Reward Model — <span class="accent">Comprehension Signals</span></h3>
-
-  <div class="diagram">
-    <div class="diagram-label">Fig 7.2 — Reward Signal Detection & Weighting</div>
-    <div class="mermaid">
-graph LR
-    subgraph POSITIVE["✅ Positive Rewards"]
-        P1["'Got it' / 'Makes sense'<br/>+1.0 immediate reward"]
-        P2["Asks deeper question<br/>(not confused, engaged)<br/>+1.5 curiosity reward"]
-        P3["Completes scene < avg time<br/>+0.5 efficiency reward"]
-        P4["Zero revisits to node<br/>+0.3 retention reward"]
-    end
-
-    subgraph NEGATIVE["❌ Negative Rewards"]
-        N1["'I don't understand'<br/>-1.0 confusion penalty"]
-        N2["Long silence > 5s<br/>-0.5 disengagement"]
-        N3["Revisit same node 2+ times<br/>-0.8 retention failure"]
-        N4["User says 'skip'<br/>-0.3 relevance miss"]
-    end
-
-    POSITIVE --> AGGREGATE["Reward<br/>Aggregator"]
-    NEGATIVE --> AGGREGATE
-    AGGREGATE --> UPDATE["Policy<br/>Update"]
-
-    style POSITIVE fill:#0a2a1a,stroke:#00e676,stroke-width:1px,color:#e8eaed
-    style NEGATIVE fill:#2a0a0a,stroke:#ff2d7b,stroke-width:1px,color:#e8eaed
-    </div>
-  </div>
-
   <h3>Policy Decisions in Practice</h3>
-  <p>
-    The RL agent's policy manifests as concrete presentation decisions. Here are examples
-    of how it adapts for two contrasting learner profiles:
-  </p>
-
   <div class="card-grid">
     <div class="card" style="border-color: rgba(0,229,255,0.3);">
-      <h4>👨‍💻 Experienced Developer</h4>
+      <h4>Experienced Developer</h4>
       <p><strong>Observed:</strong> Low confusion rate, asks deep questions, skips analogies, fast pace</p>
-      <p><strong>RL Policy:</strong> Definition-first strategy, skip analogies, pre-expand deep technical branches (iptables, eBPF), increase pace to 180 WPM, minimal comprehension checks</p>
+      <p><strong>RL Policy:</strong> definition_first, skip analogies, pre-expand deep technical branches, 190 WPM, minimal comprehension checks (2)</p>
     </div>
     <div class="card" style="border-color: rgba(255,171,0,0.3);">
-      <h4>🎓 Junior Learning K8s</h4>
+      <h4>Junior Learning K8s</h4>
       <p><strong>Observed:</strong> High confusion rate, needs revisits, responds well to analogies, slower pace</p>
-      <p><strong>RL Policy:</strong> Analogy-first strategy, expand example branches, slow pace to 120 WPM, frequent comprehension checks, visual density: low (2 elements per scene)</p>
+      <p><strong>RL Policy:</strong> analogy_first, expand example branches, 120 WPM, frequent comprehension checks (4), visual density: rich</p>
     </div>
   </div>
 
   <div class="callout callout-amber">
-    <strong>CROSS-SESSION LEARNING</strong>
-    <p>The user profile persists across sessions. If the RL agent learned that this user absorbs
-    Process-type data best through animated flows rather than code blocks, that preference
-    carries forward to the next teaching session on a completely different topic.</p>
+    <strong>PLANNED — CROSS-SESSION PERSISTENCE</strong>
+    <p>The RL service has <code>exportProfile()</code> and <code>importProfile()</code> methods that serialize
+    the learner state and Beta arm parameters. Currently these are only used within a session. A future
+    persistence layer (PostgreSQL) will store profiles across sessions, enabling the RL agent to remember
+    how a specific user learns best.</p>
   </div>
 </section>
 
@@ -1456,46 +1382,84 @@ graph LR
     <div class="section-tag">Section 08</div>
     <h2>Presentation <em>Renderer</em></h2>
     <p class="section-desc">
-      The canvas renders the current view of the knowledge graph as a visual presentation.
-      It's not a static slide — it's a live, zoomable, animated view into the graph
-      that transitions between nodes as the agent narrates.
+      The canvas renders animated SVG illustrations synchronized with voice narration.
+      It uses a frame-based visual script system: each scene has a sequence of frames,
+      each frame contains positioned and animated entities rendered by a library of 30+
+      SVG components.
     </p>
   </div>
 
   <div class="diagram">
-    <div class="diagram-label">Fig 8.1 — KG Node → Visual Scene Mapping</div>
+    <div class="diagram-label">Fig 8.1 — Frame-Based Rendering Pipeline</div>
     <div class="mermaid">
-graph TD
-    subgraph KG_VIEW["Knowledge Graph View"]
-        N1["CONCEPT node"] --> V1["Filled Rectangle<br/>with icon + label"]
-        N2["RELATIONSHIP edge"] --> V2["Animated Arrow<br/>with label"]
-        N3["EXAMPLE node"] --> V3["Dashed Card<br/>with code snippet"]
-        N4["ANALOGY node"] --> V4["Split Panel<br/>familiar ↔ new"]
-        N5["DEFINITION node"] --> V5["Highlighted Text<br/>Block"]
-        N6["PROCESS node"] --> V6["Animated Flow<br/>Sequence (steps)"]
-        N7["COUNTERPOINT node"] --> V7["Warning Callout<br/>with strikethrough"]
-        N8["RESOURCE node"] --> V8["Citation Card<br/>with external link"]
-    end
-
-    subgraph CANVAS_MODES["Canvas Display Modes"]
-        M1["🔍 Focus Mode<br/>1-3 nodes, full detail,<br/>narration-synced reveals"]
-        M2["🕸️ Graph Mode<br/>Bird's eye view of<br/>entire knowledge graph"]
-        M3["🔄 Transition Mode<br/>Animated zoom between<br/>focus areas"]
-    end
-
-    style KG_VIEW fill:#0d1117,stroke:#b388ff,stroke-width:2px,color:#e8eaed
-    style CANVAS_MODES fill:#0d1117,stroke:#00e5ff,stroke-width:2px,color:#e8eaed
+flowchart LR
+    Scene["PresentationScene"] --> VScript["VisualScript<br/>frames[] + entities{}"]
+    VScript --> ICanvas["IllustrationCanvas<br/>1600x900 SVG viewBox"]
+    ICanvas --> FSelect["Frame Selection<br/>by currentTime"]
+    FSelect --> FRender["FrameRenderer<br/>entities + connections"]
+    FRender --> SVGLib["SVGLibrary<br/>30+ components"]
+    SVGLib --> DOM["SVG DOM<br/>with CSS animations"]
     </div>
   </div>
 
-  <h3>Dual-View Layout</h3>
+  <h3>ScenePresenter Layout</h3>
   <p>
-    The client interface presents two synchronized views. The <strong>primary canvas</strong> (left, ~70% width)
-    shows the focused presentation view — the current scene with 1-3 nodes and their visual representations,
-    animated and narration-synced. The <strong>minimap</strong> (top-right corner) shows the full knowledge graph
-    with a highlighted viewport indicator showing where the current focus is within the larger graph.
-    Users can click nodes in the minimap to jump, or the agent navigates automatically.
+    The <strong>ScenePresenter</strong> provides a card-based layout focused on one knowledge graph node per scene.
+    The main area contains the <code>IllustrationCanvas</code> (1600&times;900 SVG viewBox) rendering
+    the current visual script. Below the canvas, a <code>SubtitleDisplay</code> shows word-level
+    synchronized captions. A sidebar provides three tabs: <strong>Info</strong> (session state + node list),
+    <strong>Graph</strong> (knowledge graph node list), and <strong>Chat</strong> (text interaction).
   </p>
+
+  <h3>Frame-Based Visual Scripts</h3>
+  <p>
+    Each <code>VisualScript</code> contains an array of <strong>frames</strong>, where each frame has a
+    <code>startTime</code>, <code>endTime</code>, and a list of <code>VisualEntity</code> objects.
+    The <code>IllustrationCanvas</code> selects the active frame based on the current audio playback time,
+    then passes its entities to the <code>FrameRenderer</code>.
+  </p>
+  <p>
+    To ensure smooth transitions, the canvas uses a <strong>sliding window</strong>: entities from the
+    previous frame bucket are merged with the current frame's entities. Previous-frame entities are
+    <strong>deep-copied</strong> to prevent cross-frame mutation, a fix that resolved a position drift bug
+    where layout processing in one frame could corrupt shared entity references.
+  </p>
+
+  <h3>SVG Entity Types — <span class="accent">30+ Components</span></h3>
+
+  <div class="card-grid">
+    <div class="card" style="border-color: rgba(0,229,255,0.3);">
+      <h4>Infrastructure</h4>
+      <p><code>Server</code> <code>Database</code> <code>Container</code> <code>Pod</code> <code>Cloud</code> <code>LoadBalancer</code> <code>Queue</code> <code>Cache</code> <code>Service</code> <code>Process</code> <code>Firewall</code> <code>APIGateway</code> <code>Lambda</code> <code>Subnet</code> <code>Volume</code> <code>Registry</code> <code>Monitor</code> <code>Pipeline</code> <code>Decision</code> <code>Cluster</code></p>
+    </div>
+    <div class="card" style="border-color: rgba(179,136,255,0.3);">
+      <h4>Universal</h4>
+      <p><code>Concept</code> <code>Entity</code> <code>Group</code> <code>Label</code> <code>Comparison</code> <code>Timeline</code> <code>Metric</code> <code>Cycle</code> <code>Stack</code> <code>Tree</code> <code>Badge</code> <code>Quote</code></p>
+    </div>
+    <div class="card" style="border-color: rgba(0,230,118,0.3);">
+      <h4>Flow &amp; Connection</h4>
+      <p><code>Arrow</code> <code>DataFlow</code> <code>Network</code> <code>User</code> <code>Device</code> <code>Box</code> <code>Layer</code></p>
+    </div>
+  </div>
+
+  <h3>Double-<code>&lt;g&gt;</code> Pattern</h3>
+  <p>
+    Every SVG component uses a <strong>double <code>&lt;g&gt;</code> structure</strong> to separate
+    positioning from animation. The outer <code>&lt;g&gt;</code> applies <code>transform="translate(x, y)"</code>
+    for static positioning via SVG attributes. The inner <code>&lt;g&gt;</code> receives CSS animation classes
+    (<code>illus-fadeIn</code>, <code>illus-scaleIn</code>, <code>illus-slideIn</code>, <code>illus-pulse</code>,
+    <code>illus-flow</code>, <code>illus-dashFlow</code>) with <code>transform-origin: center</code> and
+    <code>transform-box: fill-box</code>. This prevents CSS transforms from overriding SVG positioning
+    and eliminates the "snap to origin" animation bug.
+  </p>
+
+  <div class="callout callout-amber">
+    <strong>PLANNED — ADDITIONAL CANVAS MODES</strong>
+    <p>Currently only Focus Mode (single-scene view) is implemented. Planned additions include:
+    <strong>Graph Mode</strong> (bird's eye view of the entire knowledge graph), <strong>Transition Mode</strong>
+    (animated zoom between focus areas), and a <strong>minimap</strong> overlay showing the current position
+    within the larger graph.</p>
+  </div>
 </section>
 
 <!-- ═══════════════════════════════════════════════════
@@ -1506,9 +1470,9 @@ graph TD
     <div class="section-tag">Section 09</div>
     <h2>Session <em>State Machine</em></h2>
     <p class="section-desc">
-      The entire session lifecycle is governed by a finite state machine that
-      deterministically handles transitions between listening, reasoning,
-      presenting, interrupted, and completed states.
+      The entire session lifecycle is governed by a finite state machine with seven states.
+      Transitions are deterministic and emitted to the frontend via <code>state_change</code>
+      WebSocket events.
     </p>
   </div>
 
@@ -1518,29 +1482,14 @@ graph TD
 stateDiagram-v2
     [*] --> Idle: Session created
 
-    Idle --> Listening: User speaks
+    Idle --> Listening: User speaks or types
     Listening --> Reasoning: Transcript complete
 
     Reasoning --> BuildingGraph: Classification done
     BuildingGraph --> Presenting: Core graph ready
 
-    state Presenting {
-        [*] --> NarratingNode
-        NarratingNode --> TransitioningScene: Node narration complete
-        TransitioningScene --> NarratingNode: Next node ready
-        NarratingNode --> ComprehensionCheck: RL policy triggers check
-        ComprehensionCheck --> NarratingNode: User confirms understanding
-        ComprehensionCheck --> RephraseNode: User signals confusion
-        RephraseNode --> NarratingNode: Rephrase complete
-    }
-
     Presenting --> Interrupted: QUESTION intent detected
-    Interrupted --> ReasoningInterrupt: Process question
-    ReasoningInterrupt --> MutatingGraph: New nodes classified
-    MutatingGraph --> PresentingAnswer: Graph updated
-    PresentingAnswer --> AnswerComprehensionCheck: Answer narrated
-    AnswerComprehensionCheck --> Presenting: User understood → resume from bookmark
-    AnswerComprehensionCheck --> ReasoningInterrupt: Follow-up question
+    Interrupted --> Presenting: Answer presented + resume from bookmark
 
     Presenting --> Completed: All planned nodes presented
     Completed --> Listening: User asks new topic
@@ -1549,6 +1498,15 @@ stateDiagram-v2
     Interrupted --> Presenting: User says "never mind"
     </div>
   </div>
+
+  <p>
+    The seven states — <code>IDLE</code>, <code>LISTENING</code>, <code>REASONING</code>,
+    <code>BUILDING_GRAPH</code>, <code>PRESENTING</code>, <code>INTERRUPTED</code>, and <code>COMPLETED</code>
+    — are tracked as a top-level enum. Within the <code>PRESENTING</code> state, the presentation loop
+    handles scene transitions, narration pacing, and comprehension checks procedurally rather than as
+    discrete sub-states. The interrupt protocol (&sect;6) transitions to <code>INTERRUPTED</code> and back
+    to <code>PRESENTING</code> using the bookmark mechanism.
+  </p>
 </section>
 
 <!-- ═══════════════════════════════════════════════════
@@ -1559,7 +1517,8 @@ stateDiagram-v2
     <div class="section-tag">Section 10</div>
     <h2>Core Data <em>Schemas</em></h2>
     <p class="section-desc">
-      Complete TypeScript interface definitions for all entities in the system.
+      TypeScript interface definitions for all entities in the system, matching the actual
+      implementation in <code>shared/types.ts</code>.
     </p>
   </div>
 
@@ -1577,13 +1536,20 @@ stateDiagram-v2
 }
 
 <span class="keyword">enum</span> <span class="type">EdgeType</span> {
-  REQUIRES     = <span class="string">'REQUIRES'</span>,      <span class="comment">// prerequisite dependency</span>
-  CONTAINS     = <span class="string">'CONTAINS'</span>,      <span class="comment">// part-of relationship</span>
-  RELATES_TO   = <span class="string">'RELATES_TO'</span>,    <span class="comment">// general association</span>
-  EXEMPLIFIES  = <span class="string">'EXEMPLIFIES'</span>,   <span class="comment">// concrete instance of</span>
-  CONTRADICTS  = <span class="string">'CONTRADICTS'</span>,   <span class="comment">// counterpoint / misconception</span>
-  LEADS_TO     = <span class="string">'LEADS_TO'</span>,      <span class="comment">// causal or sequential</span>
-  DEEPENS      = <span class="string">'DEEPENS'</span>,       <span class="comment">// more detailed view of</span>
+  REQUIRES     = <span class="string">'REQUIRES'</span>,
+  CONTAINS     = <span class="string">'CONTAINS'</span>,
+  RELATES_TO   = <span class="string">'RELATES_TO'</span>,
+  EXEMPLIFIES  = <span class="string">'EXEMPLIFIES'</span>,
+  CONTRADICTS  = <span class="string">'CONTRADICTS'</span>,
+  LEADS_TO     = <span class="string">'LEADS_TO'</span>,
+  DEEPENS      = <span class="string">'DEEPENS'</span>,
+}
+
+<span class="keyword">enum</span> <span class="type">VoiceIntent</span> {
+  QUESTION       = <span class="string">'QUESTION'</span>,
+  ACKNOWLEDGMENT = <span class="string">'ACKNOWLEDGMENT'</span>,
+  CONFUSION      = <span class="string">'CONFUSION'</span>,
+  COMMAND        = <span class="string">'COMMAND'</span>,
 }
 
 <span class="comment">// ── Knowledge Graph Node ─────────────────────────</span>
@@ -1592,14 +1558,16 @@ stateDiagram-v2
   <span class="fn">label</span>:            <span class="type">string</span>;
   <span class="fn">type</span>:             <span class="type">DataType</span>;
   <span class="fn">depth</span>:            <span class="type">number</span>;
-  <span class="fn">content</span>:          <span class="type">string</span>;         <span class="comment">// full text content</span>
-  <span class="fn">narration</span>:        <span class="type">string</span>;         <span class="comment">// TTS-optimized text</span>
+  <span class="fn">content</span>:          <span class="type">string</span>;
+  <span class="fn">narration</span>:        <span class="type">string</span>;
   <span class="fn">visual</span>:           <span class="type">VisualSpec</span>;
-  <span class="fn">rlRelevanceScore</span>: <span class="type">number</span>;        <span class="comment">// 0-1, set by RL agent</span>
-  <span class="fn">isExpanded</span>:       <span class="type">boolean</span>;        <span class="comment">// children generated?</span>
-  <span class="fn">isPresented</span>:      <span class="type">boolean</span>;        <span class="comment">// already narrated?</span>
+  <span class="fn">rlRelevanceScore</span>: <span class="type">number</span>;
+  <span class="fn">isExpanded</span>:       <span class="type">boolean</span>;
+  <span class="fn">isPresented</span>:      <span class="type">boolean</span>;
   <span class="fn">parentId</span>:         <span class="type">string | null</span>;
   <span class="fn">metadata</span>:         <span class="type">Record&lt;string, any&gt;</span>;
+  <span class="fn">visualHint</span>?:      <span class="type">string</span>;            <span class="comment">// hint for visual script generation</span>
+  <span class="fn">createdAt</span>:        <span class="type">number</span>;            <span class="comment">// timestamp</span>
 }
 
 <span class="comment">// ── Knowledge Graph Edge ─────────────────────────</span>
@@ -1609,7 +1577,7 @@ stateDiagram-v2
   <span class="fn">targetId</span>:     <span class="type">string</span>;
   <span class="fn">label</span>:        <span class="type">string</span>;
   <span class="fn">type</span>:         <span class="type">EdgeType</span>;
-  <span class="fn">weight</span>:       <span class="type">number</span>;          <span class="comment">// relevance weight</span>
+  <span class="fn">weight</span>:       <span class="type">number</span>;
   <span class="fn">isPresented</span>: <span class="type">boolean</span>;
 }
 
@@ -1617,15 +1585,70 @@ stateDiagram-v2
 <span class="keyword">interface</span> <span class="type">KnowledgeGraph</span> {
   <span class="fn">sessionId</span>:    <span class="type">string</span>;
   <span class="fn">rootNodeId</span>:   <span class="type">string</span>;
-  <span class="fn">nodes</span>:        <span class="type">Map&lt;string, KGNode&gt;</span>;
-  <span class="fn">edges</span>:        <span class="type">Map&lt;string, KGEdge&gt;</span>;
+  <span class="fn">nodes</span>:        <span class="type">Record&lt;string, KGNode&gt;</span>;
+  <span class="fn">edges</span>:        <span class="type">Record&lt;string, KGEdge&gt;</span>;
   <span class="fn">maxDepth</span>:     <span class="type">number</span>;
   <span class="fn">nodeLimit</span>:    <span class="type">number</span>;          <span class="comment">// default: 50</span>
   <span class="fn">createdAt</span>:    <span class="type">number</span>;
   <span class="fn">updatedAt</span>:    <span class="type">number</span>;
 }</code></pre>
 
-  <h3>Session & Presentation Types</h3>
+  <h3>Visual Script Types</h3>
+  <pre><code><span class="comment">// ── Visual Entity Type (30+ SVG component types) ─</span>
+<span class="keyword">type</span> <span class="type">VisualEntityType</span> =
+  <span class="comment">// Infrastructure</span>
+  | <span class="string">'User'</span> | <span class="string">'Server'</span> | <span class="string">'Database'</span> | <span class="string">'Container'</span> | <span class="string">'Pod'</span> | <span class="string">'Cloud'</span>
+  | <span class="string">'Network'</span> | <span class="string">'Device'</span> | <span class="string">'Arrow'</span> | <span class="string">'DataFlow'</span> | <span class="string">'Process'</span>
+  | <span class="string">'Queue'</span> | <span class="string">'Cache'</span> | <span class="string">'LoadBalancer'</span> | <span class="string">'Service'</span>
+  | <span class="string">'Firewall'</span> | <span class="string">'APIGateway'</span> | <span class="string">'Lambda'</span> | <span class="string">'Subnet'</span>
+  | <span class="string">'Volume'</span> | <span class="string">'Registry'</span> | <span class="string">'Monitor'</span> | <span class="string">'Pipeline'</span>
+  | <span class="string">'Decision'</span> | <span class="string">'Cluster'</span>
+  <span class="comment">// Universal</span>
+  | <span class="string">'Concept'</span> | <span class="string">'Entity'</span> | <span class="string">'Group'</span> | <span class="string">'Label'</span>
+  | <span class="string">'Comparison'</span> | <span class="string">'Timeline'</span> | <span class="string">'Metric'</span> | <span class="string">'Cycle'</span>
+  | <span class="string">'Stack'</span> | <span class="string">'Tree'</span> | <span class="string">'Badge'</span> | <span class="string">'Quote'</span>;
+
+<span class="comment">// ── Visual Entity ────────────────────────────────</span>
+<span class="keyword">interface</span> <span class="type">VisualEntity</span> {
+  <span class="fn">id</span>:              <span class="type">string</span>;
+  <span class="fn">type</span>:            <span class="type">VisualEntityType</span>;
+  <span class="fn">position</span>:        <span class="type">{ x: number; y: number }</span>;
+  <span class="fn">size</span>:            <span class="type">{ width: number; height: number }</span>;
+  <span class="fn">label</span>?:          <span class="type">string</span>;
+  <span class="fn">color</span>?:          <span class="type">string</span>;
+  <span class="fn">highlight</span>?:      <span class="type">boolean</span>;
+  <span class="fn">animation</span>?:      <span class="type">{ type: string; delay: number; duration: number }</span>;
+  <span class="fn">sourceEntityId</span>?: <span class="type">string</span>;         <span class="comment">// for Arrow/DataFlow</span>
+  <span class="fn">targetEntityId</span>?: <span class="type">string</span>;         <span class="comment">// for Arrow/DataFlow</span>
+  <span class="fn">parentEntityId</span>?: <span class="type">string</span>;         <span class="comment">// for nested entities</span>
+  <span class="fn">textContent</span>?:    <span class="type">string</span>;
+  <span class="fn">metadata</span>?:       <span class="type">Record&lt;string, any&gt;</span>;
+}
+
+<span class="comment">// ── Illustration Frame ───────────────────────────</span>
+<span class="keyword">interface</span> <span class="type">IllustrationFrame</span> {
+  <span class="fn">id</span>:          <span class="type">string</span>;
+  <span class="fn">startTime</span>:  <span class="type">number</span>;             <span class="comment">// ms</span>
+  <span class="fn">endTime</span>:    <span class="type">number</span>;             <span class="comment">// ms</span>
+  <span class="fn">entities</span>:   <span class="type">VisualEntity[]</span>;
+}
+
+<span class="comment">// ── Visual Script (per scene) ────────────────────</span>
+<span class="keyword">interface</span> <span class="type">VisualScript</span> {
+  <span class="fn">sceneId</span>:       <span class="type">string</span>;
+  <span class="fn">frames</span>:        <span class="type">IllustrationFrame[]</span>;
+  <span class="fn">totalDuration</span>: <span class="type">number</span>;           <span class="comment">// ms</span>
+  <span class="fn">entities</span>:      <span class="type">Record&lt;string, VisualEntity&gt;</span>;
+}
+
+<span class="comment">// ── Word Timestamp (voice-visual sync) ───────────</span>
+<span class="keyword">interface</span> <span class="type">WordTimestamp</span> {
+  <span class="fn">word</span>:  <span class="type">string</span>;
+  <span class="fn">start</span>: <span class="type">number</span>;              <span class="comment">// ms</span>
+  <span class="fn">end</span>:   <span class="type">number</span>;              <span class="comment">// ms</span>
+}</code></pre>
+
+  <h3>Session &amp; Presentation Types</h3>
   <pre><code><span class="comment">// ── Session State ────────────────────────────────</span>
 <span class="keyword">enum</span> <span class="type">SessionState</span> {
   IDLE           = <span class="string">'IDLE'</span>,
@@ -1643,9 +1666,22 @@ stateDiagram-v2
   <span class="fn">nodeId</span>:         <span class="type">string</span>;
   <span class="fn">wordOffset</span>:     <span class="type">number</span>;
   <span class="fn">audioTimestamp</span>: <span class="type">number</span>;
-  <span class="fn">elementStates</span>:  <span class="type">Map&lt;string, ElementState&gt;</span>;
+  <span class="fn">elementStates</span>:  <span class="type">Record&lt;string, any&gt;</span>;
   <span class="fn">traversalIndex</span>: <span class="type">number</span>;
   <span class="fn">timestamp</span>:      <span class="type">number</span>;
+}
+
+<span class="comment">// ── Presentation Scene ───────────────────────────</span>
+<span class="keyword">interface</span> <span class="type">PresentationScene</span> {
+  <span class="fn">id</span>:               <span class="type">string</span>;
+  <span class="fn">nodeIds</span>:          <span class="type">string[]</span>;
+  <span class="fn">edgeIds</span>:          <span class="type">string[]</span>;
+  <span class="fn">narration</span>:        <span class="type">string</span>;
+  <span class="fn">focusNodeId</span>:      <span class="type">string</span>;
+  <span class="fn">viewport</span>:         <span class="type">{ x: number; y: number; zoom: number }</span>;
+  <span class="fn">visualCommands</span>:   <span class="type">VisualCommand[]</span>;
+  <span class="fn">durationEstimate</span>: <span class="type">number</span>;
+  <span class="fn">visualScript</span>?:    <span class="type">VisualScript</span>;
 }
 
 <span class="comment">// ── RL Learner State ─────────────────────────────</span>
@@ -1668,15 +1704,6 @@ stateDiagram-v2
   <span class="fn">analogyEffectiveness</span>:   <span class="type">number</span>;
   <span class="fn">exampleEffectiveness</span>:   <span class="type">number</span>;
   <span class="fn">processEffectiveness</span>:   <span class="type">number</span>;
-}
-
-<span class="comment">// ── Voice Event ──────────────────────────────────</span>
-<span class="keyword">interface</span> <span class="type">VoiceEvent</span> {
-  <span class="fn">type</span>:       <span class="type">'transcript' | 'interrupt' | 'silence' | 'acknowledgment'</span>;
-  <span class="fn">intent</span>:     <span class="type">'QUESTION' | 'ACKNOWLEDGMENT' | 'CONFUSION' | 'COMMAND'</span>;
-  <span class="fn">text</span>:       <span class="type">string</span>;
-  <span class="fn">confidence</span>: <span class="type">number</span>;
-  <span class="fn">timestamp</span>:  <span class="type">number</span>;
 }</code></pre>
 </section>
 
@@ -1688,54 +1715,112 @@ stateDiagram-v2
     <div class="section-tag">Section 11</div>
     <h2>API <em>Surface</em></h2>
     <p class="section-desc">
-      V2 uses WebSockets as the primary transport for real-time bidirectional communication,
-      with REST endpoints for session management and user profiles.
+      The system uses WebSockets as the primary transport for real-time bidirectional communication,
+      with REST endpoints for session management and user profiles. All data is currently backed by
+      in-memory stores.
     </p>
   </div>
 
-  <h3>WebSocket Events (Client ↔ Server)</h3>
+  <h3>WebSocket Events (Client &rarr; Server)</h3>
   <table>
-    <thead><tr><th>Direction</th><th>Event</th><th>Payload</th></tr></thead>
+    <thead><tr><th>Event</th><th>Transport</th><th>Payload</th></tr></thead>
     <tbody>
       <tr>
-        <td>Client → Server</td>
+        <td><code>start_session</code></td>
+        <td>JSON</td>
+        <td><code>{ type: "start_session", topic: string }</code></td>
+      </tr>
+      <tr>
         <td><code>audio_chunk</code></td>
-        <td>Binary PCM audio data (16kHz, 16-bit)</td>
+        <td>Binary</td>
+        <td>audio/webm blob from MediaRecorder</td>
       </tr>
       <tr>
-        <td>Client → Server</td>
+        <td><code>text_input</code></td>
+        <td>JSON</td>
+        <td><code>{ type: "text_input", text: string }</code></td>
+      </tr>
+      <tr>
         <td><code>user_command</code></td>
-        <td><code>{ command: "pause" | "resume" | "skip" | "go_back" | "show_graph" }</code></td>
+        <td>JSON</td>
+        <td><code>{ type: "user_command", command: "pause" | "resume" | "skip" | "go_back" | "show_graph" | "toggle_voice" }</code></td>
       </tr>
       <tr>
-        <td>Server → Client</td>
+        <td><code>ping</code></td>
+        <td>JSON</td>
+        <td><code>{ type: "ping" }</code></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>WebSocket Events (Server &rarr; Client)</h3>
+  <table>
+    <thead><tr><th>Event</th><th>Transport</th><th>Payload</th></tr></thead>
+    <tbody>
+      <tr>
         <td><code>agent_audio</code></td>
-        <td>Binary TTS audio stream chunks</td>
+        <td>Binary</td>
+        <td>TTS audio stream (MP3 buffer)</td>
       </tr>
       <tr>
-        <td>Server → Client</td>
+        <td><code>agent_audio_meta</code></td>
+        <td>JSON</td>
+        <td><code>{ type: "agent_audio_meta", durationMs, sceneId, wordTimestamps?, visualScript? }</code></td>
+      </tr>
+      <tr>
+        <td><code>scene_change</code></td>
+        <td>JSON</td>
+        <td><code>{ type: "scene_change", scene: PresentationScene }</code></td>
+      </tr>
+      <tr>
         <td><code>visual_command</code></td>
-        <td><code>{ type: "scene_update" | "element_reveal" | "transition" | "highlight", data: ... }</code></td>
+        <td>JSON</td>
+        <td><code>{ type: "visual_command", command: VisualCommand }</code></td>
       </tr>
       <tr>
-        <td>Server → Client</td>
+        <td><code>narration_text</code></td>
+        <td>JSON</td>
+        <td><code>{ type: "narration_text", text: string, sceneId: string }</code></td>
+      </tr>
+      <tr>
         <td><code>graph_update</code></td>
-        <td><code>{ mutation: "add_node" | "add_edge" | "update_node", data: KGNode | KGEdge }</code></td>
+        <td>JSON</td>
+        <td><code>{ type: "graph_update", mutation: { action: "add_node" | "add_edge" | "update_node", data } }</code></td>
       </tr>
       <tr>
-        <td>Server → Client</td>
         <td><code>state_change</code></td>
-        <td><code>{ from: SessionState, to: SessionState, metadata: ... }</code></td>
+        <td>JSON</td>
+        <td><code>{ type: "state_change", from: SessionState, to: SessionState, metadata? }</code></td>
       </tr>
       <tr>
-        <td>Server → Client</td>
         <td><code>bookmark_created</code></td>
+        <td>JSON</td>
         <td><code>PresentationBookmark</code> (when interrupted)</td>
       </tr>
       <tr>
-        <td>Server → Client</td>
         <td><code>bookmark_resumed</code></td>
+        <td>JSON</td>
         <td><code>PresentationBookmark</code> (when resuming)</td>
+      </tr>
+      <tr>
+        <td><code>scene_prepare_status</code></td>
+        <td>JSON</td>
+        <td><code>{ type: "scene_prepare_status", sceneIndex, status, totalScenes }</code></td>
+      </tr>
+      <tr>
+        <td><code>rl_update</code></td>
+        <td>JSON</td>
+        <td><code>{ type: "rl_update", policy: RLPolicy, learnerState: Partial&lt;LearnerState&gt; }</code></td>
+      </tr>
+      <tr>
+        <td><code>error</code></td>
+        <td>JSON</td>
+        <td><code>{ type: "error", message: string, code: string }</code></td>
+      </tr>
+      <tr>
+        <td><code>pong</code></td>
+        <td>JSON</td>
+        <td><code>{ type: "pong" }</code></td>
       </tr>
     </tbody>
   </table>
@@ -1744,6 +1829,7 @@ stateDiagram-v2
   <table>
     <thead><tr><th>Method</th><th>Endpoint</th><th>Description</th></tr></thead>
     <tbody>
+      <tr><td><span class="badge badge-cyan">GET</span></td><td><code>/health</code></td><td>Health check (returns service status)</td></tr>
       <tr><td><span class="badge badge-emerald">POST</span></td><td><code>/api/sessions</code></td><td>Create new teaching session</td></tr>
       <tr><td><span class="badge badge-cyan">GET</span></td><td><code>/api/sessions/:id</code></td><td>Get session state + knowledge graph</td></tr>
       <tr><td><span class="badge badge-cyan">GET</span></td><td><code>/api/sessions/:id/graph</code></td><td>Get full knowledge graph</td></tr>
@@ -1752,6 +1838,13 @@ stateDiagram-v2
       <tr><td><span class="badge badge-cyan">GET</span></td><td><code>/api/users/:id/sessions</code></td><td>List past teaching sessions</td></tr>
     </tbody>
   </table>
+
+  <div class="callout callout-amber">
+    <strong>PLANNED — DATABASE-BACKED PERSISTENCE</strong>
+    <p>All REST endpoints currently read/write from <strong>in-memory Maps</strong>. Session data and user profiles
+    are lost on server restart. A future PostgreSQL integration will provide persistent storage for sessions,
+    learner profiles, and RL parameters across restarts.</p>
+  </div>
 </section>
 
 <!-- ═══════════════════════════════════════════════════
@@ -1760,24 +1853,72 @@ stateDiagram-v2
 <section id="deployment">
   <div class="section-header">
     <div class="section-tag">Section 12</div>
-    <h2>Technology Stack & <em>Deployment</em></h2>
+    <h2>Technology Stack &amp; <em>Deployment</em></h2>
   </div>
 
   <table>
-    <thead><tr><th>Layer</th><th>Technology</th><th>Rationale</th></tr></thead>
+    <thead><tr><th>Layer</th><th>Technology</th><th>Details</th></tr></thead>
     <tbody>
-      <tr><td>AI Agent (Reasoning)</td><td>Claude Opus 4.5 (Anthropic)</td><td>Deepest reasoning for conceptual decomposition + classification</td></tr>
-      <tr><td>AI Agent (Fast)</td><td>Claude Sonnet 4.5 (Anthropic)</td><td>Real-time interrupt processing, classification, graph mutation</td></tr>
-      <tr><td>Speech-to-Text</td><td>Whisper Large V3 / Deepgram</td><td>High-accuracy transcription with word timestamps</td></tr>
-      <tr><td>Text-to-Speech</td><td>ElevenLabs / OpenAI TTS</td><td>Natural voice with word-level timing for sync</td></tr>
-      <tr><td>Voice Activity Detection</td><td>Silero VAD (client) + server VAD</td><td>Real-time interrupt detection during narration</td></tr>
-      <tr><td>Knowledge Graph Store</td><td>Neo4j (persistent) / In-memory (session)</td><td>Native graph operations, Cypher queries for traversal</td></tr>
-      <tr><td>RL Engine</td><td>Custom Contextual Bandit (TypeScript)</td><td>Lightweight Thompson Sampling, no heavy ML framework needed</td></tr>
-      <tr><td>User Profile Store</td><td>PostgreSQL + Redis</td><td>Persistent profiles + session cache</td></tr>
-      <tr><td>WebSocket Server</td><td>Node.js + ws / Socket.io</td><td>Full-duplex audio + command streaming</td></tr>
-      <tr><td>Frontend Framework</td><td>React 18 + Zustand + D3.js</td><td>SVG canvas + force-directed graph visualization</td></tr>
-      <tr><td>Audio Processing</td><td>Web Audio API + WebRTC</td><td>Client-side audio capture, playback, VAD</td></tr>
-      <tr><td>Containerization</td><td>Docker Compose → Kubernetes</td><td>Multi-service orchestration with scaling</td></tr>
+      <tr>
+        <td>AI Agent (Reasoning)</td>
+        <td>Claude Sonnet 4.5 (Anthropic)</td>
+        <td><code>claude-sonnet-4-5-20250929</code> — conceptual decomposition, classification, visual script generation. Configurable via <code>AGENT_MODEL_REASONING</code> env var</td>
+      </tr>
+      <tr>
+        <td>AI Agent (Fast)</td>
+        <td>Claude Sonnet 4.5 (Anthropic)</td>
+        <td>Same model by default — used for interrupt handling and rephrasing. Configurable via <code>AGENT_MODEL_FAST</code> env var</td>
+      </tr>
+      <tr>
+        <td>Speech-to-Text</td>
+        <td>Deepgram (<code>nova-2</code>)</td>
+        <td>High-accuracy transcription with word-level timestamps and smart formatting</td>
+      </tr>
+      <tr>
+        <td>Text-to-Speech</td>
+        <td>ElevenLabs (<code>eleven_turbo_v2_5</code>)</td>
+        <td>Voice "George" (<code>JBFqnCBsd6RMkjVDRZzb</code>), returns audio + character-level alignment for word-level sync</td>
+      </tr>
+      <tr>
+        <td>Voice Input</td>
+        <td>MediaRecorder API</td>
+        <td>Manual mic toggle (click to start/stop). Captures <code>audio/webm;codecs=opus</code>. <span class="badge badge-amber">PLANNED</span> Silero VAD for continuous listening</td>
+      </tr>
+      <tr>
+        <td>Knowledge Graph Store</td>
+        <td>In-memory (JavaScript objects)</td>
+        <td><code>Record&lt;string, KGNode&gt;</code> and <code>Record&lt;string, KGEdge&gt;</code>. <span class="badge badge-amber">PLANNED</span> Neo4j for persistent graph storage</td>
+      </tr>
+      <tr>
+        <td>RL Engine</td>
+        <td>Custom Contextual Bandit (TypeScript)</td>
+        <td>Thompson Sampling with Beta-distributed arms, &lt;50ms per update</td>
+      </tr>
+      <tr>
+        <td>Session Cache</td>
+        <td>Redis 7</td>
+        <td>Session cache via <code>REDIS_URL</code>. <span class="badge badge-amber">PLANNED</span> PostgreSQL for persistent profiles</td>
+      </tr>
+      <tr>
+        <td>WebSocket Server</td>
+        <td>Node.js + Express + <code>ws</code></td>
+        <td>Monolithic backend on port 4000. Binary/text multiplexing via <code>isBinary</code> flag</td>
+      </tr>
+      <tr>
+        <td>Frontend Framework</td>
+        <td>React + Vite + Zustand + Immer</td>
+        <td>SVG presentation canvas, frame-based renderer, no D3.js</td>
+      </tr>
+      <tr>
+        <td>Audio Processing</td>
+        <td>Web Audio API + MediaRecorder</td>
+        <td>AudioPlaybackManager (singleton) + SoundEffectEngine (procedural synthesis)</td>
+      </tr>
+      <tr>
+        <td>Containerization</td>
+        <td>Docker Compose</td>
+        <td>3 services: backend (:4000), frontend/nginx (:3000), Redis (:6379). <span class="badge badge-amber">PLANNED</span> Kubernetes</td>
+      </tr>
     </tbody>
   </table>
 
@@ -1786,60 +1927,92 @@ stateDiagram-v2
     <div class="mermaid">
 graph TB
     subgraph CLIENT["Browser"]
-        REACT["React SPA<br/>Canvas + Graph Vis + Audio"]
+        REACT["React SPA<br/>SVG Canvas + Audio"]
     end
 
-    subgraph SERVICES["Backend Services"]
+    subgraph BACKEND["Backend :4000"]
         direction TB
-        GW["WebSocket Gateway<br/>:8080"]
-        AGENT_SVC["Agent Service<br/>:4000"]
-        VOICE_SVC["Voice Service<br/>:4001"]
-        KG_SVC["KG Service<br/>:4002"]
-        RL_SVC["RL Service<br/>:4003"]
+        GW["WebSocket Gateway + REST API"]
+        AGENT_SVC["AgentService"]
+        KG_SVC["KnowledgeGraphService"]
+        VOICE_SVC["VoiceService"]
+        PLAN_SVC["PresentationPlanner"]
+        VSG_SVC["VisualScriptGenerator"]
+        RL_SVC["RLService"]
+        PIPE_SVC["ScenePipelineOrchestrator"]
     end
 
     subgraph DATA["Data Layer"]
-        NEO4J["Neo4j<br/>Knowledge Graphs"]
-        PG["PostgreSQL<br/>User Profiles"]
-        REDIS["Redis<br/>Session Cache"]
+        REDIS["Redis"]
     end
 
     subgraph EXTERNAL["External APIs"]
-        CLAUDE["Anthropic API<br/>(Claude)"]
-        WHISPER["Whisper / Deepgram<br/>(STT)"]
-        ELEVEN["ElevenLabs<br/>(TTS)"]
+        CLAUDE["Anthropic — Claude"]
+        DEEPGRAM_API["Deepgram — STT"]
+        ELEVEN_API["ElevenLabs — TTS"]
     end
 
-    REACT <-->|"WebSocket"| GW
+    REACT <-->|"WebSocket + REST"| GW
     GW --> AGENT_SVC
     GW --> VOICE_SVC
     AGENT_SVC --> KG_SVC
     AGENT_SVC --> RL_SVC
-    KG_SVC --> NEO4J
-    RL_SVC --> PG
-    RL_SVC --> REDIS
+    PLAN_SVC --> PIPE_SVC
+    PIPE_SVC --> VSG_SVC
+    PIPE_SVC --> VOICE_SVC
+    KG_SVC --> REDIS
     AGENT_SVC --> CLAUDE
-    VOICE_SVC --> WHISPER
-    VOICE_SVC --> ELEVEN
-
-    style CLIENT fill:#0d1117,stroke:#00e5ff,stroke-width:2px,color:#e8eaed
-    style SERVICES fill:#0d1117,stroke:#ff2d7b,stroke-width:2px,color:#e8eaed
-    style DATA fill:#0d1117,stroke:#ffab00,stroke-width:2px,color:#e8eaed
-    style EXTERNAL fill:#0d1117,stroke:#b388ff,stroke-width:2px,color:#e8eaed
+    VOICE_SVC --> DEEPGRAM_API
+    VOICE_SVC --> ELEVEN_API
     </div>
   </div>
 
-  <h3>Performance Constraints</h3>
+  <h3>Performance Targets</h3>
   <table>
-    <thead><tr><th>Metric</th><th>Target</th><th>Mechanism</th></tr></thead>
+    <thead><tr><th>Metric</th><th>Target</th><th>Mechanism</th><th>Status</th></tr></thead>
     <tbody>
-      <tr><td>Voice → First word spoken</td><td>< 2 seconds</td><td>Streaming STT + streaming TTS + parallel reasoning</td></tr>
-      <tr><td>Interrupt detection</td><td>< 300ms</td><td>Client-side VAD + WebSocket signaling</td></tr>
-      <tr><td>Graph mutation (interrupt)</td><td>< 1 second</td><td>Fast model (Sonnet) for interrupt classification</td></tr>
-      <tr><td>Resume from bookmark</td><td>< 500ms</td><td>Pre-computed bookmark state, no re-generation</td></tr>
-      <tr><td>Async graph expansion</td><td>Background, non-blocking</td><td>Separate async worker, bounded to 50 nodes</td></tr>
-      <tr><td>Visual sync accuracy</td><td>< 100ms drift</td><td>Word-level TTS timestamps → canvas event triggers</td></tr>
-      <tr><td>RL policy update</td><td>< 50ms per reward</td><td>Lightweight Thompson Sampling, in-memory</td></tr>
+      <tr>
+        <td>Voice &rarr; First word spoken</td>
+        <td>&lt; 3 seconds</td>
+        <td>Deepgram STT + concurrent scene preparation + ElevenLabs TTS</td>
+        <td><span class="badge badge-emerald">IMPLEMENTED</span></td>
+      </tr>
+      <tr>
+        <td>Scene preparation</td>
+        <td>Concurrent (non-blocking)</td>
+        <td>ScenePipelineOrchestrator + ConcurrencyPool for parallel visual script + TTS</td>
+        <td><span class="badge badge-emerald">IMPLEMENTED</span></td>
+      </tr>
+      <tr>
+        <td>Visual sync accuracy</td>
+        <td>&lt; 100ms drift</td>
+        <td>Word-level TTS timestamps &rarr; AudioPlaybackManager time tracking &rarr; frame selection</td>
+        <td><span class="badge badge-emerald">IMPLEMENTED</span></td>
+      </tr>
+      <tr>
+        <td>RL policy update</td>
+        <td>&lt; 50ms per reward</td>
+        <td>Lightweight Thompson Sampling, in-memory Beta arms</td>
+        <td><span class="badge badge-emerald">IMPLEMENTED</span></td>
+      </tr>
+      <tr>
+        <td>Resume from bookmark</td>
+        <td>&lt; 500ms</td>
+        <td>Pre-computed bookmark state, no re-generation needed</td>
+        <td><span class="badge badge-emerald">IMPLEMENTED</span></td>
+      </tr>
+      <tr>
+        <td>Interrupt detection</td>
+        <td>&lt; 300ms</td>
+        <td>Regex-based intent classification (instant). <span class="badge badge-amber">PLANNED</span> Client-side VAD for real-time detection</td>
+        <td><span class="badge badge-amber">PARTIAL</span></td>
+      </tr>
+      <tr>
+        <td>Async graph expansion</td>
+        <td>Background, bounded to 50 nodes</td>
+        <td>Separate async loop with 3s intervals, auto-stops after 30s</td>
+        <td><span class="badge badge-emerald">IMPLEMENTED</span></td>
+      </tr>
     </tbody>
   </table>
 </section>
@@ -1849,7 +2022,7 @@ graph TB
 <footer>
   Agentic Presentation System V2 — Technical Specification<br>
   Active Presenter with Personalized Cognitive Scaffolding<br>
-  <span style="color: var(--cyan);">February 2026</span>
+  <span style="color: var(--cyan);">Updated February 2026</span>
 </footer>
 
 <script>

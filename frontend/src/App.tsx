@@ -8,6 +8,7 @@ import { useSessionStore } from './stores/sessionStore';
 import type { KGNode, KGEdge, PresentationScene } from './stores/sessionStore';
 import { DEMO_NODES, DEMO_EDGES, DEMO_SCENES } from './demo/demoGraph';
 import { ScenePresenter } from './components/ScenePresenter';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { SoundEffectEngine } from './audio/SoundEffectEngine';
 
 // ── Data Type → Visual Config (used by Sidebar) ──────────────
@@ -547,14 +548,16 @@ export default function App() {
       <div className="main-layout">
         <div className="canvas-area">
           <div className={`canvas-container ${sceneTransitioning ? 'canvas-transitioning' : ''}`}>
-            <ScenePresenter
-              currentScene={store.currentScene}
-              nodes={store.nodes}
-              edges={store.edges}
-              narrationText={store.narrationText}
-              sceneTransitioning={sceneTransitioning}
-              revealedNodeIds={store.revealedNodeIds}
-            />
+            <ErrorBoundary fallbackMessage="Presentation renderer encountered an error.">
+              <ScenePresenter
+                currentScene={store.currentScene}
+                nodes={store.nodes}
+                edges={store.edges}
+                narrationText={store.narrationText}
+                sceneTransitioning={sceneTransitioning}
+                revealedNodeIds={store.revealedNodeIds}
+              />
+            </ErrorBoundary>
 
             {/* Loading overlay */}
             {(store.sessionState === 'LISTENING' || store.sessionState === 'REASONING' || store.sessionState === 'BUILDING_GRAPH') && Object.keys(store.nodes).length === 0 && (
@@ -579,20 +582,22 @@ export default function App() {
         </div>
 
         {/* Sidebar */}
-        <Sidebar
-          nodes={store.nodes}
-          currentScene={store.currentScene}
-          narrationText={store.narrationText}
-          chatMessages={store.chatMessages}
-          sessionState={store.sessionState}
-          sidebarTab={store.sidebarTab}
-          bookmark={store.bookmark}
-          rlPolicy={store.rlPolicy}
-          selectedNodeId={null}
-          onTabChange={store.setSidebarTab}
-          onSendText={handleSendText}
-          onCommand={handleCommand}
-        />
+        <ErrorBoundary fallbackMessage="Sidebar encountered an error.">
+          <Sidebar
+            nodes={store.nodes}
+            currentScene={store.currentScene}
+            narrationText={store.narrationText}
+            chatMessages={store.chatMessages}
+            sessionState={store.sessionState}
+            sidebarTab={store.sidebarTab}
+            bookmark={store.bookmark}
+            rlPolicy={store.rlPolicy}
+            selectedNodeId={null}
+            onTabChange={store.setSidebarTab}
+            onSendText={handleSendText}
+            onCommand={handleCommand}
+          />
+        </ErrorBoundary>
       </div>
     </div>
   );

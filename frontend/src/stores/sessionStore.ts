@@ -106,12 +106,18 @@ export interface RLPolicy {
 }
 
 // ── Store Interface ──────────────────────────────────────────
+type WSConnectionStatus = 'disconnected' | 'connected' | 'reconnecting' | 'failed';
+
 interface SessionStore {
   // Session
   sessionState: SessionState;
   sessionId: string | null;
   topic: string;
   ws: WebSocket | null;
+
+  // WebSocket reconnection
+  wsConnectionStatus: WSConnectionStatus;
+  reconnectAttempts: number;
 
   // Knowledge Graph
   nodes: Record<string, KGNode>;
@@ -182,12 +188,20 @@ interface SessionStore {
   reset: () => void;
 }
 
+// ── WebSocket Reconnection (internal, non-reactive) ─────────
+const MAX_RECONNECT_ATTEMPTS = 5;
+let _intentionalClose = false;
+let _reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+let _lastWsUrl: string | null = null;
+
 // ── Initial State ────────────────────────────────────────────
 const initialState = {
   sessionState: 'IDLE' as SessionState,
   sessionId: null as string | null,
   topic: '',
   ws: null as WebSocket | null,
+  wsConnectionStatus: 'disconnected' as WSConnectionStatus,
+  reconnectAttempts: 0,
   nodes: {} as Record<string, KGNode>,
   edges: {} as Record<string, KGEdge>,
   currentScene: null as PresentationScene | null,
@@ -216,11 +230,18 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   setSessionState: (state) => set({ sessionState: state }),
 
   connectWS: (url: string, onReady?: () => void) => {
-    get().disconnectWS();
+    // Clean up any pending reconnect and previous connection
+    if (_reconnectTimer) { clearTimeout(_reconnectTimer); _reconnectTimer = null; }
+    _intentionalClose = true;
+    get().ws?.close();
+    _intentionalClose = false;
+
+    _lastWsUrl = url;
     const ws = new WebSocket(url);
 
     ws.onopen = () => {
       console.log('[WS] Connected');
+      set({ wsConnectionStatus: 'connected', reconnectAttempts: 0 });
       onReady?.();
     };
 
@@ -318,16 +339,47 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       }
     };
 
-    ws.onclose = () => console.log('[WS] Disconnected');
+    ws.onclose = () => {
+      console.log('[WS] Disconnected');
+      set({ ws: null });
+
+      if (_intentionalClose) {
+        set({ wsConnectionStatus: 'disconnected', reconnectAttempts: 0 });
+        return;
+      }
+
+      // Auto-reconnect with exponential backoff
+      const attempts = get().reconnectAttempts;
+      if (attempts >= MAX_RECONNECT_ATTEMPTS) {
+        console.error(`[WS] Failed to reconnect after ${MAX_RECONNECT_ATTEMPTS} attempts`);
+        set({ wsConnectionStatus: 'failed' });
+        return;
+      }
+
+      const delay = Math.min(1000 * Math.pow(2, attempts), 30000);
+      console.log(`[WS] Reconnecting in ${delay}ms (attempt ${attempts + 1}/${MAX_RECONNECT_ATTEMPTS})`);
+      set({ wsConnectionStatus: 'reconnecting', reconnectAttempts: attempts + 1 });
+
+      _reconnectTimer = setTimeout(() => {
+        _reconnectTimer = null;
+        if (_lastWsUrl) {
+          get().connectWS(_lastWsUrl);
+        }
+      }, delay);
+    };
+
     ws.onerror = (err) => console.error('[WS] Error:', err);
 
     set({ ws });
   },
 
   disconnectWS: () => {
+    if (_reconnectTimer) { clearTimeout(_reconnectTimer); _reconnectTimer = null; }
+    _intentionalClose = true;
     AudioPlaybackManager.getInstance().stop();
     get().ws?.close();
-    set({ ws: null });
+    _intentionalClose = false;
+    set({ ws: null, wsConnectionStatus: 'disconnected', reconnectAttempts: 0 });
   },
 
   sendMessage: (msg: any) => {
@@ -401,6 +453,9 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   },
 
   reset: () => {
+    if (_reconnectTimer) { clearTimeout(_reconnectTimer); _reconnectTimer = null; }
+    _intentionalClose = false;
+    _lastWsUrl = null;
     AudioPlaybackManager.getInstance().destroy();
     set({ ...initialState });
   },
