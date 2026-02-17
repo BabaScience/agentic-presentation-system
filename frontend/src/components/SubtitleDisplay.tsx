@@ -3,6 +3,7 @@
 
    Displays synchronized subtitles at the bottom center of the screen.
    Shows 5 words at a time with smooth fade transitions between chunks.
+   Highlights the current word being spoken.
    ═══════════════════════════════════════════════════════════════ */
 
 import { useMemo, useState, useEffect, useRef } from 'react';
@@ -45,7 +46,18 @@ export function SubtitleDisplay({ wordTimestamps, currentTime, visible }: Subtit
   return (
     <div className="subtitle-container">
       <div className={`subtitle-text ${isExiting ? 'exiting' : ''}`}>
-        {currentChunk.text}
+        {currentChunk.words.map((word, i) => {
+          const isActive = currentTime >= word.start && currentTime < word.end;
+          const isPast = currentTime >= word.end;
+          return (
+            <span
+              key={`${word.word}-${i}`}
+              className={`subtitle-word${isActive ? ' subtitle-word-active' : ''}${isPast ? ' subtitle-word-past' : ''}`}
+            >
+              {word.word}{i < currentChunk.words.length - 1 ? ' ' : ''}
+            </span>
+          );
+        })}
       </div>
     </div>
   );

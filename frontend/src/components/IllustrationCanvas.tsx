@@ -2,13 +2,13 @@
    IllustrationCanvas Component
 
    Large SVG canvas for rendering frame-based visual narratives.
-   Supports both legacy IllustrationSpec and new frame-based system.
+   Unified rendering: both legacy IllustrationSpec and VisualScript
+   are rendered through the FrameRenderer pipeline.
    Synchronized to audio narration timing.
    ═══════════════════════════════════════════════════════════════ */
 
 import React, { useMemo, useState, useRef, useEffect } from 'react';
 import type { IllustrationSpec, VisualScript, VisualEntity, IllustrationFrame } from '../../../shared/types';
-import { Server, Database, Container, Pod, Cloud, User, Device, Arrow, DataFlow, Box, Layer } from './svg/SVGLibrary';
 import { FrameRenderer } from './FrameRenderer';
 
 interface IllustrationCanvasProps {
@@ -19,16 +19,116 @@ interface IllustrationCanvasProps {
   height?: number;
 }
 
+/**
+ * Convert legacy IllustrationSpec[] to a single-frame VisualScript.
+ * This unifies the dual visual systems into the FrameRenderer pipeline.
+ */
+function convertIllustrationsToScript(illustrations: IllustrationSpec[]): VisualScript {
+  if (illustrations.length === 0) {
+    return { sceneId: 'legacy', frames: [], totalDuration: 0, entities: {} };
+  }
+
+  // Group illustrations by their appear timing into frames
+  const sorted = [...illustrations].sort((a, b) => a.appearTimingMs - b.appearTimingMs);
+  const maxTime = Math.max(...sorted.map(i => i.appearTimingMs)) + 5000;
+
+  // Create time buckets (each bucket = 2s window)
+  const bucketSize = 2000;
+  const buckets = new Map<number, IllustrationSpec[]>();
+
+  for (const illus of sorted) {
+    const bucket = Math.floor(illus.appearTimingMs / bucketSize) * bucketSize;
+    const list = buckets.get(bucket) || [];
+    list.push(illus);
+    buckets.set(bucket, list);
+  }
+
+  // Convert each bucket to a frame with accumulated entities
+  const allEntities: VisualEntity[] = [];
+  const frames: IllustrationFrame[] = [];
+  const entityMap: Record<string, VisualEntity> = {};
+
+  const bucketKeys = [...buckets.keys()].sort((a, b) => a - b);
+
+  for (let i = 0; i < bucketKeys.length; i++) {
+    const bucketStart = bucketKeys[i];
+    const bucketEnd = i < bucketKeys.length - 1 ? bucketKeys[i + 1] : maxTime;
+    const bucketIllus = buckets.get(bucketStart)!;
+
+    // Add new entities from this bucket
+    for (const illus of bucketIllus) {
+      const entity = illustrationToEntity(illus);
+      allEntities.push(entity);
+      entityMap[entity.id] = entity;
+    }
+
+    frames.push({
+      id: `legacy-frame-${i}`,
+      startTime: bucketStart,
+      endTime: bucketEnd,
+      entities: [...allEntities], // Accumulated entities
+      narrationSegment: '',
+      description: `Legacy frame ${i}`,
+    });
+  }
+
+  return {
+    sceneId: 'legacy-converted',
+    frames,
+    totalDuration: maxTime,
+    entities: entityMap,
+  };
+}
+
+/** Convert a single IllustrationSpec to a VisualEntity */
+function illustrationToEntity(illus: IllustrationSpec): VisualEntity {
+  // Map elementType to closest VisualEntityType
+  const typeMap: Record<string, string> = {
+    box: 'Entity',
+    circle: 'Concept',
+    arrow: 'Arrow',
+    text: 'Label',
+    code: 'Entity',
+    icon: 'Badge',
+    split_panel: 'Comparison',
+    flow_sequence: 'Process',
+    callout: 'Quote',
+  };
+
+  return {
+    id: illus.id,
+    type: (typeMap[illus.elementType] || 'Entity') as any,
+    position: illus.position,
+    size: illus.size,
+    label: illus.content,
+    color: illus.style.stroke || illus.style.fill,
+    animation: {
+      type: illus.animation.type === 'dashFlow' ? 'dashFlow' :
+            illus.animation.type === 'none' ? 'none' :
+            illus.animation.type as any,
+      duration: illus.animation.duration,
+      delay: illus.animation.delay,
+    },
+  };
+}
+
 export function IllustrationCanvas({ illustrations, visualScript, currentTime, width = 1600, height = 900 }: IllustrationCanvasProps) {
 
-  const useFrameSystem = visualScript && visualScript.frames.length > 0;
+  // Unified: convert legacy illustrations to frame system if no visualScript
+  const effectiveScript = useMemo(() => {
+    if (visualScript && visualScript.frames.length > 0) return visualScript;
+    if (illustrations && illustrations.length > 0) return convertIllustrationsToScript(illustrations);
+    return null;
+  }, [visualScript, illustrations]);
+
+  const hasFrames = effectiveScript && effectiveScript.frames.length > 0;
 
   const currentFrame = useMemo(() => {
-    if (!visualScript) return null;
-    return visualScript.frames.find(
+    if (!effectiveScript) return null;
+    return effectiveScript.frames.find(
       frame => currentTime >= frame.startTime && currentTime < frame.endTime
-    ) || visualScript.frames[visualScript.frames.length - 1];
-  }, [visualScript, currentTime]);
+    ) || effectiveScript.frames[effectiveScript.frames.length - 1];
+  }, [effectiveScript, currentTime]);
 
   // Entity lifecycle tracking for smooth frame transitions
   const [exitingEntities, setExitingEntities] = useState<VisualEntity[]>([]);
@@ -62,12 +162,7 @@ export function IllustrationCanvas({ illustrations, visualScript, currentTime, w
     };
   }, []);
 
-  const visibleIllustrations = useMemo(() => {
-    if (!illustrations) return [];
-    return illustrations.filter(illus => currentTime >= illus.appearTimingMs);
-  }, [illustrations, currentTime]);
-
-  if (!useFrameSystem && visibleIllustrations.length === 0) {
+  if (!hasFrames) {
     return (
       <div className="illustration-canvas-empty">
         <div className="canvas-placeholder">
@@ -133,274 +228,16 @@ export function IllustrationCanvas({ illustrations, visualScript, currentTime, w
 
         <rect width={width} height={height} fill="url(#grid)" />
 
-        {useFrameSystem && currentFrame && (
+        {currentFrame && (
           <FrameRenderer
             entities={currentFrame.entities}
             exitingEntities={exitingEntities}
             canvasWidth={width}
             canvasHeight={height}
+            frameElapsedMs={currentTime - currentFrame.startTime}
           />
         )}
-
-        {!useFrameSystem && visibleIllustrations.map(illus => renderIllustration(illus, currentTime, width, height))}
       </svg>
     </div>
   );
-}
-
-/* ─── Pick glow filter by colour ─── */
-function glowFilter(color: string): string | undefined {
-  if (color.includes('e5ff') || color.includes('bcd4')) return 'url(#glow-cyan)';
-  if (color.includes('2d7b') || color.includes('6b9d') || color.includes('6b6b')) return 'url(#glow-pink)';
-  if (color.includes('e676') || color.includes('ff00') || color.includes('4caf')) return 'url(#glow-green)';
-  if (color.includes('ab00') || color.includes('f57c')) return 'url(#glow-amber)';
-  if (color.includes('88ff') || color.includes('7c4d')) return 'url(#glow-purple)';
-  return 'url(#glow-cyan)';
-}
-
-function renderIllustration(illus: IllustrationSpec, currentTime: number, canvasW: number, canvasH: number) {
-  const elapsed = currentTime - illus.appearTimingMs;
-  const animClass = `illus-${illus.animation.type}`;
-
-  const x = (illus.position.x / 100) * canvasW;
-  const y = (illus.position.y / 100) * canvasH;
-
-  const color = illus.style.stroke || illus.style.fill || '#00e5ff';
-  const sw = illus.style.strokeWidth || 2;
-  const filter = glowFilter(color);
-
-  switch (illus.elementType) {
-    case 'box':
-      return (
-        <g key={illus.id} className={animClass} filter={filter}>
-          <rect
-            x={x - illus.size.width / 2}
-            y={y - illus.size.height / 2}
-            width={illus.size.width}
-            height={illus.size.height}
-            rx={12}
-            fill={illus.style.fill || `${color}0A`}
-            stroke={color}
-            strokeWidth={sw}
-            opacity={illus.style.opacity || 0.85}
-          />
-          {illus.content && (
-            <text
-              x={x} y={y + 6}
-              textAnchor="middle"
-              dominantBaseline="middle"
-              fill={color}
-              fontSize={Math.max(16, Math.min(illus.size.width / 8, 28))}
-              fontWeight={600}
-              fontFamily="'Geist Mono', monospace"
-              filter="url(#text-shadow)"
-            >
-              {illus.content}
-            </text>
-          )}
-        </g>
-      );
-
-    case 'circle':
-      return (
-        <g key={illus.id} className={animClass} filter={sw > 1.5 ? filter : undefined}>
-          <circle
-            cx={x}
-            cy={y}
-            r={illus.size.width / 2}
-            fill={illus.style.fill || 'transparent'}
-            stroke={color}
-            strokeWidth={sw}
-            opacity={illus.style.opacity || 0.8}
-          />
-          {illus.content && (
-            <text
-              x={x} y={y + illus.size.width / 2 + 28}
-              textAnchor="middle"
-              fill={color}
-              fontSize={Math.max(14, Math.min(illus.size.width / 10, 22))}
-              fontWeight={500}
-              fontFamily="'Geist Mono', monospace"
-              filter="url(#text-shadow)"
-            >
-              {illus.content}
-            </text>
-          )}
-        </g>
-      );
-
-    case 'arrow':
-      return (
-        <Arrow
-          key={illus.id}
-          x1={x}
-          y1={y}
-          x2={x + illus.size.width}
-          y2={y}
-          color={color}
-          label={illus.content}
-          className={animClass}
-          animated={illus.animation.type === 'pulse'}
-        />
-      );
-
-    case 'code':
-      return (
-        <g key={illus.id} className={animClass} filter={filter}>
-          {/* Outer frame */}
-          <rect
-            x={x - illus.size.width / 2}
-            y={y - illus.size.height / 2}
-            width={illus.size.width}
-            height={illus.size.height}
-            rx={12}
-            fill={illus.style.fill || `${color}08`}
-            stroke={color}
-            strokeWidth={sw}
-          />
-          {/* Title bar */}
-          <rect
-            x={x - illus.size.width / 2}
-            y={y - illus.size.height / 2}
-            width={illus.size.width}
-            height={32}
-            rx={12}
-            fill={`${color}18`}
-          />
-          {/* Decorative window dots */}
-          <circle cx={x - illus.size.width / 2 + 20} cy={y - illus.size.height / 2 + 16} r={5} fill="#ff5f57" opacity={0.7}/>
-          <circle cx={x - illus.size.width / 2 + 38} cy={y - illus.size.height / 2 + 16} r={5} fill="#ffbd2e" opacity={0.7}/>
-          <circle cx={x - illus.size.width / 2 + 56} cy={y - illus.size.height / 2 + 16} r={5} fill="#28c940" opacity={0.7}/>
-          {illus.content && (
-            <text
-              x={x} y={y + 12}
-              textAnchor="middle"
-              dominantBaseline="middle"
-              fill={color}
-              fontSize={Math.max(16, Math.min(illus.size.width / 12, 26))}
-              fontWeight={600}
-              fontFamily="'Geist Mono', monospace"
-              filter="url(#text-shadow)"
-            >
-              {illus.content}
-            </text>
-          )}
-        </g>
-      );
-
-    case 'split_panel':
-      return (
-        <g key={illus.id} className={animClass}>
-          <rect
-            x={x - illus.size.width / 2}
-            y={y - illus.size.height / 2}
-            width={illus.size.width / 2 - 8}
-            height={illus.size.height}
-            rx={10}
-            fill={`${color}0A`}
-            stroke={color}
-            strokeWidth={sw}
-            filter={filter}
-          />
-          <rect
-            x={x + 8}
-            y={y - illus.size.height / 2}
-            width={illus.size.width / 2 - 8}
-            height={illus.size.height}
-            rx={10}
-            fill={`${color}0A`}
-            stroke={color}
-            strokeWidth={sw}
-            filter={filter}
-          />
-          {illus.content && (
-            <text
-              x={x} y={y + illus.size.height / 2 + 28}
-              textAnchor="middle" fill={color}
-              fontSize={16} fontWeight={500}
-              fontFamily="'Geist Mono', monospace"
-              filter="url(#text-shadow)"
-            >
-              {illus.content}
-            </text>
-          )}
-        </g>
-      );
-
-    case 'flow_sequence':
-      return (
-        <g key={illus.id} className={animClass}>
-          {Array.from({ length: 3 }).map((_, i) => (
-            <React.Fragment key={i}>
-              <Box
-                x={x + i * (illus.size.width / 2.5)}
-                y={y}
-                size={illus.size.width / 4}
-                color={color}
-                label={`${i + 1}`}
-              />
-              {i < 2 && (
-                <Arrow
-                  x1={x + i * (illus.size.width / 2.5) + illus.size.width / 8}
-                  y1={y}
-                  x2={x + (i + 1) * (illus.size.width / 2.5) - illus.size.width / 8}
-                  y2={y}
-                  color={color}
-                  animated={true}
-                />
-              )}
-            </React.Fragment>
-          ))}
-        </g>
-      );
-
-    case 'icon':
-      return (
-        <g key={illus.id} className={animClass}>
-          <text
-            x={x}
-            y={y}
-            textAnchor="middle"
-            dominantBaseline="middle"
-            fontSize={illus.size.width * 0.7}
-            opacity={illus.style.opacity || 0.9}
-          >
-            {illus.content || '✨'}
-          </text>
-        </g>
-      );
-
-    case 'callout':
-      return (
-        <g key={illus.id} className={animClass} filter={filter}>
-          <rect
-            x={x - illus.size.width / 2}
-            y={y - illus.size.height / 2}
-            width={illus.size.width}
-            height={illus.size.height}
-            rx={16}
-            fill={`${color}0C`}
-            stroke={color}
-            strokeWidth={sw}
-          />
-          {illus.content && (
-            <text
-              x={x} y={y + 5}
-              textAnchor="middle"
-              dominantBaseline="middle"
-              fill={color}
-              fontSize={16}
-              fontWeight={500}
-              fontFamily="'Geist Mono', monospace"
-              filter="url(#text-shadow)"
-            >
-              {illus.content}
-            </text>
-          )}
-        </g>
-      );
-
-    default:
-      return null;
-  }
 }

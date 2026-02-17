@@ -186,10 +186,18 @@ export interface VisualEntity {
   color?: string;
   highlight?: boolean;
   animation?: {
-    type: 'fadeIn' | 'slideIn' | 'scaleIn' | 'pulse' | 'flow' | 'none';
+    type: 'fadeIn' | 'slideIn' | 'scaleIn' | 'pulse' | 'flow' | 'dashFlow' | 'none';
     duration: number;
     delay: number;
   };
+  // Entity-to-entity connections (for Arrow/DataFlow types)
+  sourceEntityId?: string; // label-based ref to source entity
+  targetEntityId?: string; // label-based ref to target entity
+  // Hierarchical nesting
+  parentEntityId?: string; // label-based ref to parent container entity
+  // Rich text
+  textContent?: string[]; // Multi-line text content
+  codeLanguage?: string;  // For code blocks
   metadata?: Record<string, any>;
 }
 

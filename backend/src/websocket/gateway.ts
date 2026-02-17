@@ -513,9 +513,23 @@ export class WebSocketGateway {
     if (estimatedDuration <= 0 || realDurationMs <= 0) return;
 
     const scale = realDurationMs / estimatedDuration;
+
+    // Rescale frame boundaries
     for (const frame of scene.visualScript.frames) {
+      const frameDuration = frame.endTime - frame.startTime;
       frame.startTime = Math.round(frame.startTime * scale);
       frame.endTime = Math.round(frame.endTime * scale);
+
+      // Preserve internal choreography: rescale animation delays proportionally
+      // relative to the frame's own duration (not the global scale)
+      const newFrameDuration = frame.endTime - frame.startTime;
+      const frameDurationScale = frameDuration > 0 ? newFrameDuration / frameDuration : 1;
+
+      for (const entity of frame.entities) {
+        if (entity.animation && entity.animation.delay > 0) {
+          entity.animation.delay = Math.round(entity.animation.delay * frameDurationScale);
+        }
+      }
     }
     scene.visualScript.totalDuration = realDurationMs;
 

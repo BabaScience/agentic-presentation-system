@@ -140,7 +140,7 @@ export const DataFlow: React.FC<ArrowProps> = ({ x1, y1, x2, y2, color = '#b388f
 export const Box: React.FC<SVGComponentProps> = ({ x, y, size = 60, color = '#00e5ff', label, className = '', animationDelay = 0 }) => (
   <g transform={`translate(${x}, ${y})`} className={className} style={{ animationDelay: `${animationDelay}ms` }}>
     <rect x={-size/2} y={-size/2} width={size} height={size} rx={6} fill={`${color}20`} stroke={color} strokeWidth={2} />
-    {label && <text x={0} y={5} textAnchor="middle" fill={color} fontSize={14} fontWeight={600}>{label}</text>}
+    {label && <text x={0} y={5} textAnchor="middle" fill={color} fontSize={Math.min(14, size/5)} fontWeight={600} fontFamily="'Geist Mono', monospace">{label}</text>}
   </g>
 );
 
