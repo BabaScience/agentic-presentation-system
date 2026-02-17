@@ -445,14 +445,17 @@ export function clampEntityPosition(
   canvasWidth = CANVAS_WIDTH,
   canvasHeight = CANVAS_HEIGHT,
 ): { x: number; y: number } {
+  // Guard against NaN — default to canvas center
+  const px = isNaN(position.x) ? 50 : position.x;
+  const py = isNaN(position.y) ? 50 : position.y;
   const halfWPct = (entityWidthPx / 2) / canvasWidth * 100;
   const halfHPct = (entityHeightPx / 2) / canvasHeight * 100;
   // Labels extend below the entity body — reserve space for them
   const labelPadPct = ENTITY_LABEL_PADDING_PX / canvasHeight * 100;
   const pad = 1; // 1% padding from edge
   return {
-    x: Math.max(halfWPct + pad, Math.min(100 - halfWPct - pad, position.x)),
-    y: Math.max(halfHPct + pad, Math.min(100 - halfHPct - labelPadPct - pad, position.y)),
+    x: Math.max(halfWPct + pad, Math.min(100 - halfWPct - pad, px)),
+    y: Math.max(halfHPct + pad, Math.min(100 - halfHPct - labelPadPct - pad, py)),
   };
 }
 

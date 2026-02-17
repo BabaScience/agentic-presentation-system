@@ -516,16 +516,25 @@ Generate the visual script now:`;
           entityRegistry.set(entityKey, entity);
         }
 
+        // Deep-copy entity for this frame so layout mutations don't propagate
+        // across frames (the registry keeps the canonical version)
+        const frameEntity: VisualEntity = {
+          ...entity,
+          position: { ...entity.position },
+          size: { ...entity.size },
+          animation: entity.animation ? { ...entity.animation } : undefined,
+        };
+
         // Enforce inter-entity stagger for non-first entities
-        if (entity.animation && entityIdx > 0) {
+        if (frameEntity.animation && entityIdx > 0) {
           const minDelay = prevDelay + INTER_ENTITY_STAGGER_MIN_MS;
-          if (entity.animation.delay < minDelay) {
-            entity.animation.delay = minDelay;
+          if (frameEntity.animation.delay < minDelay) {
+            frameEntity.animation.delay = minDelay;
           }
         }
-        prevDelay = entity.animation?.delay || 0;
+        prevDelay = frameEntity.animation?.delay || 0;
 
-        frameEntities.push(entity);
+        frameEntities.push(frameEntity);
       });
 
       frames.push({

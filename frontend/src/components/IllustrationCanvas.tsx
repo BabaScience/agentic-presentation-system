@@ -105,8 +105,8 @@ function illustrationToEntity(illus: IllustrationSpec): VisualEntity {
   return {
     id: illus.id,
     type: (typeMap[illus.elementType] || 'Entity') as any,
-    position: illus.position,
-    size: illus.size,
+    position: { ...illus.position },
+    size: { ...illus.size },
     label: illus.content,
     color: illus.style.stroke || illus.style.fill,
     animation: {

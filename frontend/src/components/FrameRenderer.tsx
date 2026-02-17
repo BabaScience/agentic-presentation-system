@@ -133,10 +133,13 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({
   childrenMap,
 }) => {
   // Convert percentage position to canvas coordinates (with defense-in-depth clamping)
+  // Guard against NaN — default to center if position is corrupted
+  const px = isNaN(entity.position.x) ? 50 : entity.position.x;
+  const py = isNaN(entity.position.y) ? 50 : entity.position.y;
   const halfWPct = (entity.size.width / 2) / canvasWidth * 100;
   const halfHPct = (entity.size.height / 2) / canvasHeight * 100;
-  const clampedPctX = Math.max(halfWPct + 1, Math.min(100 - halfWPct - 1, entity.position.x));
-  const clampedPctY = Math.max(halfHPct + 1, Math.min(100 - halfHPct - 1, entity.position.y));
+  const clampedPctX = Math.max(halfWPct + 1, Math.min(100 - halfWPct - 1, px));
+  const clampedPctY = Math.max(halfHPct + 1, Math.min(100 - halfHPct - 1, py));
   const x = (clampedPctX / 100) * canvasWidth;
   const y = (clampedPctY / 100) * canvasHeight;
 
