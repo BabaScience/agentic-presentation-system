@@ -65,7 +65,17 @@ function convertIllustrationsToScript(illustrations: IllustrationSpec[]): Visual
     }
 
     // Sliding window: previous bucket + current bucket
-    const frameEntities = [...prevBucketEntities, ...currentBucketEntities];
+    // Deep-copy previous bucket entities to prevent cross-frame mutation
+    // (layout processing or React reconciliation could mutate shared references)
+    const frameEntities = [
+      ...prevBucketEntities.map(e => ({
+        ...e,
+        position: { ...e.position },
+        size: { ...e.size },
+        animation: e.animation ? { ...e.animation } : undefined,
+      })),
+      ...currentBucketEntities,
+    ];
 
     frames.push({
       id: `legacy-frame-${i}`,

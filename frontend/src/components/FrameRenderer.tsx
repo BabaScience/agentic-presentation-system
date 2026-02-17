@@ -405,17 +405,19 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({
 
     case 'Network':
       return (
-        <g className={combinedClass} style={{ animationDelay: `${animDelay}ms`, animationDuration: `${animDuration}ms` }}>
-          <line
-            x1={x - entity.size.width / 2} y1={y}
-            x2={x + entity.size.width / 2} y2={y}
-            stroke={color} strokeWidth={3} strokeDasharray="8,4" opacity={0.6}
-          />
-          {entity.label && (
-            <text x={x} y={y - 15} textAnchor="middle" fill={color} fontSize={11} fontWeight={500}>
-              {entity.label}
-            </text>
-          )}
+        <g transform={`translate(${x}, ${y})`}>
+          <g className={combinedClass} style={{ animationDelay: `${animDelay}ms`, animationDuration: `${animDuration}ms`, transformOrigin: 'center', transformBox: 'fill-box' as any }}>
+            <line
+              x1={-entity.size.width / 2} y1={0}
+              x2={entity.size.width / 2} y2={0}
+              stroke={color} strokeWidth={3} strokeDasharray="8,4" opacity={0.6}
+            />
+            {entity.label && (
+              <text x={0} y={-15} textAnchor="middle" fill={color} fontSize={11} fontWeight={500}>
+                {entity.label}
+              </text>
+            )}
+          </g>
         </g>
       );
 
@@ -512,15 +514,17 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({
     default:
       // Fallback: render as circle
       return (
-        <g className={combinedClass} style={{ animationDelay: `${animDelay}ms`, animationDuration: `${animDuration}ms` }}>
-          <circle cx={x} cy={y} r={entity.size.width / 2}
-            fill={`${color}20`} stroke={color} strokeWidth={2}
-            opacity={entity.highlight ? 1 : 0.8} />
-          {entity.label && (
-            <text x={x} y={y + 5} textAnchor="middle" fill={color} fontSize={12} fontWeight={500}>
-              {entity.label}
-            </text>
-          )}
+        <g transform={`translate(${x}, ${y})`}>
+          <g className={combinedClass} style={{ animationDelay: `${animDelay}ms`, animationDuration: `${animDuration}ms`, transformOrigin: 'center', transformBox: 'fill-box' as any }}>
+            <circle cx={0} cy={0} r={entity.size.width / 2}
+              fill={`${color}20`} stroke={color} strokeWidth={2}
+              opacity={entity.highlight ? 1 : 0.8} />
+            {entity.label && (
+              <text x={0} y={5} textAnchor="middle" fill={color} fontSize={12} fontWeight={500}>
+                {entity.label}
+              </text>
+            )}
+          </g>
         </g>
       );
   }
@@ -591,18 +595,20 @@ function renderChildren(
             );
           default:
             return (
-              <g key={`child-${child.type}-${child.label || i}`} className={animClass}
-                style={{ animationDelay: `${animDelay}ms` }}>
-                <rect x={childX - childSize / 2} y={childY - childSize * 0.4}
-                  width={childSize} height={childSize * 0.8} rx={4}
-                  fill={`${color}15`} stroke={color} strokeWidth={1.5} />
-                {child.label && (
-                  <text x={childX} y={childY + 4} textAnchor="middle" fill={color}
-                    fontSize={Math.min(10, childSize / 5)} fontWeight={500}
-                    fontFamily="'Geist Mono', monospace">
-                    {child.label}
-                  </text>
-                )}
+              <g key={`child-${child.type}-${child.label || i}`} transform={`translate(${childX}, ${childY})`}>
+                <g className={animClass}
+                  style={{ animationDelay: `${animDelay}ms`, transformOrigin: 'center', transformBox: 'fill-box' as any }}>
+                  <rect x={-childSize / 2} y={-childSize * 0.4}
+                    width={childSize} height={childSize * 0.8} rx={4}
+                    fill={`${color}15`} stroke={color} strokeWidth={1.5} />
+                  {child.label && (
+                    <text x={0} y={4} textAnchor="middle" fill={color}
+                      fontSize={Math.min(10, childSize / 5)} fontWeight={500}
+                      fontFamily="'Geist Mono', monospace">
+                      {child.label}
+                    </text>
+                  )}
+                </g>
               </g>
             );
         }

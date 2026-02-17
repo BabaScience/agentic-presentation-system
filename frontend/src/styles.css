@@ -847,29 +847,43 @@ body {
   height: 100%;
 }
 
-/* Animation classes — used on SVG <g> elements */
+/* Animation classes — used on INNER SVG <g> elements (not the positioning <g>).
+   transform-origin + transform-box ensure CSS transforms operate relative to
+   the element's own bounding box, not the SVG viewport origin. */
 .illus-fadeIn {
   animation: illusFadeIn 0.7s cubic-bezier(0.25,0.46,0.45,0.94) forwards;
+  transform-origin: center;
+  transform-box: fill-box;
 }
 
 .illus-scaleIn {
   animation: illusScaleIn 0.65s cubic-bezier(0.34,1.56,0.64,1) forwards;
+  transform-origin: center;
+  transform-box: fill-box;
 }
 
 .illus-slideIn {
   animation: illusSlideIn 0.7s cubic-bezier(0.25,0.46,0.45,0.94) forwards;
+  transform-origin: center;
+  transform-box: fill-box;
 }
 
 .illus-pulse {
   animation: illusPulse 3s ease-in-out infinite;
+  transform-origin: center;
+  transform-box: fill-box;
 }
 
 .illus-flow {
   animation: illusSlideIn 0.7s cubic-bezier(0.25,0.46,0.45,0.94) forwards;
+  transform-origin: center;
+  transform-box: fill-box;
 }
 
 .illus-dashFlow {
   animation: illusDashFlow 2s linear infinite;
+  transform-origin: center;
+  transform-box: fill-box;
 }
 
 .illus-none {
@@ -936,10 +950,11 @@ body {
   pointer-events: none;
 }
 
-/* Entity transitions: smooth property changes for persisting entities across frames */
+/* Entity transitions: smooth opacity changes for persisting entities across frames.
+   NOTE: Do NOT transition `transform` here — it conflicts with SVG transform attributes
+   and causes entities to animate from (0,0) when mounting. */
 .frame-entities > g:not(.entity-exiting) {
-  transition: transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94),
-              opacity 0.3s ease;
+  transition: opacity 0.3s ease;
 }
 
 /* Entity highlight state */
