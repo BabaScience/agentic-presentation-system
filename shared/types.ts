@@ -142,6 +142,7 @@ export interface PresentationScene {
   durationEstimate: number;
   illustrations?: IllustrationSpec[]; // Legacy support
   visualScript?: VisualScript; // New frame-based system
+  sceneContract?: SceneContract; // Multi-agent binding contract
 }
 
 export interface VisualCommand {
@@ -347,7 +348,7 @@ export type AcademicDomain = 'mathematics' | 'physics' | 'chemistry' | 'biology'
 
 export interface ReasoningOutput {
   topic: string;
-  conceptualPrimitives: { label: string; type: DataType; content: string; narration: string; visualHint?: VisualHint; domain?: AcademicDomain }[];
+  conceptualPrimitives: { label: string; type: DataType; content: string; narration: string; visualHint?: VisualHint; domain?: AcademicDomain; sceneContract?: SceneContract }[];
   relationships: { from: string; to: string; type: EdgeType; label: string }[];
   prerequisiteDependencies: string[];
   complexityGradient: string[];
@@ -371,6 +372,61 @@ export interface VisualHint {
   layoutPattern: LayoutPattern;
   visualMetaphor?: string;
   colorScheme?: 'cool' | 'warm' | 'neutral' | 'contrasting';
+}
+
+// ── Multi-Agent System Types (Phase 2.5) ─────────────────────
+
+/** Binding specification from the Director Agent */
+export interface SceneContract {
+  requiredEntities: {
+    type: VisualEntityType;
+    label: string;
+    role: string;
+    mandatory: boolean;
+  }[];
+  spatialConstraints: {
+    type: 'above' | 'below' | 'left-of' | 'right-of' | 'near' | 'aligned';
+    entityA: string;
+    entityB: string;
+  }[];
+  pedagogicalGoal: string;
+  domain: AcademicDomain;
+  difficultyLevel: 'beginner' | 'intermediate' | 'advanced';
+}
+
+/** Output from the Domain Expert Agent */
+export interface DomainGuidance {
+  domain: AcademicDomain;
+  entityMetadata: Record<string, Record<string, any>>;
+  animationChoreography: {
+    entityLabel: string;
+    animationType: string;
+    delay: number;
+    notes: string;
+  }[];
+  domainRules: string[];
+}
+
+/** Output from the Quality Critic Agent */
+export interface CriticReview {
+  approved: boolean;
+  qualityScore: number;
+  revisions?: {
+    issue: string;
+    fix: string;
+    priority: 'high' | 'medium' | 'low';
+  }[];
+}
+
+/** Shared agent communication context (blackboard pattern) */
+export interface SceneBlackboard {
+  sceneId: string;
+  contract: SceneContract;
+  domainGuidance?: DomainGuidance;
+  visualScript?: VisualScript;
+  criticReview?: CriticReview;
+  revisionCount: number;
+  finalScript?: VisualScript;
 }
 
 export interface ClassifiedChunk {
@@ -427,9 +483,9 @@ export const BOOKMARK_RESUME_MS = 500;
 export const RL_UPDATE_INTERVAL_MS = 50;
 export const VOICE_SAMPLE_RATE = 16000;
 export const VOICE_CHUNK_SIZE = 4096;
-export const CONCURRENCY_POOL_CLAUDE_MAX = 3;
+export const CONCURRENCY_POOL_CLAUDE_MAX = 5;
 export const CONCURRENCY_POOL_TTS_MAX = 2;
-export const CONCURRENCY_POOL_TOTAL_MAX = 4;
+export const CONCURRENCY_POOL_TOTAL_MAX = 6;
 
 // ── Canvas & Visual Constants ────────────────────────────
 export const CANVAS_WIDTH = 1600;

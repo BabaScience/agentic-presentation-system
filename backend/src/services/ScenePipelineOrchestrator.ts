@@ -23,6 +23,7 @@ import { VisualScriptGenerator } from './VisualScriptGenerator';
 import { VoiceService } from './VoiceService';
 import { ConcurrencyPool } from './ConcurrencyPool';
 import { SceneReadyQueue } from './SceneReadyQueue';
+import { AgentOrchestrator } from './AgentOrchestrator';
 
 export interface ScenePipelineConfig {
   enableTTS: boolean;
@@ -32,6 +33,7 @@ export class ScenePipelineOrchestrator {
   private queue: SceneReadyQueue;
   private totalScenes = 0;
   private cancelled = false;
+  private orchestrator: AgentOrchestrator;
 
   constructor(
     private planner: PresentationPlanner,
@@ -40,6 +42,7 @@ export class ScenePipelineOrchestrator {
     private config: ScenePipelineConfig,
   ) {
     this.queue = new SceneReadyQueue();
+    this.orchestrator = new AgentOrchestrator(this.planner.getVisualScriptGenerator());
   }
 
   prepareAllScenes(
@@ -90,17 +93,12 @@ export class ScenePipelineOrchestrator {
     focusNode: KGNode,
     _policy: RLPolicy,
   ): Promise<PreparedScene> {
-    // Fork: Claude visual script + TTS in parallel via pool
-    const claudePromise = this.pool.enqueue('claude', () =>
-      this.planner.getVisualScriptGenerator().generateScript(
-        scene.id,
-        scene.narration,
-        focusNode.type,
-        estimatedTimestamps,
-        scene.durationEstimate,
-        focusNode.visualHint,
-        focusNode.domain,
-      ),
+    // Fork: Multi-agent visual script orchestration + TTS in parallel via pool
+    const claudePromise = this.orchestrator.orchestrateScene(
+      scene,
+      focusNode,
+      estimatedTimestamps,
+      this.pool,
     ).catch((err) => {
       console.error(`[Pipeline] Visual script failed for scene ${index}:`, err.message);
       return undefined;

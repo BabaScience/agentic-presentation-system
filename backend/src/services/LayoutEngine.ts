@@ -5,7 +5,7 @@
    layout patterns, and ensure visual clarity.
    ═══════════════════════════════════════════════════════════════ */
 
-import { type VisualEntity, type IllustrationFrame, type LayoutPattern, clampEntityPosition } from '../../shared/types';
+import { type VisualEntity, type IllustrationFrame, type LayoutPattern, type SceneContract, clampEntityPosition } from '../../shared/types';
 
 interface Rect {
   x: number;
@@ -287,15 +287,127 @@ export function applyLayoutPattern(
 }
 
 /**
- * Post-process all frames: resolve collisions in each frame
+ * Apply spatial constraints from a SceneContract to entities.
+ * Adjusts entity positions so that declared relationships hold
+ * (e.g., entityA is above entityB).
+ */
+export function applySpatialConstraints(
+  entities: VisualEntity[],
+  constraints: SceneContract['spatialConstraints'],
+): void {
+  if (!constraints || constraints.length === 0) return;
+
+  const entityByLabel = new Map<string, VisualEntity>();
+  for (const e of entities) {
+    if (e.label) {
+      entityByLabel.set(e.label, e);
+    }
+  }
+
+  const PADDING = 8; // percentage-space padding between constrained entities
+
+  for (const constraint of constraints) {
+    const a = entityByLabel.get(constraint.entityA);
+    const b = entityByLabel.get(constraint.entityB);
+    if (!a || !b) continue;
+
+    switch (constraint.type) {
+      case 'above':
+        // entityA.y should be less than entityB.y (higher on screen)
+        if (a.position.y >= b.position.y - PADDING) {
+          const mid = (a.position.y + b.position.y) / 2;
+          a.position.y = mid - PADDING;
+          b.position.y = mid + PADDING;
+        }
+        break;
+
+      case 'below':
+        // entityA.y should be greater than entityB.y
+        if (a.position.y <= b.position.y + PADDING) {
+          const mid = (a.position.y + b.position.y) / 2;
+          a.position.y = mid + PADDING;
+          b.position.y = mid - PADDING;
+        }
+        break;
+
+      case 'left-of':
+        // entityA.x should be less than entityB.x
+        if (a.position.x >= b.position.x - PADDING) {
+          const mid = (a.position.x + b.position.x) / 2;
+          a.position.x = mid - PADDING;
+          b.position.x = mid + PADDING;
+        }
+        break;
+
+      case 'right-of':
+        // entityA.x should be greater than entityB.x
+        if (a.position.x <= b.position.x + PADDING) {
+          const mid = (a.position.x + b.position.x) / 2;
+          a.position.x = mid + PADDING;
+          b.position.x = mid - PADDING;
+        }
+        break;
+
+      case 'near': {
+        // Move entities closer if distance > threshold
+        const dx = b.position.x - a.position.x;
+        const dy = b.position.y - a.position.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const threshold = 25; // percentage units
+        if (dist > threshold) {
+          const scale = threshold / dist;
+          const midX = (a.position.x + b.position.x) / 2;
+          const midY = (a.position.y + b.position.y) / 2;
+          a.position.x = midX - (dx / 2) * scale;
+          a.position.y = midY - (dy / 2) * scale;
+          b.position.x = midX + (dx / 2) * scale;
+          b.position.y = midY + (dy / 2) * scale;
+        }
+        break;
+      }
+
+      case 'aligned': {
+        // Align on the axis with less difference
+        const diffX = Math.abs(a.position.x - b.position.x);
+        const diffY = Math.abs(a.position.y - b.position.y);
+        if (diffX <= diffY) {
+          // Align x coordinates
+          const avgX = (a.position.x + b.position.x) / 2;
+          a.position.x = avgX;
+          b.position.x = avgX;
+        } else {
+          // Align y coordinates
+          const avgY = (a.position.y + b.position.y) / 2;
+          a.position.y = avgY;
+          b.position.y = avgY;
+        }
+        break;
+      }
+    }
+
+    // Clamp both entities after adjustment
+    a.position = clampEntityPosition(a.position, a.size.width, a.size.height);
+    b.position = clampEntityPosition(b.position, b.size.width, b.size.height);
+  }
+}
+
+/**
+ * Post-process all frames: resolve collisions in each frame.
+ * When spatial constraints are provided, they supersede layout patterns.
  */
 export function postProcessFrames(
   frames: IllustrationFrame[],
   layoutPattern?: LayoutPattern,
+  spatialConstraints?: SceneContract['spatialConstraints'],
 ): void {
   for (const frame of frames) {
-    // First apply layout pattern if entities seem clustered
-    applyLayoutPattern(frame.entities, layoutPattern);
+    if (spatialConstraints && spatialConstraints.length > 0) {
+      // When constraints exist, apply them instead of layout patterns
+      applySpatialConstraints(frame.entities, spatialConstraints);
+    } else {
+      // Apply layout pattern if entities seem clustered
+      applyLayoutPattern(frame.entities, layoutPattern);
+    }
     // Then resolve any remaining collisions
     resolveCollisions(frame.entities);
     // Final pass: ensure all entities are within canvas bounds (size-aware)

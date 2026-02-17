@@ -7,7 +7,8 @@
 import {
   type KnowledgeGraph, type KGNode, type KGEdge,
   type PresentationScene, type TraversalPath, type VisualCommand,
-  type RLPolicy, type IllustrationSpec, type WordTimestamp, DataType, DATA_TYPE_VISUALS,
+  type RLPolicy, type IllustrationSpec, type WordTimestamp, type SceneContract,
+  DataType, DATA_TYPE_VISUALS,
 } from '../../shared/types';
 import { v4 as uuid } from 'uuid';
 import { VisualScriptGenerator } from './VisualScriptGenerator';
@@ -261,6 +262,8 @@ export class PresentationPlanner {
     const illustrations = this.generateIllustrations(focusNode, finalDuration);
     const sceneId = `scene-${uuid().slice(0, 8)}`;
 
+    const sceneContract: SceneContract | undefined = focusNode.metadata?.sceneContract;
+
     const scene: PresentationScene = {
       id: sceneId,
       nodeIds: [focusNode.id],
@@ -271,6 +274,7 @@ export class PresentationPlanner {
       visualCommands,
       durationEstimate: finalDuration,
       illustrations,
+      ...(sceneContract ? { sceneContract } : {}),
     };
 
     return { scene, estimatedTimestamps, focusNode };

@@ -11,6 +11,7 @@ import {
   type ReasoningOutput, type ClassifiedChunk,
   type KnowledgeGraph, type GraphMutation,
   type PresentationScene, type RLPolicy,
+  type SceneContract,
 } from '../../shared/types';
 import { REASONING_SYSTEM_PROMPT, CLASSIFIER_SYSTEM_PROMPT, INTERRUPT_SYSTEM_PROMPT } from '../prompts/systemPrompts';
 

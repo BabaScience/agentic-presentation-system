@@ -472,6 +472,7 @@
     <a href="#phase0" class="toc-item"><span class="toc-num">P0</span> Stabilize &amp; Harden</a>
     <a href="#phase1" class="toc-item"><span class="toc-num">P1</span> Universal Visual Vocabulary</a>
     <a href="#phase2" class="toc-item"><span class="toc-num">P2</span> Domain Engines</a>
+    <a href="#phase2-5" class="toc-item"><span class="toc-num">P2.5</span> Multi-Agent Intelligence</a>
     <a href="#phase3" class="toc-item"><span class="toc-num">P3</span> Learning Loop</a>
     <a href="#phase4" class="toc-item"><span class="toc-num">P4</span> Production Readiness</a>
     <a href="#phase5" class="toc-item"><span class="toc-num">P5</span> Differentiation</a>
@@ -731,6 +732,178 @@ flowchart TB
 </section>
 
 <!-- ═══════════════════════════════════════════════════
+     PHASE 2.5
+     ═══════════════════════════════════════════════════ -->
+<section id="phase2-5">
+  <div class="section-header">
+    <div class="section-tag">Phase 2.5 &mdash; 2-3 Weeks</div>
+    <h2>Multi-Agent <em>Intelligence</em></h2>
+    <p class="section-desc">
+      The system today is a single-agent pipeline: one Claude call plans the lesson, another generates visuals,
+      and nothing checks the result. This phase introduces 4 cooperating agents that add domain specialization,
+      quality assurance, iterative refinement, and cross-layer coordination.
+    </p>
+  </div>
+
+  <div class="callout callout-violet">
+    <strong>THE PROBLEM WITH SINGLE-AGENT</strong>
+    <p>Today the agent has <strong>no self-correction</strong> (bad layouts reach the user), <strong>no domain specialization</strong> (the same prompt handles calculus and history), <strong>no iterative refinement</strong> (every Claude call is fire-and-forget), and <strong>no coordination</strong> (the reasoning agent's visual hints are routinely overridden by the layout engine). Multi-agent architecture fixes all four.</p>
+  </div>
+
+  <div class="diagram">
+    <div class="diagram-label">Multi-Agent Orchestration Flow</div>
+    <div class="mermaid">
+flowchart TB
+    User[User Input] --> Director
+
+    subgraph orchestration [Agent Orchestration Layer]
+        Director[Director Agent]
+        DomainRouter[Domain Router]
+        MathExpert[Math Expert]
+        PhysicsExpert[Physics Expert]
+        CSExpert[CS Expert]
+        GeneralExpert[General Expert]
+        VisualArchitect[Visual Architect]
+        Critic[Quality Critic]
+    end
+
+    Director --> DomainRouter
+    DomainRouter --> MathExpert
+    DomainRouter --> PhysicsExpert
+    DomainRouter --> CSExpert
+    DomainRouter --> GeneralExpert
+
+    MathExpert --> VisualArchitect
+    PhysicsExpert --> VisualArchitect
+    CSExpert --> VisualArchitect
+    GeneralExpert --> VisualArchitect
+
+    VisualArchitect --> Critic
+    Critic -->|Revision needed| VisualArchitect
+    Critic -->|Approved| Pipeline[ScenePipeline]
+    </div>
+  </div>
+
+  <div class="card-grid">
+    <div class="card" style="border-color: rgba(0,229,255,0.3);">
+      <div class="card-icon">&#x1F3AC;</div>
+      <h4>Agent 1: Director</h4>
+      <p>Upgraded <code>AgentService.reason()</code>. Instead of advisory <code>visualHint</code> suggestions, the Director produces a <strong>SceneContract</strong> &mdash; a binding specification with mandatory entity types, spatial relationships ("Equation MUST be above Graph2D"), and pedagogical intent per scene.</p>
+      <p><span class="badge badge-cyan">SceneContract</span> <span class="badge badge-cyan">requiredEntities</span> <span class="badge badge-cyan">spatialConstraints</span></p>
+    </div>
+    <div class="card" style="border-color: rgba(179,136,255,0.3);">
+      <div class="card-icon">&#x1F9D1;&zwj;&#x1F3EB;</div>
+      <h4>Agent 2: Domain Experts</h4>
+      <p>New <code>DomainExpertService</code> with 4 specialist prompts routed by <code>KGNode.domain</code>:</p>
+      <ul>
+        <li><strong>Math:</strong> LaTeX strings, coordinate ranges, tangent-line animations</li>
+        <li><strong>Physics:</strong> Force angles, trajectory parameters, field configurations</li>
+        <li><strong>CS:</strong> Array swap sequences, graph traversal highlights</li>
+        <li><strong>General:</strong> Concept/Timeline/Comparison compositions</li>
+      </ul>
+      <p><span class="badge badge-violet">DomainGuidance</span> <span class="badge badge-violet">metadata</span> <span class="badge badge-violet">choreography</span></p>
+    </div>
+    <div class="card" style="border-color: rgba(255,171,0,0.3);">
+      <div class="card-icon">&#x1F3A8;</div>
+      <h4>Agent 3: Visual Architect</h4>
+      <p>Upgraded <code>VisualScriptGenerator</code>. Receives both <code>SceneContract</code> and <code>DomainGuidance</code> as binding constraints. Spatial constraints replace the layout engine's position overrides. Domain Expert metadata flows through to entities.</p>
+      <p><span class="badge badge-amber">VisualScript</span> <span class="badge badge-amber">constraint-driven</span> <span class="badge badge-amber">backward-compatible</span></p>
+    </div>
+    <div class="card" style="border-color: rgba(0,230,118,0.3);">
+      <div class="card-icon">&#x1F50D;</div>
+      <h4>Agent 4: Quality Critic</h4>
+      <p>New <code>QualityCriticService</code>. Reviews every visual script before rendering against 4 criteria: contract compliance, domain correctness, visual quality, and pedagogical alignment. Can request <strong>one revision</strong> (bounded loop).</p>
+      <p><span class="badge badge-emerald">CriticReview</span> <span class="badge badge-emerald">self-correction</span> <span class="badge badge-emerald">max 1 retry</span></p>
+    </div>
+  </div>
+
+  <h3>Shared Blackboard <span class="accent">(Agent Communication)</span></h3>
+  <p>All four agents read and write to a shared <code>SceneBlackboard</code> per scene, replacing the current one-way data flow with a shared context:</p>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-content">
+        <h4>Director writes SceneContract</h4>
+        <p>Runs once during <code>handleStartSession</code>. Produces binding contracts with required entities, spatial constraints, and pedagogical goals for every scene.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-content">
+        <h4>Domain Expert writes DomainGuidance</h4>
+        <p>1 Claude call (~500 tokens). Produces exact metadata values, animation choreography, and domain-specific visual instructions.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-content">
+        <h4>Visual Architect writes VisualScript</h4>
+        <p>1 Claude call (~1500 tokens). Generates frame-by-frame visual script using both the contract and guidance as binding inputs.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-content">
+        <h4>Quality Critic writes CriticReview</h4>
+        <p>1 Claude call (~500 tokens). Evaluates script against contract compliance, domain correctness, visual quality, and pedagogical alignment. Approves or requests revision.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-content">
+        <h4>Revision (if needed)</h4>
+        <p>Visual Architect runs once more with critic feedback. Max 1 retry to bound latency. If retry fails, original script is used with a warning.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout callout-cyan">
+    <strong>LATENCY &amp; COST</strong>
+    <p>3-4 Claude calls per scene instead of 1 (bounded). Domain Expert and Critic use the fast model with small <code>max_tokens</code> (500-800). Critic review is skipped when the Visual Architect's confidence score exceeds a threshold. Expected added latency: ~2-3s per scene (acceptable given TTS already takes ~2s). The existing <code>ConcurrencyPool</code> handles parallel execution across scenes.</p>
+  </div>
+
+  <h3>Implementation <span class="accent">Checklist</span></h3>
+  <ul class="checklist">
+    <li>
+      <span class="check">&#x2B1C;</span>
+      <div><strong>Type definitions</strong> &mdash; Define <code>SceneContract</code>, <code>DomainGuidance</code>, <code>CriticReview</code>, <code>SceneBlackboard</code> in <code>shared/types.ts</code>.</div>
+    </li>
+    <li>
+      <span class="check">&#x2B1C;</span>
+      <div><strong>Director upgrade</strong> &mdash; Modify <code>AgentService.reason()</code> to output <code>SceneContract</code> per conceptual primitive.</div>
+    </li>
+    <li>
+      <span class="check">&#x2B1C;</span>
+      <div><strong>Domain Expert service</strong> &mdash; Create <code>DomainExpertService</code> with Math/Physics/CS/General expert prompts.</div>
+    </li>
+    <li>
+      <span class="check">&#x2B1C;</span>
+      <div><strong>Quality Critic service</strong> &mdash; Create <code>QualityCriticService</code> with 4-criteria evaluation and revision output.</div>
+    </li>
+    <li>
+      <span class="check">&#x2B1C;</span>
+      <div><strong>Agent Orchestrator</strong> &mdash; Create <code>AgentOrchestrator</code> to coordinate the 4-agent flow per scene.</div>
+    </li>
+    <li>
+      <span class="check">&#x2B1C;</span>
+      <div><strong>Pipeline integration</strong> &mdash; Update <code>ScenePipelineOrchestrator.prepareScene()</code> to use <code>AgentOrchestrator</code>.</div>
+    </li>
+    <li>
+      <span class="check">&#x2B1C;</span>
+      <div><strong>Visual Architect upgrade</strong> &mdash; Update <code>VisualScriptGenerator</code> to accept <code>SceneContract</code> + <code>DomainGuidance</code>.</div>
+    </li>
+    <li>
+      <span class="check">&#x2B1C;</span>
+      <div><strong>Layout Engine constraints</strong> &mdash; Modify <code>LayoutEngine</code> to respect <code>spatialConstraints</code> from <code>SceneContract</code> instead of overriding positions.</div>
+    </li>
+    <li>
+      <span class="check">&#x2B1C;</span>
+      <div><strong>Confidence scoring</strong> &mdash; Add confidence scoring to <code>VisualScriptGenerator</code> output to allow Critic bypass for high-confidence scenes.</div>
+    </li>
+    <li>
+      <span class="check">&#x2B1C;</span>
+      <div><strong>Telemetry</strong> &mdash; Log Critic approval rate, revision rate, and revision success rate for monitoring.</div>
+    </li>
+  </ul>
+</section>
+
+<!-- ═══════════════════════════════════════════════════
      PHASE 3
      ═══════════════════════════════════════════════════ -->
 <section id="phase3">
@@ -883,9 +1056,15 @@ gantt
     Interactive_Math :p2b, after p1a, 10d
     Physics_Simulation :p2c, after p1b, 10d
 
+    section Phase2.5
+    Director_Agent_Upgrade :p25a, after p2a, 5d
+    Domain_Expert_Agents :p25b, after p25a, 7d
+    Quality_Critic_Agent :p25c, after p25a, 5d
+    Agent_Orchestrator :p25d, after p25b, 5d
+
     section Phase3
-    Comprehension_Checks :p3a, after p2a, 7d
-    Persistence_Layer :p3b, after p2a, 7d
+    Comprehension_Checks :p3a, after p25d, 7d
+    Persistence_Layer :p3b, after p25d, 7d
     Multimodal_Input :p3c, after p3a, 7d
 
     section Phase4
@@ -897,8 +1076,8 @@ gantt
 
   <div class="callout callout-emerald">
     <strong>THE BOTTOM LINE</strong>
-    <p>The architecture is strong. The concurrent scene pipeline, the RL scaffolding, the interrupt protocol, the frame-based visual system &mdash; these are genuinely sophisticated. The biggest risk is not architecture; it is <strong>visual expressiveness</strong>. An agentic tutor that can only draw IT diagrams will fail to teach calculus or Newtonian mechanics.</p>
-    <p style="margin-top: 12px;"><strong>Ship Phase 0+1, and you have a demo that can teach math. Ship through Phase 3, and you have a product.</strong></p>
+    <p>The architecture is strong. Two critical investments remain: <strong>Phase 1</strong> gives the agent the visual tools (equations, plots, diagrams for any subject). <strong>Phase 2.5</strong> gives the agent the brain &mdash; domain specialization, quality assurance, and coordinated multi-agent reasoning so it uses those tools well.</p>
+    <p style="margin-top: 12px;"><strong>Ship Phase 0+1, and you have a demo that can teach math. Ship Phase 2.5, and you have an agent that teaches well. Ship through Phase 3, and you have a product.</strong></p>
   </div>
 </section>
 

@@ -29,6 +29,17 @@ You must output ONLY valid JSON (no markdown fences, no explanation) conforming 
         "layoutPattern": "flow-lr | flow-tb | hierarchical | circular | comparison | layered | central-radial | timeline | equation-flow | coordinate | force-diagram | proof-steps",
         "visualMetaphor": "optional string — concrete metaphor (e.g., 'assembly line', 'tree growth', 'river flowing')",
         "colorScheme": "cool | warm | neutral | contrasting"
+      },
+      "sceneContract": {
+        "requiredEntities": [
+          { "type": "VisualEntityType", "label": "string — entity label", "role": "primary | supporting | annotation", "mandatory": true }
+        ],
+        "spatialConstraints": [
+          { "type": "above | below | left-of | right-of | near | aligned", "entityA": "label of entity A", "entityB": "label of entity B" }
+        ],
+        "pedagogicalGoal": "string — one sentence describing what the visual should teach",
+        "domain": "mathematics | physics | chemistry | biology | computer-science | engineering | general",
+        "difficultyLevel": "beginner | intermediate | advanced"
       }
     }
   ],
@@ -148,7 +159,17 @@ DOMAIN-SPECIFIC STRATEGIES:
 - When teaching parametric curves (circles, Lissajous, cycloids): use Graph2D with parametric: true + Equation showing x(t), y(t)
 - When teaching conic sections (ellipses, hyperbolas): use Graph2D with implicit: true + Equation showing standard form
 - visualMetaphor makes illustrations more intuitive — always include when possible
-- If you cannot determine appropriate visuals, omit the visualHint field entirely`;
+- If you cannot determine appropriate visuals, omit the visualHint field entirely
+
+SCENE CONTRACT (optional but encouraged for richer visuals):
+- The sceneContract is a BINDING specification that downstream agents MUST follow
+- Include sceneContract when you can precisely specify what visual entities are needed
+- requiredEntities: list EVERY entity that MUST appear on canvas (with type from VISUAL ENTITY TYPES)
+- spatialConstraints: specify spatial relationships between entities (e.g., formula ABOVE its graph)
+- pedagogicalGoal: one sentence describing what the learner should understand from the visual
+- domain: the academic domain (same as the primitive's domain field)
+- difficultyLevel: affects visual complexity — beginner=fewer entities, advanced=more detail
+- If you're unsure about exact entities, omit sceneContract and rely on visualHint instead`;
 
 export const CLASSIFIER_SYSTEM_PROMPT = `You are an information classifier for a knowledge graph presentation system.
 Given raw text content, classify each piece of information by data type AND academic domain.

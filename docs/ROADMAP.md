@@ -234,6 +234,146 @@ Implement `backend/src/services/CodeExecutionService.ts` (currently a stub):
 
 ---
 
+## Phase 2.5: Multi-Agent Intelligence (2-3 weeks)
+
+**The system today is a single-agent pipeline.** One core agent (`AgentService`) makes all strategic decisions, and isolated services each fire a single Claude call with no feedback loop. This causes four fundamental problems:
+
+1. **No self-correction** -- If the visual script call produces a bad layout, nothing catches it
+2. **No domain specialization** -- The same generic prompt handles calculus, biology, and history
+3. **No iterative refinement** -- Each Claude call is fire-and-forget, one shot
+4. **No coordination** -- The reasoning agent suggests visual hints, but downstream services can override or ignore them
+
+Phase 2.5 introduces a **4-agent cooperative architecture** that solves all four problems.
+
+### Multi-Agent Architecture
+
+```mermaid
+flowchart TB
+    User[User Input] --> Director
+
+    subgraph orchestration [Agent Orchestration Layer]
+        Director[Director Agent]
+        DomainRouter[Domain Router]
+        MathExpert[Math Expert]
+        PhysicsExpert[Physics Expert]
+        CSExpert[CS Expert]
+        GeneralExpert[General Expert]
+        VisualArchitect[Visual Architect]
+        Critic[Quality Critic]
+    end
+
+    Director --> DomainRouter
+    DomainRouter --> MathExpert
+    DomainRouter --> PhysicsExpert
+    DomainRouter --> CSExpert
+    DomainRouter --> GeneralExpert
+
+    MathExpert --> VisualArchitect
+    PhysicsExpert --> VisualArchitect
+    CSExpert --> VisualArchitect
+    GeneralExpert --> VisualArchitect
+
+    VisualArchitect --> Critic
+    Critic -->|Revision needed| VisualArchitect
+    Critic -->|Approved| Pipeline[ScenePipeline]
+```
+
+### Agent 1: Director Agent (upgraded `AgentService.reason()`)
+
+**Role:** High-level lesson planner and orchestrator.
+
+- **What changes:** Instead of producing `visualHint` suggestions that downstream services may ignore, the Director produces a `SceneContract` -- a binding specification that includes mandatory entity types, spatial relationships between entities ("the Equation MUST be above the Graph2D"), and pedagogical intent per scene
+- **Key file:** `backend/src/services/AgentService.ts`
+- **New output type:** `SceneContract` with fields: `requiredEntities[]`, `spatialConstraints[]`, `pedagogicalGoal`, `domain`, `difficultyLevel`
+
+### Agent 2: Domain Expert Agents (new `DomainExpertService`)
+
+**Role:** Provide domain-specific visual guidance that the generic system cannot.
+
+- **New file:** `backend/src/services/DomainExpertService.ts`
+- **How it works:** A router dispatches to domain-specific system prompts based on `KGNode.domain`:
+  - **Math Expert:** Knows that derivatives need tangent-line animations, integrals need shaded areas, matrices need row/column highlighting. Outputs precise `metadata` for math entities (LaTeX strings, expression syntax, coordinate ranges)
+  - **Physics Expert:** Knows that F=ma needs a FreeBodyDiagram with correctly-angled force vectors, wave interference needs superposition visualization. Outputs force angles, trajectory parameters, field configurations
+  - **CS Expert:** Knows that sorting algorithms need step-by-step array swaps, graph traversal needs node highlighting sequences
+  - **General Expert:** Handles history, literature, business with appropriate Concept/Timeline/Comparison compositions
+- **Output:** `DomainGuidance` -- enriched visual instructions including exact `metadata` values for each entity, spatial relationships, and animation choreography
+
+### Agent 3: Visual Architect Agent (upgraded `VisualScriptGenerator`)
+
+**Role:** Generate pixel-precise visual scripts using the Director's contract AND the Domain Expert's guidance as binding constraints.
+
+- **Key file:** `backend/src/services/VisualScriptGenerator.ts`
+- **What changes:**
+  - Receives both `SceneContract` and `DomainGuidance` as input (not just narration + dataType)
+  - `SceneContract.spatialConstraints` replace the current situation where Claude suggests positions and `LayoutEngine` overrides them -- constraints become first-class inputs
+  - Domain Expert's `metadata` values are passed through to entities instead of being generated generically
+  - Falls back to current behavior if no contract/guidance is available (backward compatible)
+
+### Agent 4: Quality Critic Agent (new `QualityCriticService`)
+
+**Role:** Review visual scripts before they reach the renderer. Catch errors. Request revisions.
+
+- **New file:** `backend/src/services/QualityCriticService.ts`
+- **Evaluation criteria:**
+  1. **Contract compliance:** Does the script include all `requiredEntities` from the Director's contract? Are spatial constraints satisfied?
+  2. **Domain correctness:** Is the math LaTeX valid? Are physics vectors at reasonable angles? Are chart data values consistent with narration?
+  3. **Visual quality:** Are entities overlapping? Is there enough visual variety? Are animations staggered properly?
+  4. **Pedagogical alignment:** Does the visual sequence match the narration flow? Is the primary concept visually prominent?
+- **Output:** Either `{ approved: true }` or `{ approved: false, revisions: [...] }` with specific fix instructions
+- **Revision loop:** If not approved, the Visual Architect gets one retry with the revision feedback (max 1 retry to bound latency). If the retry also fails, the original script is used with a warning logged
+
+### Shared Blackboard (agent communication)
+
+All four agents read and write to a shared `SceneBlackboard` per scene:
+
+```typescript
+interface SceneBlackboard {
+  sceneId: string;
+  contract: SceneContract;        // Director writes
+  domainGuidance: DomainGuidance; // Domain Expert writes
+  visualScript: VisualScript;     // Visual Architect writes
+  criticReview: CriticReview;     // Critic writes
+  revisionCount: number;
+  finalScript: VisualScript;      // Approved output
+}
+```
+
+This replaces the current one-way data flow with a shared context that enables agents to reference each other's outputs.
+
+### Pipeline Integration
+
+The multi-agent flow integrates into `ScenePipelineOrchestrator.prepareScene()` via a new `AgentOrchestrator` (`backend/src/services/AgentOrchestrator.ts`):
+
+1. **Director** already ran during `handleStartSession` -- `SceneContract` is attached to each `PresentationScene`
+2. **Domain Expert** runs (1 Claude call, ~500 tokens) -- produces `DomainGuidance`
+3. **Visual Architect** runs (1 Claude call, ~1500 tokens) -- produces `VisualScript`
+4. **Quality Critic** runs (1 Claude call, ~500 tokens) -- approves or requests revision
+5. If revision needed: **Visual Architect** runs again (1 more Claude call, max 1 retry)
+
+**Cost per scene:** 3-4 Claude calls instead of 1 (bounded). The existing `ConcurrencyPool` handles rate limiting.
+
+### Latency Mitigation
+
+- Domain Expert and Critic use the fast model with small `max_tokens` (500-800)
+- Critic review is skipped for scenes where the Visual Architect's confidence score exceeds a threshold
+- The existing `ConcurrencyPool` handles parallel execution across scenes -- extra calls per scene are sequential but scenes remain parallel
+- Expected added latency: ~2-3s per scene (acceptable given TTS already takes ~2s)
+
+### Implementation Checklist
+
+- [ ] Define `SceneContract`, `DomainGuidance`, `CriticReview`, `SceneBlackboard` types in `shared/types.ts`
+- [ ] Upgrade `AgentService.reason()` to output `SceneContract` per conceptual primitive
+- [ ] Create `DomainExpertService` with Math/Physics/CS/General expert prompts
+- [ ] Create `QualityCriticService` with evaluation criteria and revision output
+- [ ] Create `AgentOrchestrator` to coordinate the 4-agent flow per scene
+- [ ] Update `ScenePipelineOrchestrator.prepareScene()` to use `AgentOrchestrator`
+- [ ] Update `VisualScriptGenerator` to accept `SceneContract` + `DomainGuidance` as inputs
+- [ ] Modify `LayoutEngine` to respect `spatialConstraints` from `SceneContract` instead of overriding positions
+- [ ] Add confidence scoring to `VisualScriptGenerator` output to allow Critic bypass
+- [ ] Add telemetry: log Critic approval rate, revision rate, revision success rate
+
+---
+
 ## Phase 3: Learning Loop and Interaction (2 weeks)
 
 Turn the system from a one-way presenter into an interactive tutor.
@@ -347,9 +487,15 @@ gantt
     Interactive_Math :p2b, after p1a, 10d
     Physics_Simulation :p2c, after p1b, 10d
 
+    section Phase2.5
+    Director_Agent_Upgrade :p25a, after p2a, 5d
+    Domain_Expert_Agents :p25b, after p25a, 7d
+    Quality_Critic_Agent :p25c, after p25a, 5d
+    Agent_Orchestrator :p25d, after p25b, 5d
+
     section Phase3
-    Comprehension_Checks :p3a, after p2a, 7d
-    Persistence_Layer :p3b, after p2a, 7d
+    Comprehension_Checks :p3a, after p25d, 7d
+    Persistence_Layer :p3b, after p25d, 7d
     Multimodal_Input :p3c, after p3a, 7d
 
     section Phase4
@@ -362,10 +508,12 @@ gantt
 
 ## Key Insight
 
-The architecture is strong. The concurrent scene pipeline, the RL scaffolding, the interrupt protocol, the frame-based visual system -- these are genuinely sophisticated. The biggest risk to the mission is **not** architecture; it is **visual expressiveness**. An agentic tutor that can only draw IT diagrams will fail to teach calculus, Newtonian mechanics, or organic chemistry.
+The architecture is strong. The concurrent scene pipeline, the RL scaffolding, the interrupt protocol, the frame-based visual system -- these are genuinely sophisticated. Two critical investments remain:
 
-**Phase 1 (Universal Visual Vocabulary) is the make-or-break investment.** Once the agent can render equations, plot functions, draw force diagrams, and animate state transitions for *any* domain, the rest of the system (voice, RL, interrupts, scene planning) already works. The hardest part of "explain anything visually" is the "visually" part -- and that is what needs the most work right now.
+**Phase 1 (Universal Visual Vocabulary) gives the agent the tools.** Once it can render equations, plot functions, draw force diagrams, and animate state transitions for *any* domain, the rendering pipeline works for every subject. The hardest part of "explain anything visually" is the "visually" part.
 
-The good news: the frame-based rendering pipeline (`VisualScript` -> `IllustrationFrame` -> `FrameRenderer` -> `SVGLibrary`) is designed to be extensible. Adding new entity types is mechanical -- define the type, add the SVG component, teach the agent about it. The pipeline itself does not need to change.
+**Phase 2.5 (Multi-Agent Intelligence) gives the agent the brain.** Today the system is a single-agent pipeline: one Claude call plans the lesson, another generates visuals, and nothing checks the result. The multi-agent architecture adds domain specialization (a math expert that knows derivatives need tangent-line animations), quality assurance (a critic that catches bad layouts before the user sees them), and coordination (a binding contract between what the planner intended and what the renderer produces). Without this, the agent has tools but no judgment.
 
-**Ship Phase 0+1, and you have a demo that can teach math. Ship through Phase 3, and you have a product.**
+The good news: the frame-based rendering pipeline (`VisualScript` -> `IllustrationFrame` -> `FrameRenderer` -> `SVGLibrary`) is designed to be extensible, and the `ConcurrencyPool` + `ScenePipelineOrchestrator` already support the parallel execution patterns that multi-agent coordination requires.
+
+**Ship Phase 0+1, and you have a demo that can teach math. Ship Phase 2.5, and you have an agent that teaches well. Ship through Phase 3, and you have a product.**

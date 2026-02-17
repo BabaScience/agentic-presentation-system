@@ -10,6 +10,7 @@ import {
   KG_NODE_LIMIT, KG_MAX_DEPTH,
   type KnowledgeGraph, type KGNode, type KGEdge,
   type GraphMutation, type ReasoningOutput,
+  type SceneContract,
 } from '../../shared/types';
 import type { RLService } from './RLService';
 
@@ -72,7 +73,9 @@ export class KnowledgeGraphService {
         isExpanded: false,
         isPresented: false,
         parentId: index === 0 ? null : graph.rootNodeId || null,
-        metadata: {},
+        metadata: {
+          ...(primitive.sceneContract ? { sceneContract: primitive.sceneContract } : {}),
+        },
         visualHint: primitive.visualHint,
         createdAt: Date.now(),
       };

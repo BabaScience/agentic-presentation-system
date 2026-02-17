@@ -21,6 +21,8 @@ import {
   type WordTimestamp,
   type VisualHint,
   type AcademicDomain,
+  type SceneContract,
+  type DomainGuidance,
   DataType,
   FRAME_DURATION_MIN_MS,
   INTER_ENTITY_STAGGER_MIN_MS,
@@ -90,16 +92,20 @@ export class VisualScriptGenerator {
     durationMs: number,
     visualHint?: VisualHint,
     domain?: AcademicDomain,
-  ): Promise<VisualScript> {
+    contract?: SceneContract,
+    domainGuidance?: DomainGuidance,
+    revisionFeedback?: string,
+  ): Promise<VisualScript & { confidence?: number }> {
 
     // Use Claude to analyze narration and generate visual segments
-    const segments = await this.analyzeNarration(narration, dataType, wordTimestamps, durationMs, visualHint, domain);
+    const segments = await this.analyzeNarration(narration, dataType, wordTimestamps, durationMs, visualHint, domain, contract, domainGuidance, revisionFeedback);
 
     // Convert segments to frames
     const frames = this.segmentsToFrames(segments, durationMs);
 
     // Post-process: layout engine (collision avoidance + pattern enforcement)
-    postProcessFrames(frames, visualHint?.layoutPattern);
+    // When spatial constraints exist from contract, they supersede layout patterns
+    postProcessFrames(frames, visualHint?.layoutPattern, contract?.spatialConstraints);
 
     // Optional: use SceneCompositionService for complex frames with poor layout
     for (const frame of frames) {
@@ -138,11 +144,15 @@ export class VisualScriptGenerator {
       });
     });
 
+    // Extract confidence from the last segment's metadata if available
+    const confidence = (segments as any).__confidence as number | undefined;
+
     return {
       sceneId,
       frames,
       totalDuration: durationMs,
       entities: allEntities,
+      ...(confidence !== undefined ? { confidence } : {}),
     };
   }
 
@@ -301,9 +311,43 @@ export class VisualScriptGenerator {
     durationMs: number,
     visualHint?: VisualHint,
     domain?: AcademicDomain,
+    contract?: SceneContract,
+    domainGuidance?: DomainGuidance,
+    revisionFeedback?: string,
   ): Promise<VisualSegment[]> {
 
     const environmentGuide = getEnvironmentGuideForPrompt();
+
+    // Build BINDING CONTRACT section (takes precedence over visual hints)
+    const contractSection = contract ? `
+**BINDING CONTRACT** (you MUST follow these requirements — they are non-negotiable):
+Required Entities (MUST appear in your output):
+${contract.requiredEntities.map(e => `  - "${e.label}" (type: ${e.type}, role: ${e.role}${e.mandatory ? ', MANDATORY' : ''})`).join('\n')}
+
+Spatial Constraints (MUST be respected in entity positioning):
+${contract.spatialConstraints.length > 0 ? contract.spatialConstraints.map(c => `  - "${c.entityA}" must be ${c.type} "${c.entityB}"`).join('\n') : '  None'}
+
+Pedagogical Goal: ${contract.pedagogicalGoal}
+Difficulty Level: ${contract.difficultyLevel}
+` : '';
+
+    // Build DOMAIN EXPERT GUIDANCE section
+    const guidanceSection = domainGuidance ? `
+**DOMAIN EXPERT GUIDANCE** (use these exact metadata values for each entity):
+${Object.entries(domainGuidance.entityMetadata).map(([label, meta]) => `  - "${label}": ${JSON.stringify(meta)}`).join('\n')}
+
+Animation Choreography:
+${domainGuidance.animationChoreography.map(a => `  - "${a.entityLabel}": ${a.animationType}, delay: ${a.delay}ms — ${a.notes}`).join('\n')}
+
+Domain Rules:
+${domainGuidance.domainRules.map(r => `  - ${r}`).join('\n')}
+` : '';
+
+    // Build REVISION REQUEST section
+    const revisionSection = revisionFeedback ? `
+**REVISION REQUEST** (the Quality Critic found issues in your previous output — fix them):
+${revisionFeedback}
+` : '';
 
     // Build visual hint section if agent provided guidance
     const layoutInstructions = visualHint?.layoutPattern ? this.getLayoutInstructions(visualHint.layoutPattern) : '';
@@ -335,7 +379,7 @@ ${layoutInstructions}
 
 You are generating a frame-by-frame visual script for the following narration.
 Use the complete presentation environment guide above to make intelligent decisions.
-${visualHintSection}${domainHint}
+${contractSection}${guidanceSection}${revisionSection}${visualHintSection}${domainHint}
 **Narration**: "${narration}"
 **Data Type**: ${dataType}
 **Duration**: ${durationMs}ms (${Math.round(durationMs / 1000)}s)
@@ -423,7 +467,10 @@ Return ONLY a JSON array (no markdown, no explanation):
 - USE ARROWS WITH from/to to show relationships between entities — this is critical for understanding
 - When showing a flow (A → B → C), use Arrow entities with from/to connecting each step
 
-Generate the visual script now:`;
+Generate the visual script now.
+
+After the JSON array, on a NEW LINE, output ONLY a confidence score like: CONFIDENCE: 0.85
+This is your self-assessment of how well your output matches the requirements (0.0-1.0).`;
 
     try {
       const response = await anthropic.messages.create({
@@ -436,6 +483,10 @@ Generate the visual script now:`;
       if (content.type !== 'text') {
         throw new Error('Unexpected response type from Claude');
       }
+
+      // Extract confidence score if present
+      const confidenceMatch = content.text.match(/CONFIDENCE:\s*([\d.]+)/i);
+      const selfConfidence = confidenceMatch ? parseFloat(confidenceMatch[1]) : undefined;
 
       // Extract JSON from response
       const jsonMatch = content.text.match(/\[[\s\S]*\]/);
@@ -458,7 +509,7 @@ Generate the visual script now:`;
       }
 
       // Convert to VisualSegment with proper timing and rich entity attributes
-      return rawSegments.map((seg: any, idx: number) => {
+      const segments: VisualSegment[] = rawSegments.map((seg: any, idx: number) => {
         const [startPercent, endPercent] = seg.timeRangePercent || [idx * 33, (idx + 1) * 33];
         return {
           text: seg.text,
@@ -480,6 +531,13 @@ Generate the visual script now:`;
           description: seg.description || '',
         };
       });
+
+      // Attach confidence as hidden metadata on the array
+      if (selfConfidence !== undefined) {
+        (segments as any).__confidence = selfConfidence;
+      }
+
+      return segments;
 
     } catch (error) {
       console.error('[VisualScript] Claude API error:', error);
