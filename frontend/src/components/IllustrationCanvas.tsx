@@ -147,10 +147,18 @@ export function IllustrationCanvas({ illustrations, visualScript, currentTime, w
       frame => currentTime >= frame.startTime && currentTime < frame.endTime
     );
     if (matched) return matched;
-    // If currentTime exceeds all frames (stale from previous scene), show first frame
-    const lastFrame = frames[frames.length - 1];
-    if (currentTime >= lastFrame.endTime) return frames[0];
-    // If currentTime is before all frames, show first frame
+
+    // Between frames: find the most recent frame that has ended and keep it visible
+    // so entities don't flash away during gaps
+    let best: typeof frames[0] | null = null;
+    for (const frame of frames) {
+      if (frame.endTime <= currentTime) {
+        if (!best || frame.endTime > best.endTime) best = frame;
+      }
+    }
+    if (best) return best;
+
+    // Before all frames or after all frames, show first frame
     return frames[0];
   }, [effectiveScript, currentTime]);
 

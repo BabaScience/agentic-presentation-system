@@ -186,7 +186,10 @@ export type VisualEntityType =
   // Physics types
   | 'FreeBodyDiagram' | 'Circuit' | 'Wave' | 'Vector' | 'Field' | 'Particle'
   // General purpose types
-  | 'Table' | 'Histogram' | 'PieChart' | 'FlowDiagram' | 'VennDiagram' | 'Annotation';
+  | 'Table' | 'Histogram' | 'PieChart' | 'FlowDiagram' | 'VennDiagram' | 'Annotation'
+  // Pedagogical types
+  | 'StepList' | 'CodeBlock' | 'Definition' | 'Callout'
+  | 'BarChart' | 'ScatterPlot' | 'Proof' | 'Analogy';
 
 // Visual entity instance
 export interface VisualEntity {
@@ -493,9 +496,10 @@ export const CANVAS_HEIGHT = 900;
 
 // ── Visual Timing Floors ────────────────────────────────
 export const ANIMATION_DELAY_MIN_MS = 150;
-export const FRAME_DURATION_MIN_MS = 1500;
+export const FRAME_DURATION_MIN_MS = 2500;
 export const ILLUSTRATION_APPEAR_MIN_MS = 200;
 export const INTER_ENTITY_STAGGER_MIN_MS = 100;
+export const ENTITY_MIN_VISIBLE_MS = 1200;
 
 /** Extra pixels below entity body reserved for the text label */
 export const ENTITY_LABEL_PADDING_PX = 22;

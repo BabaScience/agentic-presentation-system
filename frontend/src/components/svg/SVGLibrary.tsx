@@ -1263,3 +1263,246 @@ export const AnnotationEntity: React.FC<MetadataComponentProps> = ({ x, y, width
     </g>
   );
 };
+
+// ═══ PEDAGOGICAL TYPES ═══
+
+export const StepListEntity: React.FC<MetadataComponentProps> = ({ x, y, width = 260, height = 200, color = '#00e5ff', label, className = '', animationDelay = 0, metadata }) => {
+  const steps: string[] = metadata?.steps || (label ? [label] : ['Step 1']);
+  const stepH = Math.min(36, (height - 20) / steps.length);
+  const startY = -((steps.length - 1) * stepH) / 2;
+
+  return (
+    <g transform={`translate(${x}, ${y})`}>
+      <g className={className} style={ANIM_STYLE(animationDelay)}>
+        <rect x={-width/2} y={-height/2} width={width} height={height} rx={10} fill="#0b0d1430" stroke={`${color}25`} strokeWidth={1} />
+        {steps.map((step, i) => {
+          const sy = startY + i * stepH;
+          const circR = 11;
+          return (
+            <g key={i}>
+              {i > 0 && <line x1={-width/2 + 30} y1={sy - stepH + circR} x2={-width/2 + 30} y2={sy - circR} stroke={`${color}40`} strokeWidth={2} />}
+              <circle cx={-width/2 + 30} cy={sy} r={circR} fill={`${color}20`} stroke={color} strokeWidth={1.5} />
+              <text x={-width/2 + 30} y={sy + 4} textAnchor="middle" fill={color} fontSize={10} fontWeight={700}>{i + 1}</text>
+              <text x={-width/2 + 50} y={sy + 4} textAnchor="start" fill="#e0e0e0" fontSize={11} fontWeight={500}>{step}</text>
+            </g>
+          );
+        })}
+      </g>
+    </g>
+  );
+};
+
+export const CodeBlockEntity: React.FC<MetadataComponentProps> = ({ x, y, width = 300, height = 180, color = '#b388ff', label, className = '', animationDelay = 0, metadata }) => {
+  const lines: string[] = metadata?.lines || (label ? label.split('\n') : ['// code']);
+  const lang = metadata?.language || '';
+  const lineH = 16;
+  const padTop = 30;
+  const startY = -height/2 + padTop + 8;
+
+  return (
+    <g transform={`translate(${x}, ${y})`}>
+      <g className={className} style={ANIM_STYLE(animationDelay)}>
+        <rect x={-width/2} y={-height/2} width={width} height={height} rx={8} fill="#1a1a2e" stroke={`${color}30`} strokeWidth={1.5} />
+        {/* Title bar */}
+        <rect x={-width/2} y={-height/2} width={width} height={22} rx={8} fill={`${color}15`} />
+        <rect x={-width/2} y={-height/2 + 14} width={width} height={8} fill={`${color}15`} />
+        <circle cx={-width/2 + 14} cy={-height/2 + 11} r={4} fill="#ff5f57" />
+        <circle cx={-width/2 + 26} cy={-height/2 + 11} r={4} fill="#febc2e" />
+        <circle cx={-width/2 + 38} cy={-height/2 + 11} r={4} fill="#28c840" />
+        {lang && <text x={width/2 - 10} y={-height/2 + 14} textAnchor="end" fill={`${color}60`} fontSize={9}>{lang}</text>}
+        {/* Code lines */}
+        {lines.slice(0, Math.floor((height - padTop - 8) / lineH)).map((line, i) => (
+          <text key={i} x={-width/2 + 16} y={startY + i * lineH} textAnchor="start"
+            fill="#e0e0e0" fontSize={11} fontWeight={400} fontFamily="'Geist Mono', monospace" opacity={0.9}>
+            {line}
+          </text>
+        ))}
+      </g>
+    </g>
+  );
+};
+
+export const DefinitionEntity: React.FC<MetadataComponentProps> = ({ x, y, width = 280, height = 120, color = '#00e676', label, className = '', animationDelay = 0, metadata }) => {
+  const term = metadata?.term || label || 'Term';
+  const definition = metadata?.definition || '';
+  const barW = 5;
+
+  return (
+    <g transform={`translate(${x}, ${y})`}>
+      <g className={className} style={ANIM_STYLE(animationDelay)}>
+        <rect x={-width/2} y={-height/2} width={width} height={height} rx={8} fill="#0b0d1440" stroke={`${color}20`} strokeWidth={1} />
+        <rect x={-width/2} y={-height/2} width={barW} height={height} rx={2} fill={color} />
+        <text x={-width/2 + barW + 14} y={-height/2 + 24} textAnchor="start" fill={color} fontSize={14} fontWeight={700}>{term}</text>
+        <line x1={-width/2 + barW + 14} y1={-height/2 + 32} x2={width/2 - 14} y2={-height/2 + 32} stroke={`${color}30`} strokeWidth={1} />
+        <foreignObject x={-width/2 + barW + 14} y={-height/2 + 38} width={width - barW - 28} height={height - 46}>
+          <div style={{ color: '#c0c0c0', fontSize: '11px', lineHeight: '1.4', fontFamily: "'DM Sans', sans-serif", wordWrap: 'break-word' as any }}>
+            {definition}
+          </div>
+        </foreignObject>
+      </g>
+    </g>
+  );
+};
+
+export const CalloutEntity: React.FC<MetadataComponentProps> = ({ x, y, width = 240, height = 100, color = '#ffab00', label, className = '', animationDelay = 0, metadata }) => {
+  const calloutType: string = metadata?.calloutType || 'tip';
+  const icons: Record<string, string> = { tip: '\u{1F4A1}', warning: '\u26A0', note: '\u{1F4DD}', important: '\u2757' };
+  const colors: Record<string, string> = { tip: '#ffab00', warning: '#ff5252', note: '#00e5ff', important: '#ff6b9d' };
+  const icon = icons[calloutType] || icons.tip;
+  const accentColor = colors[calloutType] || color;
+
+  return (
+    <g transform={`translate(${x}, ${y})`}>
+      <g className={className} style={ANIM_STYLE(animationDelay)}>
+        <rect x={-width/2} y={-height/2} width={width} height={height} rx={8} fill={`${accentColor}10`} stroke={accentColor} strokeWidth={1.5} strokeDasharray="0" />
+        <text x={-width/2 + 14} y={-height/2 + 22} fontSize={16}>{icon}</text>
+        <text x={-width/2 + 36} y={-height/2 + 22} fill={accentColor} fontSize={11} fontWeight={700}>{calloutType.toUpperCase()}</text>
+        <foreignObject x={-width/2 + 14} y={-height/2 + 32} width={width - 28} height={height - 40}>
+          <div style={{ color: '#d0d0d0', fontSize: '11px', lineHeight: '1.4', fontFamily: "'DM Sans', sans-serif", wordWrap: 'break-word' as any }}>
+            {label || ''}
+          </div>
+        </foreignObject>
+      </g>
+    </g>
+  );
+};
+
+export const BarChartEntity: React.FC<MetadataComponentProps> = ({ x, y, width = 280, height = 200, color = '#00e5ff', label, className = '', animationDelay = 0, metadata }) => {
+  const bars: { label: string; value: number; color?: string }[] = metadata?.bars || [
+    { label: 'A', value: 60 }, { label: 'B', value: 85 }, { label: 'C', value: 40 },
+  ];
+  const maxVal = Math.max(...bars.map(b => b.value), 1);
+  const chartW = width - 60;
+  const chartH = height - 50;
+  const barW = Math.min(40, chartW / bars.length - 8);
+  const originX = -width/2 + 40;
+  const originY = height/2 - 30;
+
+  return (
+    <g transform={`translate(${x}, ${y})`}>
+      <g className={className} style={ANIM_STYLE(animationDelay)}>
+        <rect x={-width/2} y={-height/2} width={width} height={height} rx={8} fill="#0b0d1420" stroke={`${color}20`} strokeWidth={1} />
+        {/* Y axis */}
+        <line x1={originX} y1={originY} x2={originX} y2={originY - chartH} stroke={`${color}40`} strokeWidth={1} />
+        {/* X axis */}
+        <line x1={originX} y1={originY} x2={originX + chartW} y2={originY} stroke={`${color}40`} strokeWidth={1} />
+        {bars.map((b, i) => {
+          const bx = originX + (i + 0.5) * (chartW / bars.length) - barW/2;
+          const bh = (b.value / maxVal) * chartH;
+          const bc = b.color || color;
+          return (
+            <g key={i}>
+              <rect x={bx} y={originY - bh} width={barW} height={bh} rx={3} fill={`${bc}60`} stroke={bc} strokeWidth={1} />
+              <text x={bx + barW/2} y={originY + 14} textAnchor="middle" fill="#aaa" fontSize={9}>{b.label}</text>
+              <text x={bx + barW/2} y={originY - bh - 6} textAnchor="middle" fill={bc} fontSize={9} fontWeight={600}>{b.value}</text>
+            </g>
+          );
+        })}
+        {label && <text x={0} y={height/2 - 4} textAnchor="middle" fill={color} fontSize={10} fontWeight={500}>{label}</text>}
+      </g>
+    </g>
+  );
+};
+
+export const ScatterPlotEntity: React.FC<MetadataComponentProps> = ({ x, y, width = 280, height = 260, color = '#00e5ff', label, className = '', animationDelay = 0, metadata }) => {
+  const points: { x: number; y: number; label?: string }[] = metadata?.points || [
+    { x: 20, y: 30 }, { x: 50, y: 70 }, { x: 80, y: 40 },
+  ];
+  const chartW = width - 60;
+  const chartH = height - 50;
+  const originX = -width/2 + 40;
+  const originY = height/2 - 30;
+
+  return (
+    <g transform={`translate(${x}, ${y})`}>
+      <g className={className} style={ANIM_STYLE(animationDelay)}>
+        <rect x={-width/2} y={-height/2} width={width} height={height} rx={8} fill="#0b0d1420" stroke={`${color}20`} strokeWidth={1} />
+        <line x1={originX} y1={originY} x2={originX} y2={originY - chartH} stroke={`${color}40`} strokeWidth={1} />
+        <line x1={originX} y1={originY} x2={originX + chartW} y2={originY} stroke={`${color}40`} strokeWidth={1} />
+        {/* Grid lines */}
+        {[0.25, 0.5, 0.75].map(pct => (
+          <line key={pct} x1={originX} y1={originY - chartH * pct} x2={originX + chartW} y2={originY - chartH * pct}
+            stroke={`${color}10`} strokeWidth={0.5} />
+        ))}
+        {points.map((p, i) => {
+          const px = originX + (p.x / 100) * chartW;
+          const py = originY - (p.y / 100) * chartH;
+          return (
+            <g key={i}>
+              <circle cx={px} cy={py} r={5} fill={`${color}60`} stroke={color} strokeWidth={1.5} />
+              {p.label && <text x={px + 8} y={py + 3} fill={color} fontSize={9}>{p.label}</text>}
+            </g>
+          );
+        })}
+        {label && <text x={0} y={height/2 - 4} textAnchor="middle" fill={color} fontSize={10} fontWeight={500}>{label}</text>}
+      </g>
+    </g>
+  );
+};
+
+export const ProofEntity: React.FC<MetadataComponentProps> = ({ x, y, width = 280, height = 220, color = '#b388ff', label, className = '', animationDelay = 0, metadata }) => {
+  const steps: { type: string; text: string }[] = metadata?.steps || [
+    { type: 'given', text: label || 'Proof' },
+  ];
+  const lineH = 22;
+  const startY = -height/2 + 30;
+  const typeColors: Record<string, string> = { given: '#00e676', step: color, therefore: '#ffab00' };
+  const typeLabels: Record<string, string> = { given: 'Given', step: 'Step', therefore: '\u2234' };
+
+  return (
+    <g transform={`translate(${x}, ${y})`}>
+      <g className={className} style={ANIM_STYLE(animationDelay)}>
+        <rect x={-width/2} y={-height/2} width={width} height={height} rx={8} fill="#0b0d1430" stroke={`${color}25`} strokeWidth={1.5} />
+        <text x={-width/2 + 14} y={-height/2 + 18} fill={color} fontSize={12} fontWeight={700} fontStyle="italic">Proof</text>
+        {steps.slice(0, Math.floor((height - 40) / lineH)).map((s, i) => {
+          const sy = startY + i * lineH;
+          const tc = typeColors[s.type] || color;
+          const tl = typeLabels[s.type] || s.type;
+          return (
+            <g key={i}>
+              <text x={-width/2 + 14} y={sy + 4} fill={tc} fontSize={10} fontWeight={700} fontFamily="'Geist Mono', monospace">{tl}</text>
+              <text x={-width/2 + 60} y={sy + 4} fill="#d0d0d0" fontSize={11}>{s.text}</text>
+            </g>
+          );
+        })}
+        {/* QED box */}
+        <rect x={width/2 - 22} y={height/2 - 22} width={12} height={12} fill={color} />
+      </g>
+    </g>
+  );
+};
+
+export const AnalogyEntity: React.FC<MetadataComponentProps> = ({ x, y, width = 300, height = 160, color = '#00e5ff', label, className = '', animationDelay = 0, metadata }) => {
+  const left = metadata?.left || { label: 'A', description: '' };
+  const right = metadata?.right || { label: 'B', description: '' };
+  const panelW = (width - 50) / 2;
+
+  return (
+    <g transform={`translate(${x}, ${y})`}>
+      <g className={className} style={ANIM_STYLE(animationDelay)}>
+        <rect x={-width/2} y={-height/2} width={width} height={height} rx={10} fill="#0b0d1420" stroke={`${color}20`} strokeWidth={1} />
+        {/* Left panel */}
+        <rect x={-width/2 + 8} y={-height/2 + 8} width={panelW} height={height - 16} rx={6} fill={`${color}10`} stroke={`${color}30`} strokeWidth={1} />
+        <text x={-width/2 + 8 + panelW/2} y={-height/2 + 30} textAnchor="middle" fill={color} fontSize={12} fontWeight={700}>{left.label}</text>
+        <foreignObject x={-width/2 + 16} y={-height/2 + 38} width={panelW - 16} height={height - 54}>
+          <div style={{ color: '#b0b0b0', fontSize: '10px', lineHeight: '1.4', fontFamily: "'DM Sans', sans-serif", wordWrap: 'break-word' as any }}>
+            {left.description}
+          </div>
+        </foreignObject>
+        {/* Center connector */}
+        <text x={0} y={4} textAnchor="middle" fill={`${color}80`} fontSize={11} fontWeight={600} fontStyle="italic">is like</text>
+        <line x1={-15} y1={-6} x2={-6} y2={-6} stroke={`${color}40`} strokeWidth={1} />
+        <line x1={6} y1={-6} x2={15} y2={-6} stroke={`${color}40`} strokeWidth={1} />
+        {/* Right panel */}
+        <rect x={width/2 - 8 - panelW} y={-height/2 + 8} width={panelW} height={height - 16} rx={6} fill={`${color}10`} stroke={`${color}30`} strokeWidth={1} />
+        <text x={width/2 - 8 - panelW/2} y={-height/2 + 30} textAnchor="middle" fill={color} fontSize={12} fontWeight={700}>{right.label}</text>
+        <foreignObject x={width/2 - panelW} y={-height/2 + 38} width={panelW - 16} height={height - 54}>
+          <div style={{ color: '#b0b0b0', fontSize: '10px', lineHeight: '1.4', fontFamily: "'DM Sans', sans-serif", wordWrap: 'break-word' as any }}>
+            {right.description}
+          </div>
+        </foreignObject>
+        {label && <text x={0} y={height/2 + 16} textAnchor="middle" fill={color} fontSize={10} fontWeight={500}>{label}</text>}
+      </g>
+    </g>
+  );
+};

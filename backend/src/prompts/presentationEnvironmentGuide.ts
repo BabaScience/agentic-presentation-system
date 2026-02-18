@@ -215,12 +215,13 @@ You can create and manipulate the following visual entities in your presentation
 
 When the narration is about NON-TECHNICAL topics, prefer universal entity types:
 
-**Biology/Science**: Cycle (cycles), Concept (principles), Group (classifications), Tree (taxonomy), Metric (measurements), Arrow (processes)
-**History/Events**: Timeline (dates), Entity (figures/places), Group (periods), Comparison (contrasts), Badge (labels)
-**Business/Economics**: Metric (KPIs), Comparison (analysis), Entity (companies), Arrow (flows), Stack (strategies)
-**Art/Music/Literature**: Quote (themes), Concept (movements), Comparison (styles), Entity (creators), Group (genres)
-**Philosophy/Psychology**: Concept (ideas), Quote (principles), Comparison (schools), Tree (frameworks), Cycle (dialectics)
-**Mathematics/Physics**: Equation (formulas), Graph2D (functions), NumberLine (intervals), CoordinateSystem (geometry), Vector (forces), Matrix (linear algebra), FreeBodyDiagram (mechanics), Wave (oscillations)
+**Biology/Science**: Cycle (cycles), Concept (principles), Group (classifications), Tree (taxonomy), Metric (measurements), Arrow (processes), StepList (procedures), Definition (terms)
+**History/Events**: Timeline (dates), Entity (figures/places), Group (periods), Comparison (contrasts), Badge (labels), Definition (terms), Analogy (parallels)
+**Business/Economics**: Metric (KPIs), Comparison (analysis), Entity (companies), Arrow (flows), Stack (strategies), BarChart (data), StepList (processes)
+**Art/Music/Literature**: Quote (themes), Concept (movements), Comparison (styles), Entity (creators), Group (genres), Analogy (metaphors)
+**Philosophy/Psychology**: Concept (ideas), Quote (principles), Comparison (schools), Tree (frameworks), Cycle (dialectics), Proof (arguments), Analogy (thought experiments)
+**Mathematics/Physics**: Equation (formulas), Graph2D (functions), NumberLine (intervals), CoordinateSystem (geometry), Vector (forces), Matrix (linear algebra), FreeBodyDiagram (mechanics), Wave (oscillations), Proof (proofs), StepList (solutions)
+**Programming/CS**: CodeBlock (code), StepList (algorithms), FlowDiagram (flows), Definition (terminology), Callout (tips), Table (data structures)
 
 Use infrastructure types (Server, Database, Pod, etc.) ONLY when the topic is actually about software, infrastructure, or technology.
 
@@ -331,6 +332,50 @@ These entities are purpose-built for teaching math, physics, and science topics.
   - metadata: \`{ targetX: 0, targetY: 40 }\`
   - Best for: Pointing out specific parts of other entities, notes
 
+### Pedagogical Types (Teaching & Explanation)
+
+- **StepList**: Numbered step-by-step sequence with connecting lines
+  - Size: 260x200px
+  - metadata: \`{ steps: ["Parse input", "Validate syntax", "Execute code"] }\`
+  - Best for: Algorithms, recipes, procedures, sequential instructions
+
+- **CodeBlock**: Syntax-styled code snippet with title bar
+  - Size: 300x180px
+  - metadata: \`{ lines: ["function add(a, b) {", "  return a + b;", "}"], language: "javascript" }\`
+  - Best for: Programming concepts, code examples, pseudocode
+
+- **Definition**: Highlighted term + explanation with accent border
+  - Size: 280x120px
+  - metadata: \`{ term: "Derivative", definition: "The rate at which a function changes at any given point" }\`
+  - Best for: Vocabulary, key concepts, formal definitions
+
+- **Callout**: Attention box with type icon (tip, warning, note, important)
+  - Size: 240x100px
+  - metadata: \`{ calloutType: "tip" }\` (label contains the text)
+  - calloutType options: "tip" (yellow), "warning" (red), "note" (cyan), "important" (pink)
+  - Best for: Tips, warnings, key takeaways, reminders
+
+- **BarChart**: Vertical bar chart with labeled axes and values
+  - Size: 280x200px
+  - metadata: \`{ bars: [{label: "Q1", value: 120}, {label: "Q2", value: 85}, {label: "Q3", value: 200}] }\`
+  - Best for: Category comparisons, ranked data, frequency by category
+
+- **ScatterPlot**: Point cloud on coordinate grid
+  - Size: 280x260px
+  - metadata: \`{ points: [{x: 10, y: 20, label: "A"}, {x: 50, y: 80}, {x: 90, y: 45}] }\` (x,y in 0-100 range)
+  - Best for: Correlations, data patterns, regression visualization
+
+- **Proof**: Structured mathematical proof with Given/Step/Therefore
+  - Size: 280x220px
+  - metadata: \`{ steps: [{type: "given", text: "a + b = c"}, {type: "step", text: "Rearrange..."}, {type: "therefore", text: "c - a = b"}] }\`
+  - step types: "given", "step", "therefore"
+  - Best for: Mathematical proofs, logical arguments, deduction chains
+
+- **Analogy**: Side-by-side "A is like B" visual comparison
+  - Size: 300x160px
+  - metadata: \`{ left: {label: "Electricity", description: "Flows through wires..."}, right: {label: "Water", description: "Flows through pipes..."} }\`
+  - Best for: Explaining new concepts via familiar ones, metaphors, comparisons
+
 ### Math/Science Composition Patterns
 
 When teaching math/science topics, combine entities for maximum clarity:
@@ -344,7 +389,7 @@ When teaching math/science topics, combine entities for maximum clarity:
 - **Solving equations step-by-step**: Multiple Equation entities, each showing a step
   - Layout: \`equation-flow\` — vertical stack, left-aligned
 
-- **Proof structure**: Equation (hypothesis) → Equation (steps) → Equation (conclusion)
+- **Proof structure**: Proof entity (given/step/therefore) for formal proofs, or Equation chain for algebraic derivations
   - Layout: \`proof-steps\` — numbered vertical sequence
 
 - **Data comparison**: Histogram or PieChart + Table (raw data) + Annotation (key insight)
@@ -377,7 +422,14 @@ Map these narration keywords to entity types:
 - "circuit", "resistance", "voltage", "current" → **Circuit**
 - "field", "gradient", "divergence", "flux" → **Field**
 - "compare", "distribution", "percentage", "proportion" → **Histogram**, **PieChart**, or **Table**
-- "proof", "therefore", "QED", "we can show" → **Equation** with steps + \`proof-steps\` layout
+- "proof", "therefore", "QED", "we can show" → **Proof** entity
+- "step by step", "first...then...finally", "procedure", "algorithm" → **StepList**
+- "code", "function", "program", "syntax", "implementation" → **CodeBlock**
+- "define", "definition", "meaning of", "what is" → **Definition**
+- "tip", "remember", "warning", "note", "important" → **Callout**
+- "bar chart", "compare values", "ranking" → **BarChart**
+- "scatter", "correlation", "data points", "plot data" → **ScatterPlot**
+- "is like", "analogy", "similar to", "think of it as" → **Analogy**
 - "table", "values", "data" → **Table**
 - "flow", "algorithm", "process steps" → **FlowDiagram**
 - "set", "union", "intersection", "subset" → **VennDiagram**
@@ -412,8 +464,9 @@ Map these narration keywords to entity types:
 2. All other entities MUST have delay >= 200ms
 3. Delays MUST be staggered: each subsequent entity adds at least 150ms
 4. Arrow/DataFlow entities MUST appear AFTER both their source and target entities (delay >= 400ms)
-5. Frame duration should be at least 2 seconds
+5. Frame duration should be at least 3 seconds to give viewers time to absorb each visual
 6. Maximum 5 entities per frame — if more are needed, split into additional frames
+7. The LAST entity's animation delay MUST be at most 40% of the frame duration, ensuring at least 1.2 seconds of visibility
 
 ### Timing Guidelines
 - **Immediate (0ms delay)**: Primary focus element ONLY (one per frame)

@@ -26,6 +26,9 @@ import {
   VectorEntity, WaveEntity, FreeBodyDiagramEntity, ParticleEntity, CircuitEntity, FieldEntity,
   // General purpose types
   TableEntity, HistogramEntity, PieChartEntity, FlowDiagramEntity, VennDiagramEntity, AnnotationEntity,
+  // Pedagogical types
+  StepListEntity, CodeBlockEntity, DefinitionEntity, CalloutEntity,
+  BarChartEntity, ScatterPlotEntity, ProofEntity, AnalogyEntity,
 } from './svg/SVGLibrary';
 
 interface FrameRendererProps {
@@ -37,13 +40,15 @@ interface FrameRendererProps {
   frameElapsedMs?: number;
 }
 
+type PosEntry = { x: number; y: number; w: number; h: number };
+
 /** Resolve entity position by label for connection endpoints */
 function buildEntityPositionMap(
   entities: VisualEntity[],
   canvasWidth: number,
   canvasHeight: number,
-): Map<string, { x: number; y: number; w: number; h: number }> {
-  const map = new Map<string, { x: number; y: number; w: number; h: number }>();
+): Map<string, PosEntry> {
+  const map = new Map<string, PosEntry>();
   for (const e of entities) {
     if (e.label) {
       map.set(e.label, {
@@ -55,6 +60,25 @@ function buildEntityPositionMap(
     }
   }
   return map;
+}
+
+/**
+ * Fuzzy lookup: exact -> case-insensitive -> substring containment.
+ * Prevents silent arrow failures when Claude's from/to labels don't match exactly.
+ */
+function fuzzyLookup(posMap: Map<string, PosEntry>, label: string): PosEntry | undefined {
+  const exact = posMap.get(label);
+  if (exact) return exact;
+
+  const lower = label.toLowerCase();
+  for (const [key, val] of posMap) {
+    if (key.toLowerCase() === lower) return val;
+  }
+  for (const [key, val] of posMap) {
+    const kl = key.toLowerCase();
+    if (kl.includes(lower) || lower.includes(kl)) return val;
+  }
+  return undefined;
 }
 
 /** Build parent→children mapping for nesting */
@@ -161,11 +185,10 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({
     entity.sourceEntityId && entity.targetEntityId;
 
   if (isConnector) {
-    const source = posMap.get(entity.sourceEntityId!);
-    const target = posMap.get(entity.targetEntityId!);
+    const source = fuzzyLookup(posMap, entity.sourceEntityId!);
+    const target = fuzzyLookup(posMap, entity.targetEntityId!);
 
     if (source && target) {
-      // Compute edge points (center-to-center with offset for entity bounds)
       const dx = target.x - source.x;
       const dy = target.y - source.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
@@ -174,8 +197,7 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({
       const nx = dx / dist;
       const ny = dy / dist;
 
-      // Offset from center by half the entity size, clamped to canvas
-      const pad = 8; // px padding from edge
+      const pad = 8;
       const x1 = Math.max(pad, Math.min(canvasWidth - pad, source.x + nx * (source.w / 2)));
       const y1 = Math.max(pad, Math.min(canvasHeight - pad, source.y + ny * (source.h / 2)));
       const x2 = Math.max(pad, Math.min(canvasWidth - pad, target.x - nx * (target.w / 2)));
@@ -203,6 +225,22 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({
         />
       );
     }
+
+    // Broken link: from/to specified but could not resolve one or both endpoints
+    return (
+      <g className={combinedClass} style={{ animationDelay: `${animDelay}ms`, transformOrigin: 'center', transformBox: 'fill-box' as any }}>
+        <line
+          x1={x - entity.size.width / 2} y1={y}
+          x2={x + entity.size.width / 2} y2={y}
+          stroke={color} strokeWidth={2} strokeDasharray="6,4" opacity={0.35}
+        />
+        {entity.label && (
+          <text x={x} y={y - 8} textAnchor="middle" fill={color} fontSize={10} opacity={0.5}>
+            {entity.label}
+          </text>
+        )}
+      </g>
+    );
   }
 
   // Get children for this entity (nesting)
@@ -625,6 +663,55 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({
     case 'Annotation':
       return (
         <AnnotationEntity x={x} y={y} width={entity.size.width} height={entity.size.height} color={color}
+          label={entity.label} className={combinedClass} animationDelay={animDelay} metadata={entity.metadata} />
+      );
+
+    // ═══ Pedagogical Types ═══
+    case 'StepList':
+      return (
+        <StepListEntity x={x} y={y} width={entity.size.width} height={entity.size.height} color={color}
+          label={entity.label} className={combinedClass} animationDelay={animDelay} metadata={entity.metadata} />
+      );
+
+    case 'CodeBlock':
+      return (
+        <CodeBlockEntity x={x} y={y} width={entity.size.width} height={entity.size.height} color={color}
+          label={entity.label} className={combinedClass} animationDelay={animDelay} metadata={entity.metadata} />
+      );
+
+    case 'Definition':
+      return (
+        <DefinitionEntity x={x} y={y} width={entity.size.width} height={entity.size.height} color={color}
+          label={entity.label} className={combinedClass} animationDelay={animDelay} metadata={entity.metadata} />
+      );
+
+    case 'Callout':
+      return (
+        <CalloutEntity x={x} y={y} width={entity.size.width} height={entity.size.height} color={color}
+          label={entity.label} className={combinedClass} animationDelay={animDelay} metadata={entity.metadata} />
+      );
+
+    case 'BarChart':
+      return (
+        <BarChartEntity x={x} y={y} width={entity.size.width} height={entity.size.height} color={color}
+          label={entity.label} className={combinedClass} animationDelay={animDelay} metadata={entity.metadata} />
+      );
+
+    case 'ScatterPlot':
+      return (
+        <ScatterPlotEntity x={x} y={y} width={entity.size.width} height={entity.size.height} color={color}
+          label={entity.label} className={combinedClass} animationDelay={animDelay} metadata={entity.metadata} />
+      );
+
+    case 'Proof':
+      return (
+        <ProofEntity x={x} y={y} width={entity.size.width} height={entity.size.height} color={color}
+          label={entity.label} className={combinedClass} animationDelay={animDelay} metadata={entity.metadata} />
+      );
+
+    case 'Analogy':
+      return (
+        <AnalogyEntity x={x} y={y} width={entity.size.width} height={entity.size.height} color={color}
           label={entity.label} className={combinedClass} animationDelay={animDelay} metadata={entity.metadata} />
       );
 

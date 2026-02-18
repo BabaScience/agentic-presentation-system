@@ -17,6 +17,7 @@ import {
   FRAME_DURATION_MIN_MS,
   ILLUSTRATION_APPEAR_MIN_MS,
   INTER_ENTITY_STAGGER_MIN_MS,
+  ENTITY_MIN_VISIBLE_MS,
 } from '../../shared/types';
 import { PresentationPlanner } from './PresentationPlanner';
 import { VisualScriptGenerator } from './VisualScriptGenerator';
@@ -202,6 +203,22 @@ export class ScenePipelineOrchestrator {
         const curr = nonZeroEntities[i].animation!.delay;
         if (curr - prev < INTER_ENTITY_STAGGER_MIN_MS) {
           nonZeroEntities[i].animation!.delay = prev + INTER_ENTITY_STAGGER_MIN_MS;
+        }
+      }
+    }
+
+    // Phase 2b: Enforce per-entity minimum visible time after rescaling
+    for (let i = 0; i < scene.visualScript.frames.length; i++) {
+      const frame = scene.visualScript.frames[i];
+      const maxDelay = frame.entities.reduce((mx, e) => Math.max(mx, e.animation?.delay || 0), 0);
+      const needed = maxDelay + ENTITY_MIN_VISIBLE_MS;
+      const frameDur = frame.endTime - frame.startTime;
+      if (frameDur < needed) {
+        const extension = needed - frameDur;
+        frame.endTime += extension;
+        for (let j = i + 1; j < scene.visualScript.frames.length; j++) {
+          scene.visualScript.frames[j].startTime += extension;
+          scene.visualScript.frames[j].endTime += extension;
         }
       }
     }

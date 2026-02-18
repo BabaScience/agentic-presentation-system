@@ -26,6 +26,7 @@ import {
   DataType,
   FRAME_DURATION_MIN_MS,
   INTER_ENTITY_STAGGER_MIN_MS,
+  ENTITY_MIN_VISIBLE_MS,
   clampEntityPosition,
 } from '../../shared/types';
 import { v4 as uuid } from 'uuid';
@@ -40,6 +41,19 @@ import { SceneCompositionService } from './SceneCompositionService';
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY || '',
 });
+
+/** Case-insensitive / substring fuzzy match for arrow from/to labels */
+function fuzzyMatchLabel(needle: string, haystack: Set<string>): string | undefined {
+  const lower = needle.toLowerCase();
+  for (const label of haystack) {
+    if (label.toLowerCase() === lower) return label;
+  }
+  for (const label of haystack) {
+    const ll = label.toLowerCase();
+    if (ll.includes(lower) || lower.includes(ll)) return label;
+  }
+  return undefined;
+}
 
 interface SegmentEntity {
   type: VisualEntityType;
@@ -436,19 +450,22 @@ Return ONLY a JSON array (no markdown, no explanation):
 ]
 
 ## Entity Field Requirements:
-- **type**: Must be one of: User, Server, Database, Container, Pod, Cloud, Network, Device, Arrow, DataFlow, Process, Queue, Cache, LoadBalancer, Service, Firewall, APIGateway, Lambda, Subnet, Volume, Registry, Monitor, Pipeline, Decision, Cluster, Concept, Entity, Group, Label, Comparison, Timeline, Metric, Cycle, Stack, Tree, Badge, Quote
+- **type**: Must be one of: User, Server, Database, Container, Pod, Cloud, Network, Device, Arrow, DataFlow, Process, Queue, Cache, LoadBalancer, Service, Firewall, APIGateway, Lambda, Subnet, Volume, Registry, Monitor, Pipeline, Decision, Cluster, Concept, Entity, Group, Label, Comparison, Timeline, Metric, Cycle, Stack, Tree, Badge, Quote, Equation, Expression, Matrix, Graph2D, NumberLine, CoordinateSystem, FreeBodyDiagram, Circuit, Wave, Vector, Field, Particle, Table, Histogram, PieChart, FlowDiagram, VennDiagram, Annotation, StepList, CodeBlock, Definition, Callout, BarChart, ScatterPlot, Proof, Analogy
 - **label**: Concise (1-3 words)
 - **position**: Object with x (0-100) and y (0-100) as percentage coordinates. Spread entities across the canvas — avoid clustering everything at x:50, y:50. Use the layout patterns from the guide. Not required for Arrow/DataFlow if "from"/"to" are specified — position will be computed automatically.
 - **color**: Hex color from the palette above. Match to the entity's semantic role. Primary entities get bright colors, connectors get subtle ones.
 - **size**: Scale factor (0.5-1.5) relative to the entity type's default size. Primary focus entities should be 1.0-1.3, secondary 0.7-1.0, decorative 0.5-0.8.
 - **animation.type**: One of "fadeIn", "slideIn", "scaleIn", "pulse", "flow", "dashFlow". Use scaleIn for primary entities, fadeIn for secondary, flow for arrows/data.
-- **animation.delay**: Milliseconds (0-1000). Stagger reveals: primary=0, secondary=200-400, connectors=400-700.
+- **animation.delay**: Milliseconds (0-1000). Stagger reveals: primary=0, secondary=200-400, connectors=400-700. The LAST entity's delay must be at most 40% of the segment duration so it stays visible long enough.
 
 ## Entity Connections (IMPORTANT for arrows/flows):
-- **from**: Label of the source entity this arrow/flow originates from. The arrow will be drawn FROM that entity TO the target.
-- **to**: Label of the target entity this arrow/flow points to. Both from/to must match labels of other entities in the same frame.
-- Example: To draw an arrow from "User" to "API Server", create an Arrow entity with "from": "User", "to": "API Server".
-- Arrows without from/to will render as standalone horizontal arrows at their position.
+- **from**: Label of the source entity (MUST be copied VERBATIM from another entity's label in the SAME segment).
+- **to**: Label of the target entity (MUST be copied VERBATIM from another entity's label in the SAME segment).
+- **label**: For Arrow/DataFlow, the label MUST describe the RELATIONSHIP, NOT repeat the entity name. Use verb phrases like "sends request", "inherits from", "transforms into", "validates", "returns token".
+- CORRECT: Arrow with label "sends request", from "Client", to "Server"
+- WRONG:  Arrow with label "Arrow" or label "Client" — these are meaningless.
+- WRONG:  Arrow with from "API Server" when the entity is labeled "Auth Server" — from/to must match exactly.
+- Arrows without from/to will render as broken dashed lines. ALWAYS provide from/to for arrows.
 
 ## Hierarchical Nesting (for containers):
 - **parent**: Label of a container entity (Group, Cloud, Container, Pod) that visually contains this entity.
@@ -460,12 +477,13 @@ Return ONLY a JSON array (no markdown, no explanation):
 - **codeLanguage**: Language identifier for code block styling (e.g., "javascript", "python").
 
 ## Additional Requirements:
-- 3-5 frames total (balanced timing)
+- 3-5 frames total (balanced timing). Each frame should last AT LEAST 3 seconds.
 - Entities that persist across frames should keep the same label and type
 - Ensure smooth visual progression (entities build on each other)
 - Match DataType visualization strategy from guide
 - USE ARROWS WITH from/to to show relationships between entities — this is critical for understanding
 - When showing a flow (A → B → C), use Arrow entities with from/to connecting each step
+- TIMING: Keep animation delays LOW relative to frame length. A frame covering 30% of narration (~3-4s) should have max delay of ~1200ms. Every entity must be visible for at least 1.2 seconds.
 
 Generate the visual script now.
 
@@ -756,6 +774,29 @@ This is your self-assessment of how well your output matches the requirements (0
         frameEntities.push(frameEntity);
       });
 
+      // Validate and fuzzy-correct arrow from/to references
+      const labelSet = new Set(frameEntities.map(e => e.label).filter(Boolean) as string[]);
+      for (const fe of frameEntities) {
+        if ((fe.type === 'Arrow' || fe.type === 'DataFlow') && fe.sourceEntityId && fe.targetEntityId) {
+          if (!labelSet.has(fe.sourceEntityId)) {
+            const corrected = fuzzyMatchLabel(fe.sourceEntityId, labelSet);
+            if (corrected) {
+              fe.sourceEntityId = corrected;
+            } else {
+              console.warn(`[VisualScript] Arrow "${fe.label}" from="${fe.sourceEntityId}" — no matching entity in frame`);
+            }
+          }
+          if (!labelSet.has(fe.targetEntityId)) {
+            const corrected = fuzzyMatchLabel(fe.targetEntityId, labelSet);
+            if (corrected) {
+              fe.targetEntityId = corrected;
+            } else {
+              console.warn(`[VisualScript] Arrow "${fe.label}" to="${fe.targetEntityId}" — no matching entity in frame`);
+            }
+          }
+        }
+      }
+
       frames.push({
         id: `frame-${uuid().slice(0, 8)}`,
         startTime: segment.startTime,
@@ -772,6 +813,22 @@ This is your self-assessment of how well your output matches the requirements (0
       const duration = frame.endTime - frame.startTime;
       if (duration < FRAME_DURATION_MIN_MS) {
         const extension = FRAME_DURATION_MIN_MS - duration;
+        frame.endTime += extension;
+        for (let j = i + 1; j < frames.length; j++) {
+          frames[j].startTime += extension;
+          frames[j].endTime += extension;
+        }
+      }
+    }
+
+    // Enforce per-entity minimum visible time: last entity's delay + ENTITY_MIN_VISIBLE_MS <= frame duration
+    for (let i = 0; i < frames.length; i++) {
+      const frame = frames[i];
+      const maxDelay = frame.entities.reduce((mx, e) => Math.max(mx, e.animation?.delay || 0), 0);
+      const needed = maxDelay + ENTITY_MIN_VISIBLE_MS;
+      const frameDur = frame.endTime - frame.startTime;
+      if (frameDur < needed) {
+        const extension = needed - frameDur;
         frame.endTime += extension;
         for (let j = i + 1; j < frames.length; j++) {
           frames[j].startTime += extension;
@@ -846,6 +903,15 @@ This is your self-assessment of how well your output matches the requirements (0
     FlowDiagram: { width: 300, height: 240 },
     VennDiagram: { width: 260, height: 200 },
     Annotation: { width: 180, height: 60 },
+    // Pedagogical types
+    StepList: { width: 260, height: 200 },
+    CodeBlock: { width: 300, height: 180 },
+    Definition: { width: 280, height: 120 },
+    Callout: { width: 240, height: 100 },
+    BarChart: { width: 280, height: 200 },
+    ScatterPlot: { width: 280, height: 260 },
+    Proof: { width: 280, height: 220 },
+    Analogy: { width: 300, height: 160 },
   };
 
   /**
