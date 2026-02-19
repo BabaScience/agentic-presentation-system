@@ -23,8 +23,9 @@ export function useSceneEngine(): {
   const [env] = useState<EnvironmentAPI>(() => new EnvironmentAPI(new SceneGraph()));
   const [executor] = useState<SceneExecutor>(() =>
     new SceneExecutor(env, {
-      onCommandError: (method, err) => {
-        console.error(`[SceneExecutor] command "${method}" failed:`, err);
+      onCommandError: (cmd, err) => {
+        console.error(`[SceneExecutor] command "${cmd.method}" failed:`, err);
+        return 'skip';
       },
     }),
   );

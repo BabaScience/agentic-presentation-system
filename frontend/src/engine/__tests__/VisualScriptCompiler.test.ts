@@ -3,6 +3,7 @@ import {
   compileVisualScript,
   compileVisualCommands,
   compilePresentationScene,
+  compileStoryboardScene,
   VISUAL_ENTITY_TO_STAGE_ELEMENT,
 } from '../VisualScriptCompiler';
 import type {
@@ -13,6 +14,8 @@ import type {
   StageElementType,
   PresentationScene,
   WordTimestamp,
+  StoryboardScene,
+  Storyboard,
 } from '@shared/types';
 import { CANVAS_WIDTH, CANVAS_HEIGHT } from '@shared/constants';
 
@@ -282,10 +285,11 @@ describe('VisualScriptCompiler', () => {
     expect(result.id).toBe('scene-1');
     expect(result.narration).toBe('Hello world');
     expect(result.estimatedDurationSeconds).toBe(10);
-    expect(result.viewport.x).toBe(100);
-    expect(result.viewport.y).toBe(200);
-    expect(result.viewport.zoom).toBe(1.5);
-    expect(result.viewport.rotation).toBe(0);
+    const vp = result.viewport as { x: number; y: number; zoom: number; rotation?: number };
+    expect(vp.x).toBe(100);
+    expect(vp.y).toBe(200);
+    expect(vp.zoom).toBe(1.5);
+    expect(vp.rotation ?? 0).toBe(0);
 
     // Should start with panTo and zoomTo at t=0
     const panCmd = result.agentCommands.find((c) => c.method === 'panTo');
@@ -330,5 +334,305 @@ describe('VisualScriptCompiler', () => {
     // The zoom command (no wordTrigger) should be in agentCommands, not syncMarkers
     const zoomCmd = result.agentCommands.find((c) => c.method === 'zoomTo');
     expect(zoomCmd).toBeDefined();
+  });
+
+  // ── compileStoryboardScene ─────────────────────────────────
+  describe('compileStoryboardScene', () => {
+    it('createCheckpoint is always first when checkpointName present', () => {
+      const scene: StoryboardScene = {
+        id: 's1',
+        name: 'Scene 1',
+        narration: 'Test narration with enough characters.',
+        nodeIds: ['n1'],
+        checkpointName: 'cp-1',
+        agentCommands: [],
+        viewport: { zoom: 1, center: { x: 0, y: 0 } },
+        interactiveParameters: [],
+        estimatedDurationSeconds: 15,
+      };
+      const storyboard: Storyboard = {
+        id: 'sb1',
+        title: 'Test',
+        topic: 'Test',
+        scenes: [scene],
+        parameters: [],
+        interactionPoints: [],
+      };
+      const script = makeScript([
+        {
+          id: 'f1',
+          startTime: 0,
+          endTime: 3000,
+          entities: [makeEntity({ id: 'e1', type: 'Pod' })],
+          narrationSegment: '',
+          description: '',
+        },
+      ]);
+      const wordTimestamps: WordTimestamp[] = [
+        { word: 'Test', start: 0, end: 100 },
+        { word: 'narration', start: 100, end: 300 },
+      ];
+
+      const { scene: result } = compileStoryboardScene(
+        scene,
+        storyboard,
+        script,
+        wordTimestamps,
+        3000,
+      );
+
+      const first = result.agentCommands[0];
+      expect(first.method).toBe('createCheckpoint');
+      expect(first.args['name']).toBe('cp-1');
+    });
+
+    it('new entity produces createElement + fadeIn', () => {
+      const scene: StoryboardScene = {
+        id: 's1',
+        name: 'Scene 1',
+        narration: 'Test.',
+        nodeIds: ['n1'],
+        agentCommands: [],
+        viewport: { zoom: 1, center: { x: 0, y: 0 } },
+        interactiveParameters: [],
+        estimatedDurationSeconds: 15,
+      };
+      const storyboard: Storyboard = {
+        id: 'sb1',
+        title: 'Test',
+        topic: 'Test',
+        scenes: [scene],
+        parameters: [],
+        interactionPoints: [],
+      };
+      const script = makeScript([
+        {
+          id: 'f1',
+          startTime: 0,
+          endTime: 3000,
+          entities: [makeEntity({ id: 'pod1', type: 'Pod' })],
+          narrationSegment: '',
+          description: '',
+        },
+      ]);
+      const { scene: result } = compileStoryboardScene(
+        scene,
+        storyboard,
+        script,
+        [],
+        3000,
+      );
+
+      const create = result.agentCommands.find((c) => c.method === 'createElement');
+      expect(create).toBeDefined();
+      const fadeIn = result.agentCommands.find((c) => c.method === 'fadeIn');
+      expect(fadeIn).toBeDefined();
+    });
+
+    it('removed entity produces fadeOut + destroyElement', () => {
+      const scene: StoryboardScene = {
+        id: 's1',
+        name: 'Scene 1',
+        narration: 'Test.',
+        nodeIds: ['n1'],
+        agentCommands: [],
+        viewport: { zoom: 1, center: { x: 0, y: 0 } },
+        interactiveParameters: [],
+        estimatedDurationSeconds: 15,
+      };
+      const storyboard: Storyboard = {
+        id: 'sb1',
+        title: 'Test',
+        topic: 'Test',
+        scenes: [scene],
+        parameters: [],
+        interactionPoints: [],
+      };
+      const e1 = makeEntity({ id: 'ephemeral', type: 'Label' });
+      const script = makeScript([
+        { id: 'f1', startTime: 0, endTime: 2000, entities: [e1], narrationSegment: '', description: '' },
+        { id: 'f2', startTime: 2000, endTime: 4000, entities: [], narrationSegment: '', description: '' },
+      ]);
+      const { scene: result } = compileStoryboardScene(scene, storyboard, script, [], 4000);
+
+      const fadeOut = result.agentCommands.find(
+        (c) => c.method === 'fadeOut' && (c.args['id'] as string).includes('ephemeral'),
+      );
+      expect(fadeOut).toBeDefined();
+      const destroy = result.agentCommands.find(
+        (c) => c.method === 'destroyElement' && (c.args['id'] as string).includes('ephemeral'),
+      );
+      expect(destroy).toBeDefined();
+    });
+
+    it('timing rescale: 50% estimated duration → 50% actual', () => {
+      const scene: StoryboardScene = {
+        id: 's1',
+        name: 'Scene 1',
+        narration: 'Test.',
+        nodeIds: ['n1'],
+        agentCommands: [],
+        viewport: { zoom: 1, center: { x: 0, y: 0 } },
+        interactiveParameters: [],
+        estimatedDurationSeconds: 15,
+      };
+      const storyboard: Storyboard = {
+        id: 'sb1',
+        title: 'Test',
+        topic: 'Test',
+        scenes: [scene],
+        parameters: [],
+        interactionPoints: [],
+      };
+      const script = makeScript([
+        {
+          id: 'f1',
+          startTime: 0,
+          endTime: 4000,
+          entities: [makeEntity({ id: 'e1', type: 'Pod' })],
+          narrationSegment: '',
+          description: '',
+        },
+      ]);
+      const wordTimestamps: WordTimestamp[] = [
+        { word: 'a', start: 0, end: 500 },
+        { word: 'b', start: 500, end: 1000 },
+      ];
+      const { scene: result } = compileStoryboardScene(
+        scene,
+        storyboard,
+        script,
+        wordTimestamps,
+        2000,
+      );
+      const create = result.agentCommands.find((c) => c.method === 'createElement');
+      expect(create).toBeDefined();
+      expect(typeof create!.timing).toBe('number');
+      expect(create!.timing).toBeLessThanOrEqual(2000);
+    });
+
+    it('Pod + pod_count infers binding', () => {
+      const scene: StoryboardScene = {
+        id: 's1',
+        name: 'Scene 1',
+        narration: 'Test.',
+        nodeIds: ['n1'],
+        agentCommands: [],
+        viewport: { zoom: 1, center: { x: 0, y: 0 } },
+        interactiveParameters: ['pod_count'],
+        estimatedDurationSeconds: 15,
+      };
+      const storyboard: Storyboard = {
+        id: 'sb1',
+        title: 'Test',
+        topic: 'Test',
+        scenes: [scene],
+        parameters: [{ name: 'pod_count', type: 'integer', default: 3, label: 'Pods', bindings: [] }],
+        interactionPoints: [],
+      };
+      const script = makeScript([
+        {
+          id: 'f1',
+          startTime: 0,
+          endTime: 3000,
+          entities: [makeEntity({ id: 'pod1', type: 'Pod' })],
+          narrationSegment: '',
+          description: '',
+        },
+      ]);
+      script.entities = { pod1: makeEntity({ id: 'pod1', type: 'Pod' }) };
+
+      const { updatedParameters } = compileStoryboardScene(scene, storyboard, script, [], 3000);
+
+      const podParam = updatedParameters.find((p) => p.name === 'pod_count');
+      expect(podParam).toBeDefined();
+      expect(podParam!.bindings.length).toBeGreaterThan(0);
+      expect((podParam!.bindings[0] as any).elementId).toBe('s1:pod1');
+      expect((podParam!.bindings[0] as any).mapper).toBe('itemCount');
+    });
+
+    it('syncMarkers sorted by wordIndex', () => {
+      const scene: StoryboardScene = {
+        id: 's1',
+        name: 'Scene 1',
+        narration: 'Test.',
+        nodeIds: ['n1'],
+        agentCommands: [],
+        viewport: { zoom: 1, center: { x: 0, y: 0 } },
+        interactiveParameters: [],
+        estimatedDurationSeconds: 15,
+      };
+      const storyboard: Storyboard = {
+        id: 'sb1',
+        title: 'Test',
+        topic: 'Test',
+        scenes: [scene],
+        parameters: [],
+        interactionPoints: [],
+      };
+      const script = makeScript([
+        {
+          id: 'f1',
+          startTime: 0,
+          endTime: 3000,
+          entities: [makeEntity({ id: 'e1', type: 'Pod' })],
+          narrationSegment: '',
+          description: '',
+        },
+      ]);
+      const wordTimestamps: WordTimestamp[] = [
+        { word: 'one', start: 0, end: 200 },
+        { word: 'two', start: 200, end: 400 },
+        { word: 'three', start: 400, end: 600 },
+      ];
+      const { scene: result } = compileStoryboardScene(
+        scene,
+        storyboard,
+        script,
+        wordTimestamps,
+        3000,
+      );
+      if (result.syncMarkers && result.syncMarkers.length >= 2) {
+        for (let i = 1; i < result.syncMarkers.length; i++) {
+          expect(result.syncMarkers[i].wordIndex).toBeGreaterThanOrEqual(result.syncMarkers[i - 1].wordIndex);
+        }
+      }
+    });
+
+    it('does not mutate input', () => {
+      const scene: StoryboardScene = {
+        id: 's1',
+        name: 'Scene 1',
+        narration: 'Test.',
+        nodeIds: ['n1'],
+        agentCommands: [],
+        viewport: { zoom: 1, center: { x: 0, y: 0 } },
+        interactiveParameters: [],
+        estimatedDurationSeconds: 15,
+      };
+      const storyboard: Storyboard = {
+        id: 'sb1',
+        title: 'Test',
+        topic: 'Test',
+        scenes: [scene],
+        parameters: [],
+        interactionPoints: [],
+      };
+      const script = makeScript([
+        {
+          id: 'f1',
+          startTime: 0,
+          endTime: 3000,
+          entities: [makeEntity({ id: 'e1', type: 'Pod' })],
+          narrationSegment: '',
+          description: '',
+        },
+      ]);
+      const sceneBefore = { ...scene };
+      const storyboardBefore = JSON.parse(JSON.stringify(storyboard));
+      compileStoryboardScene(scene, storyboard, script, [], 3000);
+      expect(scene.agentCommands).toEqual(sceneBefore.agentCommands);
+      expect(storyboard.parameters).toEqual(storyboardBefore.parameters);
+    });
   });
 });

@@ -111,10 +111,11 @@ export class VisualScriptGenerator {
     contract?: SceneContract,
     domainGuidance?: DomainGuidance,
     revisionFeedback?: string,
+    scaffolding?: import('../../shared/types').ScaffoldingHint,
   ): Promise<VisualScript & { confidence?: number }> {
 
     // Use Claude to analyze narration and generate visual segments
-    const segments = await this.analyzeNarration(narration, dataType, wordTimestamps, durationMs, visualHint, domain, contract, domainGuidance, revisionFeedback);
+    const segments = await this.analyzeNarration(narration, dataType, wordTimestamps, durationMs, visualHint, domain, contract, domainGuidance, revisionFeedback, scaffolding);
 
     // Convert segments to frames
     const frames = this.segmentsToFrames(segments, durationMs);
@@ -330,6 +331,7 @@ export class VisualScriptGenerator {
     contract?: SceneContract,
     domainGuidance?: DomainGuidance,
     revisionFeedback?: string,
+    scaffolding?: import('../../shared/types').ScaffoldingHint,
   ): Promise<VisualSegment[]> {
 
     const environmentGuide = getEnvironmentGuideForPrompt();
@@ -389,13 +391,21 @@ ${layoutInstructions}
   - For engineering: prefer Circuit, Vector, Graph2D, Table, FlowDiagram entities
 ` : '';
 
+    const scaffoldingSection = scaffolding ? `
+**PEDAGOGICAL CONTEXT** (from teaching planner):
+- Emphasize visually: ${(scaffolding.emphasizeNodeIds ?? []).join(', ') || 'none'}
+- Use this analogy: ${scaffolding.analogyContext ?? 'none'}
+- Concept is known difficult: ${scaffolding.difficultyContext ?? 'none'}. Add visual clarity.
+- Preferred visual: ${scaffolding.suggestedVisualMetaphor ?? 'none'}
+` : '';
+
     const prompt = `${environmentGuide}
 
 ## YOUR TASK: Generate Visual Script for Narration
 
 You are generating a frame-by-frame visual script for the following narration.
 Use the complete presentation environment guide above to make intelligent decisions.
-${contractSection}${guidanceSection}${revisionSection}${visualHintSection}${domainHint}
+${contractSection}${guidanceSection}${revisionSection}${visualHintSection}${domainHint}${scaffoldingSection}
 **Narration**: "${narration}"
 **Data Type**: ${dataType}
 **Duration**: ${durationMs}ms (${Math.round(durationMs / 1000)}s)

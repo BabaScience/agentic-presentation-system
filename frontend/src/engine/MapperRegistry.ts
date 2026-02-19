@@ -57,3 +57,23 @@ registerMapper('zindex-from-value', (value) => ({
 }));
 
 registerMapper('noop', () => ({}));
+
+// ── Entity property mappers (from ENTITY_PARAMETER_MAP) ───────
+registerMapper('itemCount', (value) => ({
+  properties: { itemCount: Number(value) },
+}));
+registerMapper('nodeCount', (value) => ({
+  properties: { nodeCount: Number(value) },
+}));
+registerMapper('replicaCount', (value) => ({
+  properties: { replicaCount: Number(value) },
+}));
+registerMapper('targetCount', (value) => ({
+  properties: { targetCount: Number(value) },
+}));
+registerMapper('binCount', (value) => ({
+  properties: { binCount: Number(value) },
+}));
+registerMapper('dataPoints', (value) => ({
+  properties: { dataPoints: Number(value) },
+}));

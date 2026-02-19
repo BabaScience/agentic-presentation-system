@@ -36,6 +36,22 @@ export class AgentService {
     }
   }
 
+  /** Generic Claude call for JSON output. Used by StoryboardEngine and other planners. */
+  async callForJSON(prompt: string, systemPrompt: string): Promise<unknown> {
+    const response = await this.client.messages.create({
+      model: this.reasoningModel,
+      max_tokens: 4096,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: prompt }],
+    });
+    const text = response.content
+      .filter((b): b is Anthropic.TextBlock => b.type === 'text')
+      .map(b => b.text)
+      .join('');
+    const cleaned = text.replace(/```json|```/g, '').trim();
+    return JSON.parse(cleaned);
+  }
+
   // ── Phase 1+2: Reasoning + Classification ────────────────
   async reason(topic: string, rlPolicy: RLPolicy): Promise<ReasoningOutput & { _fallbackReason?: string }> {
     // Primary attempt with full prompt

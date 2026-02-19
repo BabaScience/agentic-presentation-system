@@ -9,4 +9,5 @@ export {
   compileVisualScript,
   compileVisualCommands,
   compilePresentationScene,
+  compileStoryboardScene,
 } from '@shared/VisualScriptCompiler';

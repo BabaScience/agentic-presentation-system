@@ -58,3 +58,20 @@ export const DEFAULT_FADE_DURATION_MS = 300;
 
 // ── Storyboard Sync ──────────────────────────────────────────
 export const SYNC_MARKER_TOLERANCE_MS = 50;
+
+// ── Storyboard Planning ─────────────────────────────────────
+export const MAX_PLAN_RETRIES = 2;
+export const MIN_SCENE_DURATION_S = 8;
+export const MAX_SCENE_DURATION_S = 45;
+export const DEFAULT_PACE_WPM = 150;
+export const MAX_BRANCHES_PER_SCENE = 2;
+
+// ── Entity-to-Parameter Binding (compiler inference) ─────────
+export const ENTITY_PARAMETER_MAP: Record<string, Record<string, string>> = {
+  Pod: { pod_count: 'itemCount' },
+  Cluster: { node_count: 'nodeCount' },
+  Database: { replica_count: 'replicaCount' },
+  LoadBalancer: { pod_count: 'targetCount' },
+  Histogram: { bin_count: 'binCount' },
+  BarChart: { bar_count: 'dataPoints' },
+};

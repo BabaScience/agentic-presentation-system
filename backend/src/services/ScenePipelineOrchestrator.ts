@@ -13,6 +13,8 @@ import {
   type PresentationScene,
   type WordTimestamp,
   type VisualScript,
+  type Storyboard,
+  type StoryboardScene,
 } from '../../shared/types';
 import {
   ANIMATION_DELAY_MIN_MS,
@@ -21,7 +23,7 @@ import {
   INTER_ENTITY_STAGGER_MIN_MS,
   ENTITY_MIN_VISIBLE_MS,
 } from '../../shared/constants';
-import { compilePresentationScene } from '../../shared/VisualScriptCompiler';
+import { compilePresentationScene, compileStoryboardScene } from '../../shared/VisualScriptCompiler';
 import { PresentationPlanner } from './PresentationPlanner';
 import { VisualScriptGenerator } from './VisualScriptGenerator';
 import { VoiceService } from './VoiceService';
@@ -58,13 +60,10 @@ export class ScenePipelineOrchestrator {
     this.totalScenes = orderedNodes.length;
     const presentedSoFar = new Set<string>();
 
-    // Kick off all scenes concurrently through the pool.
-    // Scene 1 is enqueued first, guaranteeing earliest pool access.
     for (let i = 0; i < orderedNodes.length; i++) {
       const nodeIndex = i;
       const focusNode = orderedNodes[i];
 
-      // composeSceneLocals is synchronous — compute before enqueuing
       const locals = this.planner.composeSceneLocals(
         graph, focusNode, nodeIndex, presentedSoFar, policy,
       );
@@ -80,7 +79,6 @@ export class ScenePipelineOrchestrator {
           }
         })
         .catch(() => {
-          // Even on error, mark as ready with degraded scene (still compile it)
           if (!this.cancelled) {
             const fallback: PreparedScene = {
               scene: locals.scene,
@@ -92,6 +90,133 @@ export class ScenePipelineOrchestrator {
           }
         });
     }
+  }
+
+  /** Storyboard-driven path: iterate storyboard.scenes, compile with compileStoryboardScene. */
+  prepareAllScenesFromStoryboard(
+    graph: KnowledgeGraph,
+    storyboard: Storyboard,
+    policy: RLPolicy,
+    onStatusChange?: (sceneIndex: number, status: 'pending' | 'preparing' | 'ready' | 'failed', totalScenes: number) => void,
+  ): void {
+    this.totalScenes = storyboard.scenes.length;
+
+    for (let i = 0; i < storyboard.scenes.length; i++) {
+      const nodeIndex = i;
+      const sbScene = storyboard.scenes[i];
+      const focusNodeId = sbScene.focusNodeId ?? sbScene.nodeIds?.[0];
+      const focusNode = focusNodeId ? graph.nodes[focusNodeId] : null;
+
+      if (!focusNode) {
+        const fallback: PreparedScene = {
+          scene: this.storyboardSceneToPresentationScene(sbScene),
+          storyboard: { ...sbScene, agentCommands: [] },
+          status: 'failed',
+        };
+        this.queue.markReady(nodeIndex, fallback);
+        onStatusChange?.(nodeIndex, 'failed', this.totalScenes);
+        continue;
+      }
+
+      onStatusChange?.(nodeIndex, 'preparing', this.totalScenes);
+
+      this.prepareStoryboardScene(nodeIndex, sbScene, storyboard, graph, focusNode, policy)
+        .then((prepared) => {
+          if (!this.cancelled) {
+            this.queue.markReady(nodeIndex, prepared);
+            onStatusChange?.(nodeIndex, prepared.status, this.totalScenes);
+          }
+        })
+        .catch(() => {
+          if (!this.cancelled) {
+            const fallback: PreparedScene = {
+              scene: this.storyboardSceneToPresentationScene(sbScene),
+              storyboard: { ...sbScene, agentCommands: [] },
+              status: 'failed',
+            };
+            this.queue.markReady(nodeIndex, fallback);
+            onStatusChange?.(nodeIndex, 'failed', this.totalScenes);
+          }
+        });
+    }
+  }
+
+  private storyboardSceneToPresentationScene(sb: StoryboardScene): PresentationScene {
+    const viewport = 'center' in sb.viewport
+      ? { x: sb.viewport.center.x, y: sb.viewport.center.y, zoom: sb.viewport.zoom }
+      : { x: sb.viewport.x, y: sb.viewport.y, zoom: sb.viewport.zoom };
+    return {
+      id: sb.id,
+      nodeIds: sb.nodeIds ?? [],
+      edgeIds: [],
+      narration: sb.narration,
+      focusNodeId: sb.focusNodeId ?? sb.nodeIds?.[0] ?? '',
+      viewport,
+      visualCommands: [],
+      durationEstimate: (sb.estimatedDurationSeconds ?? 15) * 1000,
+    };
+  }
+
+  private async prepareStoryboardScene(
+    index: number,
+    sbScene: StoryboardScene,
+    storyboard: Storyboard,
+    graph: KnowledgeGraph,
+    focusNode: KGNode,
+    policy: RLPolicy,
+  ): Promise<PreparedScene> {
+    const scene = this.storyboardSceneToPresentationScene(sbScene);
+    const estimatedTimestamps = [{ word: 'placeholder', start: 0, end: scene.durationEstimate }];
+
+    const claudePromise = this.orchestrator.orchestrateScene(
+      scene,
+      focusNode,
+      estimatedTimestamps,
+      this.pool,
+      sbScene.scaffolding,
+    ).catch((err) => {
+      console.error(`[Pipeline] Visual script failed for storyboard scene ${index}:`, err.message);
+      return undefined;
+    });
+
+    const ttsPromise = this.config.enableTTS
+      ? this.pool.enqueue('elevenlabs', () =>
+          this.voiceService.synthesizeSpeech(sbScene.narration),
+        ).catch((err) => {
+          console.error(`[Pipeline] TTS failed for scene ${index}:`, err.message);
+          return undefined;
+        })
+      : Promise.resolve(undefined);
+
+    const [visualScript, ttsResult] = await Promise.all([claudePromise, ttsPromise]);
+
+    if (visualScript) {
+      scene.visualScript = visualScript;
+    }
+
+    const prepared: PreparedScene = {
+      scene,
+      status: 'ready',
+    };
+
+    if (ttsResult && ttsResult.audioData.byteLength > 0) {
+      prepared.audioData = new Uint8Array(ttsResult.audioData.buffer, ttsResult.audioData.byteOffset, ttsResult.audioData.byteLength);
+      prepared.wordTimestamps = ttsResult.wordTimestamps;
+      prepared.audioDurationMs = ttsResult.durationMs;
+
+      this.rescaleVisualScript(scene, ttsResult.durationMs);
+    }
+
+    const { scene: compiledScene } = compileStoryboardScene(
+      sbScene,
+      storyboard,
+      scene.visualScript ?? { sceneId: sbScene.id, frames: [], totalDuration: scene.durationEstimate, entities: {} },
+      prepared.wordTimestamps ?? [],
+      prepared.audioDurationMs ?? scene.durationEstimate,
+    );
+    prepared.storyboard = compiledScene;
+
+    return prepared;
   }
 
   private async prepareScene(

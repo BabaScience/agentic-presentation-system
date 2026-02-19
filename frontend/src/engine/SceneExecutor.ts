@@ -12,10 +12,13 @@ import type {
   Vector2,
   ConnectionStyle,
   AnchorPosition,
+  ExecutionResult,
+  CommandResult,
 } from '@shared/types';
 import type { SpringConfig } from '@shared/types';
 import { SYNC_MARKER_TOLERANCE_MS } from '@shared/constants';
 import { EnvironmentAPI } from './EnvironmentAPI';
+import { getMapper } from './MapperRegistry';
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -23,8 +26,17 @@ export type ExecutorState = 'idle' | 'executing' | 'completed' | 'aborted';
 
 export interface SceneExecutorOptions {
   onComplete?: () => void;
-  onCommandError?: (method: string, error: unknown) => void;
+  /** Called when a command fails. Return 'skip' to continue, 'abort' to stop. Default: 'skip'. */
+  onCommandError?: (cmd: AgentCommand, error: Error) => 'skip' | 'abort';
 }
+
+const ALLOWED_METHODS = new Set([
+  'createElement', 'destroyElement', 'showElement', 'hideElement', 'updateElement',
+  'moveTo', 'moveBy', 'scaleTo', 'rotateTo', 'fadeIn', 'fadeOut',
+  'zoomTo', 'panTo', 'focusOn', 'resetView', 'highlight', 'addLabel',
+  'drawConnection', 'removeAnnotation', 'createCheckpoint', 'restoreCheckpoint',
+  'setParameter', 'defineParameter', 'bindElementToParameter',
+]);
 
 interface TimedCommand {
   offsetMs: number;
@@ -59,6 +71,9 @@ export class SceneExecutor {
   private currentSceneElementIds: Set<string> = new Set();
   private currentSceneId: string | null = null;
 
+  private completedCommands: CommandResult[] = [];
+  private resolveCompletion: ((result: ExecutionResult) => void) | null = null;
+
   constructor(env: EnvironmentAPI, options?: SceneExecutorOptions) {
     this.env = env;
     this.options = options ?? {};
@@ -70,7 +85,11 @@ export class SceneExecutor {
     scene: StoryboardScene,
     syncMarkers?: SyncMarker[],
     wordTimestamps?: WordTimestamp[],
-  ): void {
+  ): Promise<ExecutionResult> {
+    const completionPromise = new Promise<ExecutionResult>((resolve) => {
+      this.resolveCompletion = resolve;
+    });
+
     if (this.state === 'executing') {
       this.abort();
     }
@@ -83,6 +102,7 @@ export class SceneExecutor {
     this.state = 'executing';
     this.elapsedMs = 0;
     this.executedCommands = 0;
+    this.completedCommands = [];
     this.sequentialDone = false;
     this.timedQueue = [];
     this.sequentialQueue = [];
@@ -125,6 +145,8 @@ export class SceneExecutor {
 
     // Process sequential queue asynchronously
     this.processSequentialCommands();
+
+    return completionPromise;
   }
 
   tick(deltaMs: number): void {
@@ -137,7 +159,7 @@ export class SceneExecutor {
       if (entry.fired) continue;
       if (entry.offsetMs <= this.elapsedMs) {
         entry.fired = true;
-        this.dispatchCommand(entry.command);
+        void this.dispatchCommand(entry.command);
       }
     }
 
@@ -156,7 +178,7 @@ export class SceneExecutor {
 
       if (currentTimeMs >= wordStartMs - SYNC_MARKER_TOLERANCE_MS) {
         entry.fired = true;
-        this.dispatchCommand(entry.command);
+        void this.dispatchCommand(entry.command);
       }
     }
 
@@ -187,12 +209,11 @@ export class SceneExecutor {
     for (const cmd of queue) {
       if (this.state !== 'executing') return;
 
-      if (cmd.timing === 'await-previous') {
-        await this.dispatchCommand(cmd);
-      } else {
-        // 'immediate' — fire without waiting
-        this.dispatchCommand(cmd);
-      }
+      const action =
+        cmd.timing === 'await-previous'
+          ? await this.dispatchCommand(cmd)
+          : await this.dispatchCommand(cmd);
+      if (action === 'abort') return;
     }
 
     this.sequentialDone = true;
@@ -201,16 +222,50 @@ export class SceneExecutor {
 
   // ── Private: Command dispatch ──────────────────────────────
 
-  private async dispatchCommand(cmd: AgentCommand): Promise<void> {
+  private async dispatchCommand(cmd: AgentCommand): Promise<'continue' | 'abort'> {
+    if (!ALLOWED_METHODS.has(cmd.method)) {
+      const err = new Error(`Method "${cmd.method}" is not in ALLOWED_METHODS whitelist`);
+      this.completedCommands.push({ command: cmd, status: 'skipped', error: err });
+      const handler = this.options.onCommandError;
+      const action = handler ? handler(cmd, err) : 'skip';
+      if (action === 'abort') {
+        this.resolveWithAbort(cmd, err);
+        return 'abort';
+      }
+      return 'continue';
+    }
     try {
       await this.invokeMethod(cmd.method, cmd.args);
       this.executedCommands++;
+      this.completedCommands.push({ command: cmd, status: 'success' });
+      return 'continue';
     } catch (err: unknown) {
+      const error = err instanceof Error ? err : new Error(String(err));
       this.executedCommands++;
-      if (this.options.onCommandError) {
-        this.options.onCommandError(cmd.method, err);
+      this.completedCommands.push({ command: cmd, status: 'skipped', error });
+      const handler = this.options.onCommandError;
+      const action = handler ? handler(cmd, error) : 'skip';
+      if (action === 'abort') {
+        this.resolveWithAbort(cmd, error);
+        return 'abort';
       }
+      return 'continue';
     }
+  }
+
+  private resolveWithAbort(failedCommand: AgentCommand, error: Error): void {
+    this.state = 'aborted';
+    this.timedQueue = [];
+    this.sequentialQueue = [];
+    this.syncMarkerQueue = [];
+    const result: ExecutionResult = {
+      status: 'aborted',
+      completedCommands: [...this.completedCommands],
+      failedCommand,
+      error,
+    };
+    this.resolveCompletion?.(result);
+    this.resolveCompletion = null;
   }
 
   private async invokeMethod(
@@ -379,6 +434,27 @@ export class SceneExecutor {
         );
         return;
 
+      case 'removeAnnotation': {
+        const handleId = (args['handle'] ?? args['id']) as string;
+        this.env.removeAnnotation({
+          id: handleId,
+          type: 'highlight',
+          remove: () => {},
+        });
+        return;
+      }
+
+      case 'bindElementToParameter': {
+        const mapperName = args['mapper'] as string;
+        const mapper = getMapper(mapperName);
+        this.env.bindElementToParameter(
+          args['elementId'] as string,
+          args['paramName'] as string,
+          mapper,
+        );
+        return;
+      }
+
       default:
         throw new Error(`Unknown command method: "${method}"`);
     }
@@ -415,6 +491,12 @@ export class SceneExecutor {
 
     if (timedDone && this.sequentialDone && syncDone) {
       this.state = 'completed';
+      const result: ExecutionResult = {
+        status: 'complete',
+        completedCommands: [...this.completedCommands],
+      };
+      this.resolveCompletion?.(result);
+      this.resolveCompletion = null;
       if (this.options.onComplete) {
         this.options.onComplete();
       }

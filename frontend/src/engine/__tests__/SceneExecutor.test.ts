@@ -235,7 +235,7 @@ describe('SceneExecutor', () => {
   // ── Test 7: Unknown method triggers onCommandError ─────────
   it('unknown method triggers onCommandError callback', async () => {
     const { env } = makeEnv();
-    const errorSpy = vi.fn();
+    const errorSpy = vi.fn().mockReturnValue('skip');
     const executor = new SceneExecutor(env, { onCommandError: errorSpy });
 
     const scene = makeScene({
@@ -253,7 +253,7 @@ describe('SceneExecutor', () => {
     await flushMicrotasks();
 
     expect(errorSpy).toHaveBeenCalledOnce();
-    expect(errorSpy.mock.calls[0][0]).toBe('nonExistentMethod');
+    expect(errorSpy.mock.calls[0][0].method).toBe('nonExistentMethod');
   });
 
   // ── Test 8: getProgress() reports correctly ────────────────
@@ -358,6 +358,105 @@ describe('SceneExecutor', () => {
     expect(env.getElementById('s1:b')).toBeNull();
     // New scene element present
     expect(env.getElementById('s2:c')).toBeDefined();
+  });
+
+  // ── Test: onCommandError returns abort stops execution ─────
+  it('onCommandError returns abort stops execution', async () => {
+    const { env } = makeEnv();
+    const executor = new SceneExecutor(env, {
+      onCommandError: () => 'abort',
+    });
+
+    const scene = makeScene({
+      id: 'abort-on-error',
+      agentCommands: [
+        {
+          method: 'createElement',
+          args: {
+            id: 'ok-el',
+            type: 'box',
+            position: { x: 0, y: 0 },
+            properties: { width: 50, height: 50 },
+          },
+          timing: 'immediate',
+        },
+        {
+          method: 'nonExistentMethod',
+          args: {},
+          timing: 'immediate',
+        },
+        {
+          method: 'createElement',
+          args: {
+            id: 'never-created',
+            type: 'box',
+            position: { x: 100, y: 0 },
+            properties: { width: 50, height: 50 },
+          },
+          timing: 'immediate',
+        },
+      ],
+    });
+
+    const resultPromise = executor.execute(scene);
+    await flushMicrotasks();
+
+    const result = await resultPromise;
+    expect(result.status).toBe('aborted');
+    expect(result.failedCommand?.method).toBe('nonExistentMethod');
+    expect(env.getElementById('ok-el')).toBeDefined();
+    expect(env.getElementById('never-created')).toBeNull();
+  });
+
+  // ── Test: ExecutionResult contains CommandResults including skipped ──
+  it('ExecutionResult contains all CommandResults including skipped', async () => {
+    const { env } = makeEnv();
+    const executor = new SceneExecutor(env, {
+      onCommandError: () => 'skip',
+    });
+
+    const scene = makeScene({
+      id: 'skip-test',
+      agentCommands: [
+        {
+          method: 'createElement',
+          args: {
+            id: 'c1',
+            type: 'box',
+            position: { x: 0, y: 0 },
+            properties: { width: 50, height: 50 },
+          },
+          timing: 'immediate',
+        },
+        {
+          method: 'badMethod',
+          args: {},
+          timing: 'immediate',
+        },
+        {
+          method: 'createElement',
+          args: {
+            id: 'c2',
+            type: 'box',
+            position: { x: 100, y: 0 },
+            properties: { width: 50, height: 50 },
+          },
+          timing: 'immediate',
+        },
+      ],
+    });
+
+    const resultPromise = executor.execute(scene);
+    await flushMicrotasks();
+
+    const result = await resultPromise;
+    expect(result.status).toBe('complete');
+    expect(result.completedCommands).toHaveLength(3);
+    const successCount = result.completedCommands.filter((c) => c.status === 'success').length;
+    const skippedCount = result.completedCommands.filter((c) => c.status === 'skipped').length;
+    expect(successCount).toBe(2);
+    expect(skippedCount).toBe(1);
+    expect(result.completedCommands[1].status).toBe('skipped');
   });
 
   // ── Test 11: 50 immediate createElement commands within perf budget ──

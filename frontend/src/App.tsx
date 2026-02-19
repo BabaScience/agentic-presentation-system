@@ -5,7 +5,8 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useSessionStore } from './stores/sessionStore';
-import type { KGNode, PresentationScene } from './stores/sessionStore';
+import type { KGNode, PresentationScene, StoryboardScene } from './stores/sessionStore';
+import { compilePresentationScene } from '@shared/VisualScriptCompiler';
 import { DEMO_NODES, DEMO_EDGES, DEMO_SCENES } from './demo/demoGraph';
 import { ScenePresenter } from './components/ScenePresenter';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -78,7 +79,7 @@ function Sidebar({
   onTabChange, onSendText, onCommand
 }: {
   nodes: Record<string, KGNode>;
-  currentScene: PresentationScene | null;
+  currentScene: PresentationScene | StoryboardScene | null;
   narrationText: string;
   chatMessages: Array<{ role: string; text: string; timestamp: number }>;
   sessionState: string;
@@ -97,7 +98,8 @@ function Sidebar({
     chatRef.current?.scrollTo(0, chatRef.current.scrollHeight);
   }, [chatMessages]);
 
-  const focusNode = currentScene ? nodes[currentScene.focusNodeId] : null;
+  const focusNodeId = currentScene && ('focusNodeId' in currentScene ? currentScene.focusNodeId : currentScene.nodeIds?.[0]);
+  const focusNode = currentScene && focusNodeId ? nodes[focusNodeId] : null;
   const displayNode = focusNode;
 
   return (
@@ -178,7 +180,7 @@ function Sidebar({
             {Object.values(nodes).sort((a, b) => a.depth - b.depth).map(node => (
               <div
                 key={node.id}
-                className={`graph-list-item ${currentScene?.nodeIds.includes(node.id) ? 'active' : ''}`}
+                className={`graph-list-item ${currentScene?.nodeIds?.includes(node.id) ? 'active' : ''}`}
               >
                 <span className="gli-icon">{node.visual.icon || TYPE_ICONS[node.type]}</span>
                 <div className="gli-info">
@@ -243,14 +245,21 @@ function Sidebar({
 // TIMELINE BAR
 // ══════════════════════════════════════════════════════════════
 function TimelineBar({
-  scenes, currentSceneIndex, sessionState, onCommand
+  scenes,
+  storyboardCheckpoints,
+  currentSceneIndex,
+  sessionState,
+  onCommand,
 }: {
-  scenes: PresentationScene[];
+  scenes: Array<PresentationScene | StoryboardScene>;
+  storyboardCheckpoints?: Array<{ sceneId: string; checkpointName: string; estimatedDurationSeconds: number }>;
   currentSceneIndex: number;
   sessionState: string;
   onCommand: (cmd: string) => void;
 }) {
-  const progress = scenes.length > 0 ? ((currentSceneIndex + 1) / scenes.length) * 100 : 0;
+  const markers = (storyboardCheckpoints?.length ? storyboardCheckpoints : scenes) as Array<{ id?: string; sceneId?: string }>;
+  const markerCount = markers.length;
+  const progress = markerCount > 0 ? ((currentSceneIndex + 1) / markerCount) * 100 : 0;
 
   return (
     <div className="timeline">
@@ -262,21 +271,23 @@ function TimelineBar({
         >
           {sessionState === 'PRESENTING' ? '⏸' : '▶'}
         </button>
-        <button className="btn-tl" onClick={() => onCommand('skip')} disabled={currentSceneIndex >= scenes.length - 1}>⏭</button>
+        <button className="btn-tl" onClick={() => onCommand('skip')} disabled={currentSceneIndex >= markerCount - 1}>⏭</button>
       </div>
 
       <div className="timeline-track">
         <div className="timeline-progress" style={{ width: `${progress}%` }} />
-        {scenes.map((scene, i) => {
-          const left = scenes.length > 1 ? (i / (scenes.length - 1)) * 100 : 50;
+        {markers.map((m, i) => {
+          const left = markerCount > 1 ? (i / (markerCount - 1)) * 100 : 50;
           const isCurrent = i === currentSceneIndex;
           const isPassed = i < currentSceneIndex;
+          const cp = storyboardCheckpoints?.[i];
+          const title = cp?.checkpointName ?? (m as any).name ?? `Scene ${i + 1}`;
           return (
             <button
-              key={scene.id}
+              key={m.sceneId ?? m.id ?? `marker-${i}`}
               className={`tl-checkpoint ${isCurrent ? 'active' : ''} ${isPassed ? 'passed' : ''}`}
               style={{ left: `${left}%` }}
-              title={`Scene ${i + 1}`}
+              title={title}
             >
               <span className="cp-dot" />
             </button>
@@ -286,7 +297,7 @@ function TimelineBar({
 
       <div className="timeline-info">
         <span className="scene-counter">
-          {scenes.length > 0 ? `${currentSceneIndex + 1} / ${scenes.length}` : '—'}
+          {markerCount > 0 ? `${currentSceneIndex + 1} / ${markerCount}` : '—'}
         </span>
       </div>
     </div>
@@ -385,7 +396,8 @@ export default function App() {
     if (demoSceneIndex < 0 || demoSceneIndex >= DEMO_SCENES.length) return;
 
     const scene = DEMO_SCENES[demoSceneIndex];
-    store.setCurrentScene(scene);
+    const compiled = compilePresentationScene(scene) as StoryboardScene;
+    store.setCurrentScene(compiled);
     store.setNarration(scene.narration);
     store.addChatMessage({ role: 'agent', text: scene.narration, timestamp: Date.now() });
 
@@ -487,8 +499,13 @@ export default function App() {
     return <ConfigScreen onLaunch={handleLaunch} />;
   }
 
-  const scenes = demoSceneIndex >= 0 ? DEMO_SCENES : store.sceneHistory;
-  const currentSceneIdx = demoSceneIndex >= 0 ? demoSceneIndex : scenes.length - 1;
+  const scenes: Array<PresentationScene | StoryboardScene> = demoSceneIndex >= 0 ? DEMO_SCENES : store.sceneHistory;
+  const currentSceneIdx =
+    demoSceneIndex >= 0
+      ? demoSceneIndex
+      : store.sceneHistory.length > 0
+        ? store.sceneHistory.length - 1
+        : 0;
 
   return (
     <div className="app">
@@ -546,6 +563,7 @@ export default function App() {
           {/* Timeline */}
           <TimelineBar
             scenes={scenes}
+            storyboardCheckpoints={store.storyboardCheckpoints.length > 0 ? store.storyboardCheckpoints : undefined}
             currentSceneIndex={currentSceneIdx}
             sessionState={store.sessionState}
             onCommand={handleCommand}

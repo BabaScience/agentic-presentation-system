@@ -465,7 +465,7 @@ export class EnvironmentAPI {
         property: 'rotation',
         state: {
           kind: 'spring',
-          current: vp.rotation,
+          current: vp.rotation ?? 0,
           velocity: config.velocity,
           target: 0,
           config,

@@ -91,9 +91,12 @@ export interface StoryboardScene {
   narration: string;
   agentCommands: { method: string; args: Record<string, any>; timing: number | 'immediate' | 'await-previous' }[];
   syncMarkers?: { wordIndex: number; command: { method: string; args: Record<string, any>; timing: number | 'immediate' | 'await-previous' } }[];
-  viewport: { x: number; y: number; zoom: number; rotation: number };
+  viewport: { x: number; y: number; zoom: number; rotation?: number };
   interactiveParameters: string[];
   estimatedDurationSeconds: number;
+  nodeIds?: string[];
+  focusNodeId?: string;
+  durationEstimate?: number;
 }
 
 export interface PresentationBookmark {
@@ -157,6 +160,11 @@ interface SessionStore {
   // Scene preparation tracking
   scenePreparationStatus: Record<number, 'pending' | 'preparing' | 'ready' | 'failed'>;
   totalScenesToPrepare: number;
+
+  // Storyboard (from storyboard_ready, before scenes presented)
+  storyboardCheckpoints: Array<{ sceneId: string; checkpointName: string; estimatedDurationSeconds: number }>;
+  storyboardParameters: Array<{ name: string; label: string }>;
+  totalScenes: number;
 
   // UI
   sidebarTab: 'info' | 'graph' | 'chat';
@@ -223,6 +231,9 @@ const initialState = {
   rlPolicy: null as RLPolicy | null,
   scenePreparationStatus: {} as Record<number, 'pending' | 'preparing' | 'ready' | 'failed'>,
   totalScenesToPrepare: 0,
+  storyboardCheckpoints: [] as Array<{ sceneId: string; checkpointName: string; estimatedDurationSeconds: number }>,
+  storyboardParameters: [] as Array<{ name: string; label: string }>,
+  totalScenes: 0,
   chatMessages: [] as ChatMessage[],
   sidebarTab: 'info' as const,
 };
@@ -324,6 +335,14 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
               s.scenePreparationStatus[msg.sceneIndex] = msg.status;
               s.totalScenesToPrepare = msg.totalScenes;
             }));
+            break;
+
+          case 'storyboard_ready':
+            set({
+              storyboardCheckpoints: msg.checkpoints ?? [],
+              storyboardParameters: (msg.parameters ?? []).map((p: any) => ({ name: p.name, label: p.label ?? p.name })),
+              totalScenes: msg.totalScenes ?? 0,
+            });
             break;
 
           case 'rl_update':

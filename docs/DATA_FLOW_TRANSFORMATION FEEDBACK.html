@@ -1,0 +1,15 @@
+The data flow document is excellent documentation work — the HTML presentation is production quality, and Stages 2–5 (ReasoningOutput → KnowledgeGraph → PresentationScene → VisualScript) are solid and correctly architected. However, there are 6 critical structural problems that will cause implementation pain:
+
+**PROBLEM 1 — It's still a pipeline, not a stage.** The 8-stage linear transformation (string → ... → SVG DOM) is a compiler model. When a user jumps to a checkpoint or changes `pod_count`, there's no defined path because there's no persistent stage — just a pipeline that ran once.
+
+**PROBLEM 2 — StoryboardScene is in the wrong position.** It appears at Stage 6 as a *compiled output* from VisualScriptCompiler. It should be at Stage 3.5 as the *agent's plan* — generated before presentation starts, containing checkpoints, interactive parameters, and branches upfront. Currently the agent never actually plans — it just processes.
+
+**PROBLEM 3 — Parameters are bolted on, not foundational.** `interactiveParameters` appears once as `string[]` on StoryboardScene with zero data path showing how a user slider maps to a visual change. The reactive parameter system — your core technical differentiator — is completely absent from the flow.
+
+**PROBLEM 4 — Checkpoint navigation has no data path.** There is no path from "user clicks checkpoint" to "scene graph restores state." How snapshots are created during execution, how the timeline triggers a restore, and how narration position syncs are all missing.
+
+**PROBLEM 5 — Two competing visual systems coexist.** The old `VisualScript → IllustrationFrame → VisualEntity` (time-based frame selection, video player model) and the new `SceneGraph → SceneElement → EnvironmentAPI` (state mutation, stage model) are both present, bridged by `elementToVisualEntity`. They have fundamentally incompatible mental models. The time-based frame model cannot support checkpoint navigation or reactive parameters. You must choose the new system.
+
+**PROBLEM 6 — The RL feedback loop is broken.** RLPolicy touches only Stages 2 and 4, then disappears. There is no path from scene completion → reward signal → Thompson Sampling update → next scene re-prioritization. The feedback loop that makes the system adaptive is invisible.
+
+The document accurately reflects how the system **was built** — as a natural chain of transforms. Your vision requires it to be a **persistent environment** where SceneGraph is the center of gravity, not a downstream artifact of the pipeline.  

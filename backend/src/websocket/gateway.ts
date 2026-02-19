@@ -26,8 +26,11 @@ import {
   type PresentationBookmark,
   type KnowledgeGraph,
   type StoryboardScene,
+  type Storyboard,
 } from '../../shared/types';
-import { compilePresentationScene } from '../../shared/VisualScriptCompiler';
+import { compilePresentationScene, compileStoryboardScene } from '../../shared/VisualScriptCompiler';
+import { StoryboardEngine } from '../services/StoryboardEngine';
+import { LearnerProfileService, defaultLearnerProfile } from '../services/LearnerProfileService';
 import {
   ANIMATION_DELAY_MIN_MS,
   FRAME_DURATION_MIN_MS,
@@ -41,6 +44,8 @@ interface ClientSession {
   state: SessionState;
   topic: string | null;
   graph: KnowledgeGraph | null;
+  storyboard: Storyboard | null;
+  userId?: string;
   currentSceneIndex: number;
   traversalPath: PresentationScene[];
   bookmark: PresentationBookmark | null;
@@ -58,6 +63,8 @@ export class WebSocketGateway {
   private kgService: KnowledgeGraphService;
   private voice: VoiceService;
   private planner: PresentationPlanner;
+  private storyboardEngine: StoryboardEngine;
+  private learnerProfileService: LearnerProfileService;
   private interruptHandler: InterruptHandler;
   private rl: RLService;
 
@@ -69,6 +76,8 @@ export class WebSocketGateway {
     this.kgService = new KnowledgeGraphService();
     this.voice = new VoiceService();
     this.planner = new PresentationPlanner();
+    this.storyboardEngine = new StoryboardEngine(this.agent);
+    this.learnerProfileService = new LearnerProfileService();
     this.interruptHandler = new InterruptHandler();
     this.rl = new RLService();
     this.pool = new ConcurrencyPool();
@@ -86,6 +95,7 @@ export class WebSocketGateway {
         state: SessionState.IDLE,
         topic: null,
         graph: null,
+        storyboard: null,
         currentSceneIndex: 0,
         traversalPath: [],
         bookmark: null,
@@ -208,16 +218,32 @@ export class WebSocketGateway {
       });
     }
 
-    // Phase 3: Compute traversal order (synchronous)
+    // Phase 3: Plan storyboard (StoryboardEngine)
     const policy = this.rl.getCurrentPolicy();
-    const orderedNodes = this.planner.computeTraversalOrder(graph, policy);
+    const learnerProfile = await this.learnerProfileService.loadProfile(session.userId)
+      ?? defaultLearnerProfile(session.userId);
+    const storyboard = await this.storyboardEngine.plan(graph, learnerProfile);
+    session.storyboard = storyboard;
     session.currentSceneIndex = 0;
+
+    // Emit storyboard_ready for timeline/checkpoint markers
+    this.send(session.ws, {
+      type: 'storyboard_ready',
+      checkpoints: storyboard.scenes
+        .filter((s) => s.checkpointName)
+        .map((s) => ({
+          sceneId: s.id,
+          checkpointName: s.checkpointName!,
+          estimatedDurationSeconds: s.estimatedDurationSeconds ?? 15,
+        })),
+      parameters: storyboard.parameters,
+      totalScenes: storyboard.scenes.length,
+    });
 
     // Phase 4: Transition to PRESENTING immediately — don't wait for scenes
     this.transition(session, SessionState.PRESENTING);
 
     // Phase 5: Fire off concurrent scene preparation
-    // Reset pool in case a previous session cancelled it
     this.pool.reset();
     const pipeline = new ScenePipelineOrchestrator(
       this.planner,
@@ -227,7 +253,7 @@ export class WebSocketGateway {
     );
     session.scenePipeline = pipeline;
 
-    pipeline.prepareAllScenes(graph, orderedNodes, policy, (sceneIndex, status, totalScenes) => {
+    pipeline.prepareAllScenesFromStoryboard(graph, storyboard, policy, (sceneIndex, status, totalScenes) => {
       if (session.ws.readyState === WebSocket.OPEN) {
         this.send(session.ws, {
           type: 'scene_prepare_status',

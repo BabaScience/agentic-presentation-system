@@ -21,6 +21,7 @@ import {
   type SceneBlackboard,
   type SceneContract,
   type DomainGuidance,
+  type ScaffoldingHint,
 } from '../../shared/types';
 import { DomainExpertService } from './DomainExpertService';
 import { QualityCriticService } from './QualityCriticService';
@@ -48,6 +49,7 @@ export class AgentOrchestrator {
     focusNode: KGNode,
     wordTimestamps: WordTimestamp[],
     pool: ConcurrencyPool,
+    scaffolding?: ScaffoldingHint,
   ): Promise<VisualScript> {
     const contract: SceneContract | undefined = scene.sceneContract;
 
@@ -63,6 +65,10 @@ export class AgentOrchestrator {
           scene.durationEstimate,
           focusNode.visualHint,
           focusNode.domain,
+          undefined,
+          undefined,
+          undefined,
+          scaffolding,
         ),
       );
     }
@@ -116,6 +122,8 @@ export class AgentOrchestrator {
           focusNode.domain,
           contract,
           domainGuidance,
+          undefined,
+          scaffolding,
         ),
       );
     } catch (err: any) {

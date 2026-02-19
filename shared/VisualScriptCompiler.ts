@@ -21,8 +21,12 @@ import type {
   StoryboardScene,
   ViewportState,
   PresentationScene,
+  Storyboard,
+  ParameterDefinition,
+  PlannerViewport,
+  Bounds,
 } from './types';
-import { CANVAS_WIDTH, CANVAS_HEIGHT } from './constants';
+import { CANVAS_WIDTH, CANVAS_HEIGHT, ENTITY_PARAMETER_MAP } from './constants';
 
 // ── Entity Type Mapping ──────────────────────────────────────
 
@@ -390,5 +394,173 @@ export function compilePresentationScene(
     viewport,
     interactiveParameters: [],
     estimatedDurationSeconds: scene.durationEstimate,
+    // Pass through for demo/legacy compatibility
+    nodeIds: scene.nodeIds,
+    focusNodeId: scene.focusNodeId,
+    durationEstimate: scene.durationEstimate,
   };
+}
+
+// ── compileStoryboardScene (StoryboardEngine pipeline) ─────────
+
+function computeBoundsFromCenter(center: { x: number; y: number }, zoom: number): Bounds {
+  const w = CANVAS_WIDTH / zoom;
+  const h = CANVAS_HEIGHT / zoom;
+  return {
+    x: center.x - w / 2,
+    y: center.y - h / 2,
+    width: w,
+    height: h,
+  };
+}
+
+function plannerViewportToViewportState(vp: PlannerViewport): ViewportState {
+  const bounds = computeBoundsFromCenter(vp.center, vp.zoom);
+  return {
+    x: vp.center.x,
+    y: vp.center.y,
+    zoom: vp.zoom,
+    rotation: 0,
+    bounds,
+  };
+}
+
+/** Rescale visual script timings to match actual audio duration. */
+function rescaleVisualScript(script: VisualScript, scale: number): VisualScript {
+  if (scale === 1) return script;
+  return {
+    ...script,
+    frames: script.frames.map((f) => ({
+      ...f,
+      startTime: Math.round(f.startTime * scale),
+      endTime: Math.round(f.endTime * scale),
+    })),
+    totalDuration: Math.round(script.totalDuration * scale),
+  };
+}
+
+/** Map numeric timing (ms) to closest word index from word timestamps. */
+function timingToWordIndex(timingMs: number, wordTimestamps: WordTimestamp[]): number {
+  if (wordTimestamps.length === 0) return 0;
+  let best = 0;
+  let bestDist = Infinity;
+  let cumulative = 0;
+  for (let i = 0; i < wordTimestamps.length; i++) {
+    const w = wordTimestamps[i];
+    const mid = cumulative + (w.end - w.start) / 2;
+    const dist = Math.abs(mid - timingMs);
+    if (dist < bestDist) {
+      bestDist = dist;
+      best = i;
+    }
+    cumulative = w.end;
+  }
+  return best;
+}
+
+/** Infer parameter bindings from entities using ENTITY_PARAMETER_MAP. */
+function inferParameterBindings(
+  sceneId: string,
+  entities: Record<string, VisualEntity>,
+  interactiveParams: string[],
+): Map<string, Array<{ elementId: string; mapper: string }>> {
+  const updates = new Map<string, Array<{ elementId: string; mapper: string }>>();
+  for (const paramName of interactiveParams) {
+    for (const [entityType, paramMap] of Object.entries(ENTITY_PARAMETER_MAP)) {
+      if (!(paramName in paramMap)) continue;
+      const propertyPath = paramMap[paramName];
+      for (const [eid, ent] of Object.entries(entities)) {
+        if (ent.type === entityType) {
+          const elementId = `${sceneId}:${eid}`;
+          const existing = updates.get(paramName) ?? [];
+          existing.push({ elementId, mapper: propertyPath });
+          updates.set(paramName, existing);
+        }
+      }
+    }
+  }
+  return updates;
+}
+
+/**
+ * Compile a StoryboardScene with VisualScript + TTS into AgentCommands, SyncMarkers, and parameter bindings.
+ * Pure: does not mutate inputs.
+ */
+export function compileStoryboardScene(
+  scene: StoryboardScene,
+  storyboard: Storyboard,
+  visualScript: VisualScript,
+  wordTimestamps: WordTimestamp[],
+  audioDurationMs: number,
+): { scene: StoryboardScene; updatedParameters: ParameterDefinition[] } {
+  const scale = visualScript.totalDuration > 0 ? audioDurationMs / visualScript.totalDuration : 1;
+  const rescaledScript = rescaleVisualScript(visualScript, scale);
+
+  let commands: AgentCommand[] = [];
+
+  // 1. Checkpoint first
+  if (scene.checkpointName) {
+    commands.push({
+      method: 'createCheckpoint',
+      args: { name: scene.checkpointName },
+      timing: 0,
+    });
+  }
+
+  // 2. Viewport
+  const viewport =
+    scene.viewport && 'center' in scene.viewport
+      ? plannerViewportToViewportState(scene.viewport as PlannerViewport)
+      : (scene.viewport as ViewportState);
+  commands.push({
+    method: 'panTo',
+    args: { position: { x: viewport.x, y: viewport.y } },
+    timing: 0,
+  });
+  commands.push({
+    method: 'zoomTo',
+    args: { level: viewport.zoom },
+    timing: 0,
+  });
+
+  // 3. Frames to commands (from rescaled script)
+  const scriptCommands = compileVisualScript(rescaledScript, scene.id);
+  commands.push(...scriptCommands);
+  commands = fixCommandOrdering(commands);
+
+  // 4. Sync markers: map numeric timing to closest word
+  const syncMarkers: SyncMarker[] = [];
+  const timedCommands: AgentCommand[] = [];
+  for (const cmd of commands) {
+    if (typeof cmd.timing === 'number' && cmd.timing > 0 && wordTimestamps.length > 0) {
+      const wordIdx = timingToWordIndex(cmd.timing, wordTimestamps);
+      syncMarkers.push({ wordIndex: wordIdx, command: { ...cmd, timing: 'immediate' as const } });
+    } else {
+      timedCommands.push(cmd);
+    }
+  }
+  syncMarkers.sort((a, b) => a.wordIndex - b.wordIndex);
+
+  // 5. Parameter bindings
+  const paramUpdates = inferParameterBindings(
+    scene.id,
+    visualScript.entities,
+    scene.interactiveParameters,
+  );
+  const updatedParameters = storyboard.parameters.map((p) => {
+    const bindings = paramUpdates.get(p.name);
+    if (bindings && bindings.length > 0) {
+      return { ...p, bindings };
+    }
+    return p;
+  });
+
+  const compiledScene: StoryboardScene = {
+    ...scene,
+    agentCommands: timedCommands,
+    syncMarkers: syncMarkers.length > 0 ? syncMarkers : undefined,
+    viewport,
+  };
+
+  return { scene: compiledScene, updatedParameters };
 }

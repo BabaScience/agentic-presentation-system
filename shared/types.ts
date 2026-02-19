@@ -469,6 +469,7 @@ export type WSServerEvent =
   | { type: 'parameter_update'; name: string; value: unknown }
   | { type: 'checkpoint_created'; name: string; handle: string }
   | { type: 'checkpoint_restored'; name: string }
+  | { type: 'storyboard_ready'; checkpoints: Array<{ sceneId: string; checkpointName: string; estimatedDurationSeconds: number }>; parameters: ParameterDefinition[]; totalScenes: number }
   | { type: 'error'; message: string; code: string }
   | { type: 'pong' };
 
@@ -1052,8 +1053,15 @@ export interface ViewportState {
   x: number;
   y: number;
   zoom: number;
-  rotation: number;
+  rotation?: number; // Optional for backward compatibility; default 0 when omitted
   focusElementId?: string;
+  bounds?: Bounds;
+}
+
+/** Planner output viewport — pedagogically meaningful (zoom, center). Compiler normalizes to ViewportState. */
+export interface PlannerViewport {
+  zoom: number;
+  center: { x: number; y: number };
 }
 
 export type ParameterType = 'integer' | 'float' | 'boolean' | 'string' | 'enum';
@@ -1192,15 +1200,22 @@ export type InteractionPointType =
   | 'parameter-tweak'
   | 'comprehension-check'
   | 'branch-choice'
-  | 'free-explore';
+  | 'free-explore'
+  | 'parameter-explore'
+  | 'deep-dive'
+  | 'question-prompt';
 
-export type InteractionTrigger = 'after-narration' | 'on-demand' | 'rl-triggered';
+export type InteractionTrigger = 'after-narration' | 'on-demand' | 'rl-triggered' | 'on-silence' | 'on-user-request';
 
 export interface Branch {
   id: string;
-  label: string;
+  label?: string;
+  name?: string;
   condition?: string;
-  scenes: StoryboardScene[];
+  triggerLabel?: string;
+  targetSceneId?: string;
+  returnToSceneId?: string;
+  scenes?: StoryboardScene[];
 }
 
 export interface InteractionPoint {
@@ -1209,6 +1224,7 @@ export interface InteractionPoint {
   triggerCondition: InteractionTrigger;
   parameters?: string[];
   prompt?: string;
+  branchTo?: string;
   branches?: Branch[];
 }
 
@@ -1223,6 +1239,14 @@ export interface ParameterBindingSpec {
   mapper: string;
 }
 
+/** Parameter binding with handle for execution-time management. */
+export interface ParameterBindingRecord {
+  handle: string;
+  elementId: string;
+  paramName: string;
+  mapper: string;
+}
+
 export interface ParameterDefinition {
   name: string;
   type: ParameterType;
@@ -1230,33 +1254,123 @@ export interface ParameterDefinition {
   min?: number;
   max?: number;
   options?: string[];
+  enumValues?: string[];
   label: string;
   description?: string;
-  bindings: ParameterBindingSpec[];
+  bindings: ParameterBindingSpec[] | ParameterBindingRecord[];
+  exposedInScenes?: string[];
+  semanticTarget?: string;
+}
+
+/** Planner output viewport — zoom and center. Compiler converts to ViewportState. */
+export interface ScaffoldingHint {
+  emphasizeNodeIds: string[];
+  analogyContext: string | null;
+  difficultyContext: string | null;
+  suggestedVisualMetaphor: string | null;
+}
+
+/** Minimal narration manifest from planner. Runtime VoiceScript built by compiler. */
+export interface NarrationManifest {
+  scenes: Array<{ sceneId: string; text: string }>;
+}
+
+/** Roadmap position (future platform integration). */
+export interface RoadmapPosition {
+  roadmapId?: string;
+  currentConceptId?: string;
+  weekNumber?: number;
+  masteredConcepts?: string[];
+  struggledConcepts?: string[];
+}
+
+/** Presentation preferences from learner profile. */
+export interface PresentationPreferences {
+  modalityPreference?: 'visual-first' | 'verbal-first' | 'balanced';
+  optimalPaceWPM?: number;
+  visualDensity?: 'minimal' | 'moderate' | 'rich';
+  bestExplanationStyle?: 'analogy' | 'definition' | 'example' | 'process';
+}
+
+/** Thompson Sampling bandit state (persisted across sessions). */
+export interface BanditState {
+  arms?: Record<string, { alpha: number; beta: number }>;
+  currentPolicy?: RLPolicy;
+}
+
+/** Cross-session learner profile for pedagogical planning. */
+export interface LearnerProfile {
+  userId: string;
+  roadmapPosition?: RoadmapPosition;
+  presentationPreferences?: PresentationPreferences;
+  sessionHistory?: Array<{ sessionId: string; date?: number; topic: string; nodesLearned?: string[]; duration?: number }>;
+  thompsonSamplingState?: BanditState;
+}
+
+export interface ValidationResult {
+  valid: boolean;
+  errors: string[];
+}
+
+export interface CommandResult {
+  command: AgentCommand;
+  status: 'success' | 'skipped';
+  error?: Error;
+}
+
+export interface ExecutionResult {
+  status: 'complete' | 'aborted';
+  completedCommands: CommandResult[];
+  failedCommand?: AgentCommand;
+  error?: Error;
+}
+
+export interface StoryboardMetadata {
+  totalEstimatedDurationSeconds: number;
+  checkpointCount: number;
+  parameterCount: number;
+  branchCount: number;
+  rlPolicySnapshot?: RLPolicy;
+  plannerVersion: string;
+  validationStatus: 'pending' | 'valid' | 'fallback';
 }
 
 export interface StoryboardScene {
   id: string;
   name: string;
   narration: string;
+  nodeIds?: string[];
+  checkpointName?: string;
+  focusNodeId?: string;
+  durationEstimate?: number;
   agentCommands: AgentCommand[];
   syncMarkers?: SyncMarker[];
-  viewport: ViewportState;
+  viewport: ViewportState | PlannerViewport;
   interactiveParameters: string[];
   transitionFrom?: TransitionSpec;
   estimatedDurationSeconds: number;
   branches?: Branch[];
+  scaffolding?: ScaffoldingHint;
 }
 
 export interface Storyboard {
   id: string;
   title: string;
   topic: string;
-  targetUser?: { expertise: string; goal: string };
+  generatedAt?: number;
+  targetUser?: {
+    expertise?: string;
+    goal?: string;
+    userId?: string;
+    roadmapPosition?: RoadmapPosition;
+    presentationPreferences?: PresentationPreferences;
+  };
   scenes: StoryboardScene[];
   parameters: ParameterDefinition[];
-  voiceScript: VoiceScript;
+  voiceScript?: VoiceScript;
+  narrationManifest?: NarrationManifest;
   interactionPoints: InteractionPoint[];
+  metadata?: StoryboardMetadata;
 }
 
 // ── Context-Aware Assets ──────────────────────────────────────────
