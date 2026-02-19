@@ -146,10 +146,6 @@ interface SessionStore {
   scenePreparationStatus: Record<number, 'pending' | 'preparing' | 'ready' | 'failed'>;
   totalScenesToPrepare: number;
 
-  // Visual command animation
-  revealedNodeIds: string[];
-  visualCommandQueue: Array<{ type: string; targetId: string; wordTrigger?: number; params?: any }>;
-
   // Canvas viewport (zoom/pan)
   canvasViewport: { x: number; y: number; zoom: number };
   targetViewport: { x: number; y: number; zoom: number };
@@ -181,10 +177,6 @@ interface SessionStore {
   setRLPolicy: (policy: RLPolicy) => void;
   setWordTimestamps: (timestamps: WordTimestamp[]) => void;
   updateAudioTime: (time: number) => void;
-
-  enqueueVisualCommand: (cmd: { type: string; targetId: string; wordTrigger?: number; params?: any }) => void;
-  dequeueVisualCommand: () => void;
-  revealNode: (id: string) => void;
 
   setTargetViewport: (viewport: { x: number; y: number; zoom: number }, durationMs: number) => void;
   resetViewport: () => void;
@@ -228,8 +220,6 @@ const initialState = {
   rlPolicy: null as RLPolicy | null,
   scenePreparationStatus: {} as Record<number, 'pending' | 'preparing' | 'ready' | 'failed'>,
   totalScenesToPrepare: 0,
-  revealedNodeIds: [] as string[],
-  visualCommandQueue: [] as Array<{ type: string; targetId: string; params?: any }>,
   chatMessages: [] as ChatMessage[],
   canvasViewport: { x: 800, y: 450, zoom: 1 },
   targetViewport: { x: 800, y: 450, zoom: 1 },
@@ -295,14 +285,15 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
             break;
 
           case 'scene_change':
-            // Clear visual command queue and reset audio time for new scene
+            // Reset audio time for new scene — engine handles visual commands
             AudioPlaybackManager.getInstance().stop();
-            set({ visualCommandQueue: [], currentAudioTime: 0, currentWordTimestamps: [] });
+            set({ currentAudioTime: 0, currentWordTimestamps: [] });
             store.setCurrentScene(msg.scene);
             break;
 
           case 'visual_command':
-            store.enqueueVisualCommand(msg.command);
+            // Legacy: visual commands are now compiled from currentScene.visualCommands
+            // by the stage engine (VisualScriptCompiler → SceneExecutor). No-op.
             break;
 
           case 'narration_text':
@@ -451,18 +442,6 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   setRLPolicy: (policy) => set({ rlPolicy: policy }),
   setWordTimestamps: (timestamps) => set({ currentWordTimestamps: timestamps }),
   updateAudioTime: (time) => set({ currentAudioTime: time }),
-
-  enqueueVisualCommand: (cmd) => set(produce((s: SessionStore) => {
-    s.visualCommandQueue.push(cmd);
-  })),
-  dequeueVisualCommand: () => set(produce((s: SessionStore) => {
-    s.visualCommandQueue.shift();
-  })),
-  revealNode: (id) => set(produce((s: SessionStore) => {
-    if (!s.revealedNodeIds.includes(id)) {
-      s.revealedNodeIds.push(id);
-    }
-  })),
 
   setTargetViewport: (viewport, durationMs) => {
     const clampedZoom = Math.max(0.5, Math.min(2.5, viewport.zoom));

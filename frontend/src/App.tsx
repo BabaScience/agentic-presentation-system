@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useSessionStore } from './stores/sessionStore';
-import type { KGNode, KGEdge, PresentationScene } from './stores/sessionStore';
+import type { KGNode, PresentationScene } from './stores/sessionStore';
 import { DEMO_NODES, DEMO_EDGES, DEMO_SCENES } from './demo/demoGraph';
 import { ScenePresenter } from './components/ScenePresenter';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -302,62 +302,13 @@ export default function App() {
   const demoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [sceneTransitioning, setSceneTransitioning] = useState(false);
 
-  // ── Visual Command Queue Processor (word-trigger aware) ──
-  useEffect(() => {
-    if (store.visualCommandQueue.length === 0) return;
-
-    const cmd = store.visualCommandQueue[0];
-    let triggerTimeMs = 0;
-
-    // Convert wordTrigger (word index) → milliseconds using real timestamps
-    if (cmd.wordTrigger != null && store.currentWordTimestamps.length > 0) {
-      const wordIdx = Math.min(cmd.wordTrigger, store.currentWordTimestamps.length - 1);
-      triggerTimeMs = store.currentWordTimestamps[wordIdx]?.start ?? 0;
-    }
-
-    // Fire command when audio time reaches the trigger point
-    if (store.currentAudioTime >= triggerTimeMs) {
-      if (cmd.type === 'reveal') {
-        store.revealNode(cmd.targetId);
-        SoundEffectEngine.getInstance().playReveal();
-      } else if (cmd.type === 'connect') {
-        SoundEffectEngine.getInstance().playConnect();
-      } else if (cmd.type === 'zoom') {
-        store.setTargetViewport({
-          x: cmd.params?.x ?? 800,
-          y: cmd.params?.y ?? 450,
-          zoom: cmd.params?.zoom ?? 1,
-        }, cmd.params?.duration ?? 800);
-      } else if (cmd.type === 'pan') {
-        store.setTargetViewport({
-          x: cmd.params?.x ?? 800,
-          y: cmd.params?.y ?? 450,
-          zoom: store.canvasViewport.zoom,
-        }, cmd.params?.duration ?? 600);
-      }
-      store.dequeueVisualCommand();
-    }
-  }, [store.visualCommandQueue, store.currentAudioTime]);
-
   // ── Scene Transition Effect ───────────────────────────
   useEffect(() => {
     if (!store.currentScene) return;
     setSceneTransitioning(true);
     SoundEffectEngine.getInstance().playTransition();
     const t = setTimeout(() => setSceneTransitioning(false), 450);
-
-    // Auto-zoom: apply the scene's viewport if it has a non-default zoom
-    const sceneVP = store.currentScene.viewport;
-    if (sceneVP && sceneVP.zoom !== 1) {
-      store.setTargetViewport(
-        { x: sceneVP.x, y: sceneVP.y, zoom: sceneVP.zoom },
-        800,
-      );
-    } else {
-      // Reset viewport to default for standard scenes
-      store.resetViewport();
-    }
-
+    // Viewport is handled by the stage engine (panTo + zoomTo commands at t=0)
     return () => clearTimeout(t);
   }, [store.currentScene?.id]);
 
@@ -576,11 +527,6 @@ export default function App() {
             <ErrorBoundary fallbackMessage="Presentation renderer encountered an error.">
               <ScenePresenter
                 currentScene={store.currentScene}
-                nodes={store.nodes}
-                edges={store.edges}
-                narrationText={store.narrationText}
-                sceneTransitioning={sceneTransitioning}
-                revealedNodeIds={store.revealedNodeIds}
               />
             </ErrorBoundary>
 
