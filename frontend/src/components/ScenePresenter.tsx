@@ -10,8 +10,7 @@ import React, { useMemo } from 'react';
 import type { KGNode, KGEdge, PresentationScene } from '../stores/sessionStore';
 import { useSessionStore } from '../stores/sessionStore';
 import { SubtitleDisplay } from './SubtitleDisplay';
-import { IllustrationCanvas } from './IllustrationCanvas';
-import type { ElementType, IllustrationSpec } from '../../../shared/types';
+import { SceneGraphPresenter } from './SceneGraphPresenter';
 
 const TYPE_COLORS: Record<string, string> = {
   CONCEPT: '#00e5ff', RELATIONSHIP: '#ff2d7b', EXAMPLE: '#00e676',
@@ -25,30 +24,6 @@ const TYPE_ICONS: Record<string, string> = {
   RESOURCE: '\uD83D\uDD17', COUNTERPOINT: '\u26A0\uFE0F',
 };
 
-// Helper functions for illustration metadata
-function getIllustrationIcon(elementType: ElementType): string {
-  const iconMap: Record<ElementType, string> = {
-    box: '◻️',
-    circle: '⭕',
-    arrow: '➡️',
-    text: '📝',
-    code: '💻',
-    icon: '🎭',
-    split_panel: '⚡',
-    flow_sequence: '🔄',
-    callout: '💬',
-  };
-  return iconMap[elementType] || '✨';
-}
-
-function formatIllustrationLabel(illus: IllustrationSpec): string {
-  const typeMap: Record<string, string> = {
-    shape: 'Shape',
-    icon: 'Icon',
-    diagram: 'Diagram',
-  };
-  return `${typeMap[illus.type] || 'Visual'} · ${illus.elementType}`;
-}
 
 interface ScenePresenterProps {
   currentScene: PresentationScene | null;
@@ -149,11 +124,11 @@ export function ScenePresenter({
       {/* Right Panel: Large Illustration Canvas */}
       <div className="scene-visual-panel">
         <div className="scene-illustration-canvas">
-          {(currentScene?.visualScript || currentScene?.illustrations) ? (
-            <IllustrationCanvas
-              visualScript={currentScene.visualScript}
-              illustrations={currentScene.illustrations}
-              currentTime={store.currentAudioTime}
+          {currentScene ? (
+            <SceneGraphPresenter
+              currentScene={currentScene}
+              currentAudioTime={store.currentAudioTime}
+              wordTimestamps={store.currentWordTimestamps}
               width={1600}
               height={900}
             />
