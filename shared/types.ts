@@ -1132,6 +1132,108 @@ export interface CheckpointHandle {
   timestamp: number;
 }
 
+// ── Storyboard Schema ───────────────────────────────────────────
+// Canonical format for executable scene plans.
+// Bridges backend pipeline output (VisualScript, VisualCommand[])
+// with the engine layer (EnvironmentAPI).
+
+export type AgentCommandTiming = 'immediate' | 'await-previous' | number;
+
+export interface AgentCommand {
+  method: string;
+  args: Record<string, unknown>;
+  timing: AgentCommandTiming;
+}
+
+export interface SyncMarker {
+  wordIndex: number;
+  command: AgentCommand;
+}
+
+export interface VoiceSegment {
+  sceneId: string;
+  text: string;
+  startWordIndex: number;
+  endWordIndex: number;
+}
+
+export interface VoiceScript {
+  fullText: string;
+  segments: VoiceSegment[];
+  syncMarkers: SyncMarker[];
+  estimatedDurationMs: number;
+}
+
+export type InteractionPointType =
+  | 'parameter-tweak'
+  | 'comprehension-check'
+  | 'branch-choice'
+  | 'free-explore';
+
+export type InteractionTrigger = 'after-narration' | 'on-demand' | 'rl-triggered';
+
+export interface Branch {
+  id: string;
+  label: string;
+  condition?: string;
+  scenes: StoryboardScene[];
+}
+
+export interface InteractionPoint {
+  sceneId: string;
+  type: InteractionPointType;
+  triggerCondition: InteractionTrigger;
+  parameters?: string[];
+  prompt?: string;
+  branches?: Branch[];
+}
+
+export interface TransitionSpec {
+  type: 'checkpoint-restore' | 'crossfade' | 'instant';
+  durationMs?: number;
+  fromCheckpointId?: string;
+}
+
+export interface ParameterBindingSpec {
+  elementId: string;
+  mapper: string;
+}
+
+export interface ParameterDefinition {
+  name: string;
+  type: ParameterType;
+  default: unknown;
+  min?: number;
+  max?: number;
+  options?: string[];
+  label: string;
+  description?: string;
+  bindings: ParameterBindingSpec[];
+}
+
+export interface StoryboardScene {
+  id: string;
+  name: string;
+  narration: string;
+  agentCommands: AgentCommand[];
+  viewport: ViewportState;
+  interactiveParameters: string[];
+  transitionFrom?: TransitionSpec;
+  estimatedDurationSeconds: number;
+  branches?: Branch[];
+}
+
+export interface Storyboard {
+  id: string;
+  title: string;
+  topic: string;
+  targetUser?: { expertise: string; goal: string };
+  scenes: StoryboardScene[];
+  parameters: ParameterDefinition[];
+  voiceScript: VoiceScript;
+  interactionPoints: InteractionPoint[];
+}
+
 // ── Context-Aware Assets ──────────────────────────────────────────
 export interface AssetLibrary {
   logos: LogoAsset[];

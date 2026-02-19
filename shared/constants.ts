@@ -55,3 +55,6 @@ export const DEFAULT_SPRING_CONFIG = {
 export const SPRING_SETTLE_POSITION_THRESHOLD = 0.01;
 export const SPRING_SETTLE_VELOCITY_THRESHOLD = 0.01;
 export const DEFAULT_FADE_DURATION_MS = 300;
+
+// ── Storyboard Sync ──────────────────────────────────────────
+export const SYNC_MARKER_TOLERANCE_MS = 50;
