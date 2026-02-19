@@ -43,3 +43,15 @@ export const VOICE_CHUNK_SIZE = 4096;
 export const CONCURRENCY_POOL_CLAUDE_MAX = 5;
 export const CONCURRENCY_POOL_TTS_MAX = 2;
 export const CONCURRENCY_POOL_TOTAL_MAX = 6;
+
+// ── Spring Physics ────────────────────────────────────────────
+export const DEFAULT_SPRING_CONFIG = {
+  stiffness: 170,
+  damping: 26,
+  mass: 1,
+  velocity: 0,
+} as const;
+
+export const SPRING_SETTLE_POSITION_THRESHOLD = 0.01;
+export const SPRING_SETTLE_VELOCITY_THRESHOLD = 0.01;
+export const DEFAULT_FADE_DURATION_MS = 300;

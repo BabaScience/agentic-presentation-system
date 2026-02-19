@@ -1090,6 +1090,48 @@ export interface SceneSnapshot {
   narrationOffset: number;
 }
 
+// ── Stage Environment API Types ─────────────────────────────
+// These types support the EnvironmentAPI agent-facing surface.
+// StageAnnotation is intentionally distinct from the collaborative Annotation type.
+
+export type AnchorPosition =
+  | 'top' | 'bottom' | 'left' | 'right'
+  | 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+
+export interface ConnectionStyle {
+  stroke?: string;
+  strokeWidth?: number;
+  dashArray?: string;
+  animated?: boolean;
+}
+
+export type StageAnnotationType = 'highlight' | 'label' | 'connection';
+
+export interface StageAnnotation {
+  id: string;
+  type: StageAnnotationType;
+  elementId?: string;
+  color?: string;
+  text?: string;
+  anchor?: AnchorPosition;
+  fromElementId?: string;
+  toElementId?: string;
+  connectionStyle?: ConnectionStyle;
+  createdAt: number;
+}
+
+export interface AnnotationHandle {
+  id: string;
+  type: StageAnnotationType;
+  remove: () => void;
+}
+
+export interface CheckpointHandle {
+  id: string;
+  name: string;
+  timestamp: number;
+}
+
 // ── Context-Aware Assets ──────────────────────────────────────────
 export interface AssetLibrary {
   logos: LogoAsset[];
