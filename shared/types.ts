@@ -248,8 +248,10 @@ export interface VisualScript {
 export type ScenePreparationStatus = 'pending' | 'preparing' | 'ready' | 'failed';
 
 export interface PreparedScene {
-  scene: PresentationScene;
-  storyboard?: StoryboardScene;
+  /** Required on new path — compiled with agentCommands. */
+  storyboard: StoryboardScene;
+  /** Deprecated — legacy path only. Used for traversalPath (interrupt resume). */
+  scene?: PresentationScene;
   audioData?: Uint8Array;
   wordTimestamps?: WordTimestamp[];
   audioDurationMs?: number;
@@ -463,7 +465,7 @@ export type WSServerEvent =
   | { type: 'bookmark_resumed'; bookmark: PresentationBookmark }
   | { type: 'scene_change'; scene: StoryboardScene }
   | { type: 'narration_text'; text: string; sceneId: string }
-  | { type: 'agent_audio_meta'; durationMs: number; sceneId: string; wordTimestamps?: WordTimestamp[]; visualScript?: VisualScript; illustrations?: IllustrationSpec[] }
+  | { type: 'agent_audio_meta'; durationMs: number; sceneId: string; wordTimestamps?: WordTimestamp[]; visualScript?: VisualScript; illustrations?: IllustrationSpec[] } // visualScript, illustrations @deprecated — legacy/demo only; frontend uses agentCommands from scene_change
   | { type: 'rl_update'; policy: RLPolicy; learnerState: Partial<LearnerState> }
   | { type: 'scene_prepare_status'; sceneIndex: number; status: ScenePreparationStatus; totalScenes: number }
   | { type: 'parameter_update'; name: string; value: unknown }
@@ -1340,7 +1342,8 @@ export interface StoryboardScene {
   name: string;
   narration: string;
   nodeIds?: string[];
-  checkpointName?: string;
+  /** Required — assigned by planner or fallback. Every scene must be navigable. */
+  checkpointName: string;
   focusNodeId?: string;
   durationEstimate?: number;
   agentCommands: AgentCommand[];

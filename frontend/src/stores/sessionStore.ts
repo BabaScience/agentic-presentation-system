@@ -84,11 +84,12 @@ export interface PresentationScene {
   visualScript?: VisualScript;
 }
 
-/** StoryboardScene — compiled by the backend, ready for SceneExecutor. */
+/** StoryboardScene — compiled by the backend, ready for SceneExecutor. Use shared/types.StoryboardScene. */
 export interface StoryboardScene {
   id: string;
   name: string;
   narration: string;
+  checkpointName: string;
   agentCommands: { method: string; args: Record<string, any>; timing: number | 'immediate' | 'await-previous' }[];
   syncMarkers?: { wordIndex: number; command: { method: string; args: Record<string, any>; timing: number | 'immediate' | 'await-previous' } }[];
   viewport: { x: number; y: number; zoom: number; rotation?: number };
@@ -310,15 +311,6 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
             // Informational — audio binary follows immediately
             if (msg.wordTimestamps) {
               store.setWordTimestamps(msg.wordTimestamps);
-            }
-            // Apply rescaled visual timing from real TTS duration
-            if (msg.visualScript || msg.illustrations) {
-              set(produce((s: any) => {
-                if (s.currentScene?.id === msg.sceneId) {
-                  if (msg.visualScript) s.currentScene.visualScript = msg.visualScript;
-                  if (msg.illustrations) s.currentScene.illustrations = msg.illustrations;
-                }
-              }));
             }
             break;
 

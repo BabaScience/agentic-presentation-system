@@ -194,15 +194,15 @@ export class ScenePipelineOrchestrator {
       scene.visualScript = visualScript;
     }
 
-    const prepared: PreparedScene = {
+    const basePrepared: Omit<PreparedScene, 'storyboard'> & { storyboard?: StoryboardScene } = {
       scene,
       status: 'ready',
     };
 
     if (ttsResult && ttsResult.audioData.byteLength > 0) {
-      prepared.audioData = new Uint8Array(ttsResult.audioData.buffer, ttsResult.audioData.byteOffset, ttsResult.audioData.byteLength);
-      prepared.wordTimestamps = ttsResult.wordTimestamps;
-      prepared.audioDurationMs = ttsResult.durationMs;
+      basePrepared.audioData = new Uint8Array(ttsResult.audioData.buffer, ttsResult.audioData.byteOffset, ttsResult.audioData.byteLength);
+      basePrepared.wordTimestamps = ttsResult.wordTimestamps;
+      basePrepared.audioDurationMs = ttsResult.durationMs;
 
       this.rescaleVisualScript(scene, ttsResult.durationMs);
     }
@@ -211,12 +211,14 @@ export class ScenePipelineOrchestrator {
       sbScene,
       storyboard,
       scene.visualScript ?? { sceneId: sbScene.id, frames: [], totalDuration: scene.durationEstimate, entities: {} },
-      prepared.wordTimestamps ?? [],
-      prepared.audioDurationMs ?? scene.durationEstimate,
+      basePrepared.wordTimestamps ?? [],
+      basePrepared.audioDurationMs ?? scene.durationEstimate,
     );
-    prepared.storyboard = compiledScene;
 
-    return prepared;
+    return {
+      ...basePrepared,
+      storyboard: compiledScene,
+    };
   }
 
   private async prepareScene(
@@ -253,25 +255,22 @@ export class ScenePipelineOrchestrator {
       scene.visualScript = visualScript;
     }
 
-    const prepared: PreparedScene = {
-      scene,
-      status: 'ready',
-    };
-
     if (ttsResult && ttsResult.audioData.byteLength > 0) {
-      prepared.audioData = new Uint8Array(ttsResult.audioData.buffer, ttsResult.audioData.byteOffset, ttsResult.audioData.byteLength);
-      prepared.wordTimestamps = ttsResult.wordTimestamps;
-      prepared.audioDurationMs = ttsResult.durationMs;
-
-      // Rescale visual script to match real audio duration
       this.rescaleVisualScript(scene, ttsResult.durationMs);
     }
-
-    // Compile PresentationScene → StoryboardScene (AgentCommand[] + SyncMarkers).
-    // This runs after rescaling so timed commands match real audio duration.
-    prepared.storyboard = compilePresentationScene(scene, ttsResult?.wordTimestamps);
-
-    return prepared;
+    const storyboard = compilePresentationScene(scene, ttsResult?.wordTimestamps);
+    return {
+      storyboard,
+      scene,
+      status: 'ready',
+      ...(ttsResult && ttsResult.audioData.byteLength > 0
+        ? {
+            audioData: new Uint8Array(ttsResult.audioData.buffer, ttsResult.audioData.byteOffset, ttsResult.audioData.byteLength),
+            wordTimestamps: ttsResult.wordTimestamps,
+            audioDurationMs: ttsResult.durationMs,
+          }
+        : {}),
+    };
   }
 
   getSceneQueue(): SceneReadyQueue {

@@ -1,5 +1,11 @@
 # Migration: Pipeline to Stage
 
+## Data Flow Corrections (see docs/DATA_FLOW_IMPLEMENTATION.md)
+- [x] checkpointName required
+- [x] agent_audio_meta: remove visualScript/illustrations
+- [x] PreparedScene: storyboard required, scene optional
+- [x] Frontend: remove agent_audio_meta visualScript merge
+
 ## Session 1 — StoryboardEngine (Phases A–H)
 - [x] Phase A: Types in shared/types.ts and shared/constants.ts
 - [x] Phase B: StoryboardValidator

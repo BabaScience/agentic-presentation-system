@@ -56,7 +56,7 @@ const storyboardSceneSchema = z.object({
   name: z.string().min(1),
   narration: z.string().min(10, 'Narration must be at least 10 characters'),
   nodeIds: z.array(z.string()).min(1, 'Each scene must have at least one nodeId'),
-  checkpointName: z.string().optional(),
+  checkpointName: z.string().min(1, 'checkpointName is required'),
   focusNodeId: z.string().optional(),
   durationEstimate: z.number().optional(),
   agentCommands: z.array(z.any()),
@@ -112,13 +112,11 @@ function validateLayer2(storyboard: Storyboard): ValidationResult {
   const paramNames = new Set(storyboard.parameters.map((p) => p.name));
 
   for (const scene of storyboard.scenes) {
-    // Unique checkpoint names
-    if (scene.checkpointName) {
-      if (checkpointNames.has(scene.checkpointName)) {
-        errors.push(`Duplicate checkpoint name: ${scene.checkpointName}`);
-      }
-      checkpointNames.add(scene.checkpointName);
+    // Unique checkpoint names (checkpointName is required)
+    if (checkpointNames.has(scene.checkpointName)) {
+      errors.push(`Duplicate checkpoint name: ${scene.checkpointName}`);
     }
+    checkpointNames.add(scene.checkpointName);
 
     // interactiveParameters reference parameters[]
     for (const p of scene.interactiveParameters) {

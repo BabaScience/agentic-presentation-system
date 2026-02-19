@@ -29,6 +29,7 @@ function makeScene(overrides: Partial<StoryboardScene> & { id: string }): Storyb
   return {
     name: overrides.id,
     narration: '',
+    checkpointName: `cp-${overrides.id}`,
     agentCommands: [],
     viewport: { x: 0, y: 0, zoom: 1, rotation: 0 },
     interactiveParameters: [],

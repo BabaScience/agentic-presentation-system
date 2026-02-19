@@ -265,7 +265,7 @@
 <div class="hero">
   <div class="hero-version">Data Flow Reference</div>
   <h1>User Prompt → <em>Illustrations</em></h1>
-  <p class="hero-sub">Complete data structure transformation pipeline from user input to rendered SVG illustrations.</p>
+  <p class="hero-sub">Complete data structure transformation pipeline from user input to rendered SVG illustrations. Mission-driven StoryboardEngine path.</p>
 </div>
 
 <div class="container">
@@ -280,7 +280,7 @@
   </div>
 
   <div class="diagram">
-    <div class="diagram-label">Mermaid — Data Structure Pipeline</div>
+    <div class="diagram-label">Mermaid — Data Structure Pipeline + RL Feedback Loops</div>
     <div class="mermaid">
 flowchart TB
     subgraph input [1. User Input]
@@ -295,8 +295,8 @@ flowchart TB
         C["KnowledgeGraph"]
     end
 
-    subgraph planner [4. PresentationPlanner]
-        D["PresentationScene[]"]
+    subgraph storyboard [4. StoryboardEngine]
+        D["Storyboard"]
     end
 
     subgraph pipeline [5. ScenePipelineOrchestrator]
@@ -308,14 +308,29 @@ flowchart TB
     end
 
     subgraph frontend [7. Frontend]
-        G["SceneElement[]"]
+        G["SceneElement Map"]
         H["VisualEntity[]"]
         I["SVG DOM"]
     end
 
+    subgraph rl [RL Feedback]
+        RL["RLService"]
+        LP["LearnerProfileService"]
+    end
+
     A --> B --> C --> D --> E --> F --> G --> H --> I
+
+    I -.->|"engagement signals"| RL
+    RL -.->|"reorderPendingScenes"| E
+
+    I -.->|"session end"| LP
+    LP -.->|"load(userId)"| D
     </div>
   </div>
+
+  <h3>RL Feedback Loops</h3>
+  <p><strong>Mid-session reordering:</strong> Stage 7 (SceneExecutor) detects scene completion → RLService.recordReward(engagementSignals) → Thompson Sampling updates → ScenePipelineOrchestrator.reorderPendingScenes(updatedPolicy) → back to Stage 5.</p>
+  <p><strong>Cross-session learning:</strong> Session ends → LearnerProfileService.save(updatedProfile) → Next session: LearnerProfileService.load(userId) → Stage 4: StoryboardEngine.plan(graph, updatedProfile) → Anchors explanation to masteredConcepts/struggledConcepts.</p>
 </section>
 
 <!-- ═══════════════════════════════════════════════════════════ -->
@@ -333,12 +348,13 @@ flowchart TB
     <p>Raw user input: a topic string or question.</p>
   </div>
 
-  <h3>Data Structure</h3>
+  <h3>Data Structure (WSClientEvent)</h3>
   <div class="type-block">
 <span class="keyword">// WebSocket event from client</span>
-{ <span class="prop">type</span>: <span class="string">'start_session'</span>, <span class="prop">topic</span>: <span class="string">string</span> }
+{ <span class="prop">type</span>: <span class="string">'start_session'</span>, <span class="prop">topic</span>: <span class="type">string</span> }
 <span class="keyword">// or</span>
-{ <span class="prop">type</span>: <span class="string">'text_input'</span>, <span class="prop">text</span>: <span class="string">string</span> }
+{ <span class="prop">type</span>: <span class="string">'text_input'</span>, <span class="prop">text</span>: <span class="type">string</span> }
+<span class="keyword">// also: set_parameter, restore_checkpoint, user_command, ping</span>
   </div>
 
   <h3>Transformation</h3>
@@ -357,7 +373,7 @@ flowchart TB
   <div class="stage-card">
     <div class="stage-num">OUTPUT OF AgentService.reason()</div>
     <div class="stage-service">AgentService — Claude decomposition</div>
-    <p>Structured knowledge decomposition: conceptual primitives, relationships, visual hints, scene contracts.</p>
+    <p>Structured knowledge decomposition: conceptual primitives, relationships, visual hints, optional scene contracts for multi-agent mode.</p>
   </div>
 
   <h3>Data Structure</h3>
@@ -369,7 +385,7 @@ flowchart TB
     <span class="prop">type</span>: <span class="type">DataType</span>;  <span class="keyword">// CONCEPT | DEFINITION | EXAMPLE | ANALOGY | PROCESS | RESOURCE | COUNTERPOINT</span>
     <span class="prop">content</span>: <span class="type">string</span>;
     <span class="prop">narration</span>: <span class="type">string</span>;
-    <span class="prop">visualHint</span>?: { <span class="prop">suggestedEntities</span>, <span class="prop">layoutPattern</span>, <span class="prop">visualMetaphor</span>, <span class="prop">colorScheme</span> };
+    <span class="prop">visualHint</span>?: <span class="type">VisualHint</span>;
     <span class="prop">domain</span>?: <span class="type">AcademicDomain</span>;
     <span class="prop">sceneContract</span>?: <span class="type">SceneContract</span>;
   }&gt;;
@@ -377,6 +393,12 @@ flowchart TB
   <span class="prop">prerequisiteDependencies</span>: <span class="type">string</span>[];
   <span class="prop">complexityGradient</span>: <span class="type">string</span>[];
   <span class="prop">anticipatedFollowUps</span>: <span class="type">string</span>[];
+}
+
+<span class="keyword">interface</span> <span class="type">VisualHint</span> {
+  <span class="prop">suggestedEntities</span>: <span class="type">VisualHintEntity</span>[];
+  <span class="prop">layoutPattern</span>: <span class="type">LayoutPattern</span>;
+  <span class="prop">visualMetaphor</span>?, <span class="prop">colorScheme</span>?;
 }
   </div>
 
@@ -395,7 +417,7 @@ flowchart TB
   <div class="stage-card">
     <div class="stage-num">OUTPUT OF KnowledgeGraphService.buildFromReasoning()</div>
     <div class="stage-service">KnowledgeGraphService — Graph construction</div>
-    <p>Nodes from conceptual primitives, edges from relationships. Layout positions computed. Visual specs assigned per node.</p>
+    <p>Nodes from conceptual primitives, edges from relationships. Layout positions computed. Visual specs assigned per node. Async expansion runs in background.</p>
   </div>
 
   <h3>Data Structure</h3>
@@ -405,8 +427,7 @@ flowchart TB
   <span class="prop">rootNodeId</span>: <span class="type">string</span>;
   <span class="prop">nodes</span>: <span class="type">Record</span>&lt;<span class="type">string</span>, <span class="type">KGNode</span>&gt;;
   <span class="prop">edges</span>: <span class="type">Record</span>&lt;<span class="type">string</span>, <span class="type">KGEdge</span>&gt;;
-  <span class="prop">maxDepth</span>: <span class="type">number</span>;
-  <span class="prop">nodeLimit</span>: <span class="type">number</span>;
+  <span class="prop">maxDepth</span>, <span class="prop">nodeLimit</span>: <span class="type">number</span>;
   <span class="prop">createdAt</span>, <span class="prop">updatedAt</span>: <span class="type">number</span>;
 }
 
@@ -415,16 +436,20 @@ flowchart TB
   <span class="prop">type</span>: <span class="type">DataType</span>;
   <span class="prop">domain</span>?: <span class="type">AcademicDomain</span>;
   <span class="prop">depth</span>: <span class="type">number</span>;
-  <span class="prop">visual</span>: <span class="type">VisualSpec</span>;  <span class="keyword">// elementType, x, y, width, height, style, animation</span>
+  <span class="prop">visual</span>: <span class="type">VisualSpec</span>;
   <span class="prop">visualHint</span>?: <span class="type">VisualHint</span>;
   <span class="prop">rlRelevanceScore</span>: <span class="type">number</span>;
-  <span class="prop">metadata</span>: { <span class="prop">sceneContract</span>? };
+  <span class="prop">parentId</span>: <span class="type">string</span> | <span class="type">null</span>;
+  <span class="prop">isExpanded</span>, <span class="prop">isPresented</span>: <span class="type">boolean</span>;
+  <span class="prop">metadata</span>: <span class="type">Record</span>&lt;<span class="type">string</span>, <span class="type">any</span>&gt;;  <span class="keyword">// sceneContract?</span>
+  <span class="prop">createdAt</span>: <span class="type">number</span>;
 }
 
 <span class="keyword">interface</span> <span class="type">KGEdge</span> {
   <span class="prop">id</span>, <span class="prop">sourceId</span>, <span class="prop">targetId</span>, <span class="prop">label</span>: <span class="type">string</span>;
   <span class="prop">type</span>: <span class="type">EdgeType</span>;
   <span class="prop">weight</span>: <span class="type">number</span>;
+  <span class="prop">isPresented</span>: <span class="type">boolean</span>;
 }
   </div>
 
@@ -432,59 +457,106 @@ flowchart TB
 </section>
 
 <!-- ═══════════════════════════════════════════════════════════ -->
-<!-- STAGE 4: PresentationScene[] -->
+<!-- STAGE 4: Storyboard -->
 <!-- ═══════════════════════════════════════════════════════════ -->
 <section>
   <div class="section-header">
     <div class="section-tag">Stage 4</div>
-    <h2>PresentationScene[]</h2>
+    <h2>Storyboard — Mission-Driven Plan</h2>
   </div>
 
   <div class="stage-card">
-    <div class="stage-num">OUTPUT OF PresentationPlanner.computeTraversalOrder() + composeSceneLocals()</div>
-    <div class="stage-service">PresentationPlanner — BFS traversal, 1 node per scene</div>
-    <p>Ordered scenes with narration, viewport, visual commands, duration estimate. Visual script generated later per scene.</p>
+    <div class="stage-num">OUTPUT OF StoryboardEngine.plan(graph, learnerProfile)</div>
+    <div class="stage-service">StoryboardEngine — Claude PLANNER_SYSTEM_PROMPT, validated by StoryboardValidator</div>
+    <p>Pedagogically ordered scenes with narration manifests. agentCommands and syncMarkers are empty — the compiler fills them during scene preparation.</p>
   </div>
 
   <h3>Data Structure</h3>
   <div class="type-block">
-<span class="keyword">interface</span> <span class="type">PresentationScene</span> {
-  <span class="prop">id</span>: <span class="type">string</span>;
-  <span class="prop">nodeIds</span>, <span class="prop">edgeIds</span>: <span class="type">string</span>[];
-  <span class="prop">narration</span>: <span class="type">string</span>;
-  <span class="prop">focusNodeId</span>: <span class="type">string</span>;
-  <span class="prop">viewport</span>: { <span class="prop">x</span>, <span class="prop">y</span>, <span class="prop">zoom</span> };
-  <span class="prop">visualCommands</span>: <span class="type">VisualCommand</span>[];
-  <span class="prop">durationEstimate</span>: <span class="type">number</span>;
-  <span class="prop">visualScript</span>?: <span class="type">VisualScript</span>;  <span class="keyword">// Populated by pipeline</span>
-  <span class="prop">illustrations</span>?: <span class="type">IllustrationSpec</span>[];  <span class="keyword">// Legacy</span>
+<span class="keyword">interface</span> <span class="type">Storyboard</span> {
+  <span class="prop">id</span>, <span class="prop">title</span>, <span class="prop">topic</span>: <span class="type">string</span>;
+  <span class="prop">generatedAt</span>?: <span class="type">number</span>;
+  <span class="prop">targetUser</span>?: { <span class="prop">expertise</span>, <span class="prop">goal</span>, <span class="prop">userId</span>, <span class="prop">roadmapPosition</span>, <span class="prop">presentationPreferences</span> };
+  <span class="prop">scenes</span>: <span class="type">StoryboardScene</span>[];
+  <span class="prop">parameters</span>: <span class="type">ParameterDefinition</span>[];
+  <span class="prop">voiceScript</span>?, <span class="prop">narrationManifest</span>?: <span class="type">NarrationManifest</span>;
+  <span class="prop">interactionPoints</span>: <span class="type">InteractionPoint</span>[];
+  <span class="prop">metadata</span>?: <span class="type">StoryboardMetadata</span>;
 }
+
+<span class="keyword">interface</span> <span class="type">StoryboardScene</span> {  <span class="keyword">// Planner output — agentCommands filled by compiler</span>
+  <span class="prop">id</span>, <span class="prop">name</span>, <span class="prop">narration</span>: <span class="type">string</span>;
+  <span class="prop">nodeIds</span>?: <span class="type">string</span>[];
+  <span class="prop">checkpointName</span>: <span class="type">string</span>;  <span class="keyword">// Required — assigned by planner or fallback (scene-{nodeId})</span>
+  <span class="prop">focusNodeId</span>?: <span class="type">string</span>;
+  <span class="prop">durationEstimate</span>?, <span class="prop">estimatedDurationSeconds</span>: <span class="type">number</span>;
+  <span class="prop">agentCommands</span>: <span class="type">AgentCommand</span>[];  <span class="keyword">// Empty from planner</span>
+  <span class="prop">syncMarkers</span>?: <span class="type">SyncMarker</span>[];
+  <span class="prop">viewport</span>: <span class="type">ViewportState</span> | <span class="type">PlannerViewport</span>;
+  <span class="prop">interactiveParameters</span>: <span class="type">string</span>[];
+  <span class="prop">transitionFrom</span>?, <span class="prop">branches</span>?: <span class="type">Branch</span>[];
+  <span class="prop">scaffolding</span>?: <span class="type">ScaffoldingHint</span>;
+}
+
+<span class="keyword">interface</span> <span class="type">PlannerViewport</span> { <span class="prop">zoom</span>: <span class="type">number</span>; <span class="prop">center</span>: { <span class="prop">x</span>, <span class="prop">y</span> }; }
+
+<span class="keyword">interface</span> <span class="type">ScaffoldingHint</span> {
+  <span class="prop">emphasizeNodeIds</span>: <span class="type">string</span>[];
+  <span class="prop">analogyContext</span>, <span class="prop">difficultyContext</span>, <span class="prop">suggestedVisualMetaphor</span>: <span class="type">string</span> | <span class="type">null</span>;
+}
+  </div>
+
+  <h3>ParameterDefinition</h3>
+  <div class="type-block">
+<span class="keyword">interface</span> <span class="type">ParameterDefinition</span> {
+  <span class="prop">name</span>, <span class="prop">label</span>: <span class="type">string</span>;
+  <span class="prop">type</span>: <span class="type">ParameterType</span>;  <span class="keyword">// integer | float | boolean | string | enum</span>
+  <span class="prop">default</span>: <span class="type">unknown</span>;
+  <span class="prop">min</span>?, <span class="prop">max</span>?, <span class="prop">options</span>?, <span class="prop">enumValues</span>?;
+  <span class="prop">bindings</span>: <span class="type">ParameterBindingSpec</span>[] | <span class="type">ParameterBindingRecord</span>[];
+  <span class="prop">exposedInScenes</span>?, <span class="prop">semanticTarget</span>?;
+}
+  </div>
+
+  <h3>storyboard_ready Event</h3>
+  <p>Gateway emits <code>storyboard_ready</code> before presentation starts. Frontend uses it for timeline checkpoint markers and parameter UI.</p>
+  <div class="type-block">
+{ <span class="prop">type</span>: <span class="string">'storyboard_ready'</span>,
+  <span class="prop">checkpoints</span>: [{ <span class="prop">sceneId</span>, <span class="prop">checkpointName</span>, <span class="prop">estimatedDurationSeconds</span> }],
+  <span class="prop">parameters</span>: <span class="type">ParameterDefinition</span>[],
+  <span class="prop">totalScenes</span>: <span class="type">number</span> }
   </div>
 
   <div class="flow-arrow">↓</div>
 </section>
 
 <!-- ═══════════════════════════════════════════════════════════ -->
-<!-- STAGE 5: VisualScript (per scene) -->
+<!-- STAGE 5: VisualScript + PreparedScene -->
 <!-- ═══════════════════════════════════════════════════════════ -->
 <section>
   <div class="section-header">
-    <div class="section-tag">Stage 5a</div>
+    <div class="section-tag">Stage 5</div>
     <h2>VisualScript — Frame-Based Visual Narrative</h2>
   </div>
 
   <div class="stage-card">
-    <div class="stage-num">OUTPUT OF AgentOrchestrator → VisualScriptGenerator</div>
-    <div class="stage-service">VisualScriptGenerator — Claude analyzeNarration → segmentsToFrames</div>
-    <p>Claude produces VisualSegment[] (JSON). Segments convert to IllustrationFrame[] with accumulative entity model. LayoutEngine + SceneCompositionService post-process.</p>
+    <div class="stage-num">OUTPUT OF AgentOrchestrator.orchestrateScene() → VisualScriptGenerator.generateScript()</div>
+    <div class="stage-service">ScenePipelineOrchestrator.prepareAllScenesFromStoryboard() — concurrent VisualScript + TTS</div>
+    <p>For each StoryboardScene: storyboardSceneToPresentationScene → orchestrateScene (with scaffolding) → VisualScript. TTS in parallel. Rescale timings to real audio. compileStoryboardScene produces executable StoryboardScene.</p>
   </div>
 
-  <h3>Intermediate: VisualSegment (Claude JSON output)</h3>
+  <h3>Intermediate: PresentationScene (internal)</h3>
   <div class="type-block">
-<span class="keyword">// Per-segment from Claude</span>
-{ <span class="prop">text</span>, <span class="prop">timeRangePercent</span>: [start, end], <span class="prop">entities</span>: [...], <span class="prop">description</span> }
-<span class="keyword">// Entity in segment</span>
-{ <span class="prop">type</span>, <span class="prop">label</span>, <span class="prop">position</span>, <span class="prop">color</span>, <span class="prop">size</span>, <span class="prop">animation</span>, <span class="prop">from</span>, <span class="prop">to</span>, <span class="prop">parent</span> }
+<span class="keyword">interface</span> <span class="type">PresentationScene</span> {
+  <span class="prop">id</span>, <span class="prop">focusNodeId</span>: <span class="type">string</span>;
+  <span class="prop">nodeIds</span>, <span class="prop">edgeIds</span>: <span class="type">string</span>[];
+  <span class="prop">narration</span>: <span class="type">string</span>;
+  <span class="prop">viewport</span>: { <span class="prop">x</span>, <span class="prop">y</span>, <span class="prop">zoom</span> };
+  <span class="prop">visualCommands</span>: <span class="type">VisualCommand</span>[];
+  <span class="prop">durationEstimate</span>: <span class="type">number</span>;
+  <span class="prop">visualScript</span>?: <span class="type">VisualScript</span>;  <span class="keyword">// Populated by pipeline</span>
+  <span class="prop">illustrations</span>?, <span class="prop">sceneContract</span>?;
+}
   </div>
 
   <h3>Data Structure: VisualScript</h3>
@@ -512,21 +584,21 @@ flowchart TB
   <span class="prop">label</span>?, <span class="prop">color</span>?, <span class="prop">highlight</span>?;
   <span class="prop">animation</span>?: { <span class="prop">type</span>, <span class="prop">duration</span>, <span class="prop">delay</span> };
   <span class="prop">sourceEntityId</span>?, <span class="prop">targetEntityId</span>?;  <span class="keyword">// For Arrow/DataFlow</span>
+  <span class="prop">parentEntityId</span>?;  <span class="keyword">// Hierarchical nesting</span>
   <span class="prop">textContent</span>?, <span class="prop">codeLanguage</span>?;
   <span class="prop">metadata</span>?: <span class="type">Record</span>&lt;<span class="type">string</span>, <span class="type">any</span>&gt;;
 }
   </div>
 
-  <h3>Stage 5b: PreparedScene</h3>
-  <p>ScenePipelineOrchestrator runs <strong>VisualScript + TTS in parallel</strong>. Rescales VisualScript timings to match real audio duration. Compiles to StoryboardScene.</p>
+  <h3>PreparedScene</h3>
   <div class="type-block">
 <span class="keyword">interface</span> <span class="type">PreparedScene</span> {
-  <span class="prop">scene</span>: <span class="type">PresentationScene</span>;  <span class="keyword">// With visualScript attached</span>
-  <span class="prop">storyboard</span>?: <span class="type">StoryboardScene</span>;
+  <span class="prop">storyboard</span>: <span class="type">StoryboardScene</span>;  <span class="keyword">// Required on new path — compiled with agentCommands</span>
+  <span class="prop">scene</span>?: <span class="type">PresentationScene</span>;  <span class="keyword">// Deprecated — legacy path only</span>
   <span class="prop">audioData</span>?: <span class="type">Uint8Array</span>;
   <span class="prop">wordTimestamps</span>?: <span class="type">WordTimestamp</span>[];
   <span class="prop">audioDurationMs</span>?: <span class="type">number</span>;
-  <span class="prop">status</span>: <span class="type">ScenePreparationStatus</span>;
+  <span class="prop">status</span>: <span class="type">ScenePreparationStatus</span>;  <span class="keyword">// pending | preparing | ready | failed</span>
 }
   </div>
 
@@ -534,7 +606,7 @@ flowchart TB
 </section>
 
 <!-- ═══════════════════════════════════════════════════════════ -->
-<!-- STAGE 6: StoryboardScene -->
+<!-- STAGE 6: StoryboardScene (Compiled) -->
 <!-- ═══════════════════════════════════════════════════════════ -->
 <section>
   <div class="section-header">
@@ -543,18 +615,20 @@ flowchart TB
   </div>
 
   <div class="stage-card">
-    <div class="stage-num">OUTPUT OF compilePresentationScene() — VisualScriptCompiler</div>
-    <div class="stage-service">VisualScriptCompiler — VisualScript → AgentCommand[]</div>
-    <p>VisualScript frames become createElement, fadeIn, moveTo, fadeOut, destroyElement. VisualCommand[] (legacy) become showElement, highlight, etc. SyncMarkers bind commands to word indices.</p>
+    <div class="stage-num">OUTPUT OF compileStoryboardScene() — shared/VisualScriptCompiler</div>
+    <div class="stage-service">VisualScriptCompiler — VisualScript → AgentCommand[] + SyncMarker[]</div>
+    <p>Frames become createElement, fadeIn, moveTo, fadeOut. Viewport normalized (PlannerViewport → ViewportState). SyncMarkers bind timed commands to word indices. Parameter bindings inferred from ENTITY_PARAMETER_MAP.</p>
   </div>
 
   <h3>Transformation: VisualScript → AgentCommand[]</h3>
-  <p>Each frame entity: <code>createElement</code> (timing: frame.startTime + delay) → <code>fadeIn</code> (await-previous). Position changes → <code>moveTo</code>. Removed entities → <code>fadeOut</code> → <code>destroyElement</code>.</p>
+  <p>Each frame entity: <code>createElement</code> (timing: frame.startTime + delay) → <code>fadeIn</code> (await-previous). Position changes → <code>moveTo</code>. Removed entities → <code>fadeOut</code>. Commands with timing &gt; 0 and wordTimestamps → SyncMarker.</p>
 
   <h3>Data Structure</h3>
   <div class="type-block">
 <span class="keyword">interface</span> <span class="type">StoryboardScene</span> {
   <span class="prop">id</span>, <span class="prop">name</span>, <span class="prop">narration</span>: <span class="type">string</span>;
+  <span class="prop">nodeIds</span>?, <span class="prop">focusNodeId</span>?: <span class="type">string</span>;
+  <span class="prop">checkpointName</span>: <span class="type">string</span>;  <span class="keyword">// Required — every scene navigable</span>
   <span class="prop">agentCommands</span>: <span class="type">AgentCommand</span>[];
   <span class="prop">syncMarkers</span>?: <span class="type">SyncMarker</span>[];
   <span class="prop">viewport</span>: <span class="type">ViewportState</span>;
@@ -563,7 +637,7 @@ flowchart TB
 }
 
 <span class="keyword">interface</span> <span class="type">AgentCommand</span> {
-  <span class="prop">method</span>: <span class="type">string</span>;  <span class="keyword">// createElement, fadeIn, moveTo, zoomTo, panTo, etc.</span>
+  <span class="prop">method</span>: <span class="type">string</span>;  <span class="keyword">// createElement, fadeIn, moveTo, zoomTo, panTo, setParameter, etc.</span>
   <span class="prop">args</span>: <span class="type">Record</span>&lt;<span class="type">string</span>, <span class="type">unknown</span>&gt;;
   <span class="prop">timing</span>: <span class="type">'immediate'</span> | <span class="type">'await-previous'</span> | <span class="type">number</span>;
 }
@@ -572,10 +646,15 @@ flowchart TB
   <span class="prop">wordIndex</span>: <span class="type">number</span>;
   <span class="prop">command</span>: <span class="type">AgentCommand</span>;
 }
+
+<span class="keyword">interface</span> <span class="type">ViewportState</span> {
+  <span class="prop">x</span>, <span class="prop">y</span>, <span class="prop">zoom</span>: <span class="type">number</span>;
+  <span class="prop">rotation</span>?, <span class="prop">focusElementId</span>?, <span class="prop">bounds</span>?;
+}
   </div>
 
   <h3>WebSocket Delivery</h3>
-  <p>Gateway sends <code>scene_change</code> with StoryboardScene, then <code>agent_audio_meta</code> (durationMs, wordTimestamps, visualScript), then binary audio.</p>
+  <p>Gateway sends <code>scene_change</code> with StoryboardScene (agentCommands + syncMarkers), then <code>narration_text</code>, then <code>agent_audio_meta</code> (durationMs, wordTimestamps only — no visualScript), then binary audio. Frontend uses agentCommands from scene_change as the single source of visual truth.</p>
 
   <div class="flow-arrow">↓</div>
 </section>
@@ -590,27 +669,37 @@ flowchart TB
   </div>
 
   <div class="stage-card">
-    <div class="stage-num">sessionStore → SceneGraphPresenter → useSceneEngine → FrameRenderer</div>
-    <div class="stage-service">SceneExecutor executes AgentCommand[] against EnvironmentAPI</div>
-    <p>Each createElement adds SceneElement to engine. fadeIn/moveTo update element state. Dirty render cycle updates only changed elements.</p>
+    <div class="stage-num">sessionStore.currentScene → SceneGraphPresenter → useSceneEngine → SceneExecutor → FrameRenderer</div>
+    <div class="stage-service">SceneExecutor.execute(scene) runs AgentCommand[] against EnvironmentAPI</div>
+    <p>Each createElement adds SceneElement to SceneGraph. fadeIn/moveTo update element state. Dirty render cycle updates only changed elements (Law 3).</p>
   </div>
 
   <h3>Data Structure: SceneElement (Engine State)</h3>
   <div class="type-block">
 <span class="keyword">interface</span> <span class="type">SceneElement</span> {
   <span class="prop">id</span>: <span class="type">string</span>;  <span class="keyword">// "sceneId:entityId"</span>
-  <span class="prop">type</span>: <span class="type">StageElementType</span>;  <span class="keyword">// box | circle | arrow | text | code | diagram | label | group</span>
+  <span class="prop">type</span>: <span class="type">StageElementType</span>;  <span class="keyword">// box | circle | arrow | text | code | diagram | label | connection | group</span>
   <span class="prop">position</span>: <span class="type">Vector2</span>;
   <span class="prop">visible</span>, <span class="prop">opacity</span>, <span class="prop">zIndex</span>;
   <span class="prop">properties</span>: { <span class="prop">visualEntityType</span>, <span class="prop">label</span>, <span class="prop">color</span>, <span class="prop">width</span>, <span class="prop">height</span>, ... };
+  <span class="prop">boundParameters</span>?: <span class="type">string</span>[];
 }
   </div>
 
   <h3>Transformation: elementToVisualEntity</h3>
-  <p>SceneElement → VisualEntity: pixel position → percentage, extract visualEntityType, label, color, size from properties.</p>
+  <p>SceneElement → VisualEntity: pixel position → percentage, extract visualEntityType, label, color, size from properties. Strip sceneId: prefix from id.</p>
+
+  <h3>ExecutionResult</h3>
+  <div class="type-block">
+<span class="keyword">interface</span> <span class="type">ExecutionResult</span> {
+  <span class="prop">status</span>: <span class="type">'complete'</span> | <span class="type">'aborted'</span>;
+  <span class="prop">completedCommands</span>: <span class="type">CommandResult</span>[];
+  <span class="prop">failedCommand</span>?, <span class="prop">error</span>?;
+}
+  </div>
 
   <h3>Final: FrameRenderer → SVGLibrary</h3>
-  <p>VisualEntity[] dispatched by type to 40+ SVG components (Server, Pod, Arrow, Equation, Graph2D, etc.). Each component renders SVG elements. Canvas is 1600×900.</p>
+  <p>VisualEntity[] dispatched by type to 40+ SVG components (Server, Pod, Arrow, Equation, Graph2D, etc.). Canvas 1600×900 (CANVAS_WIDTH × CANVAS_HEIGHT).</p>
 
   <div class="diagram">
     <div class="diagram-label">Frontend Rendering Chain</div>
@@ -618,13 +707,99 @@ flowchart TB
 flowchart LR
     A["StoryboardScene"] --> B["SceneExecutor"]
     B --> C["EnvironmentAPI"]
-    C --> D["SceneElement Map"]
-    D --> E["elementToVisualEntity"]
-    E --> F["VisualEntity[]"]
-    F --> G["FrameRenderer"]
-    G --> H["SVGLibrary"]
-    H --> I["SVG DOM"]
+    C --> D["SceneGraph"]
+    D --> E["SceneElement Map"]
+    E --> F["elementToVisualEntity"]
+    F --> G["VisualEntity[]"]
+    G --> H["FrameRenderer"]
+    H --> I["SVGLibrary"]
+    I --> J["SVG DOM"]
     </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- INTERACTION PATHS -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section>
+  <div class="section-header">
+    <div class="section-tag">Stage 7b</div>
+    <h2>Interaction Paths</h2>
+  </div>
+
+  <p>Two critical user interactions are handled outside the main pipeline. Documenting them explicitly prevents future implementers from assuming server round-trips where none exist.</p>
+
+  <h3>Checkpoint Restore</h3>
+  <div class="stage-card">
+    <div class="stage-num">User clicks checkpoint in timeline</div>
+    <ol style="margin: 12px 0 0 24px; line-height: 1.8;">
+      <li>Client sends: <code>{ type: 'restore_checkpoint', name: 'Service Introduction' }</code></li>
+      <li>Gateway: CheckpointManager.restoreCheckpoint(session, name)</li>
+      <li>SceneGraph state replaced from SceneSnapshot (&lt;100ms)</li>
+      <li>All elements marked dirty</li>
+      <li>Gateway sends: <code>{ type: 'checkpoint_restored', checkpointName, sceneId }</code></li>
+      <li>Frontend: SceneGraph re-renders dirty elements</li>
+      <li>AudioPlaybackManager.seekTo(snapshot.narrationOffset)</li>
+    </ol>
+  </div>
+
+  <h3>Parameter Change (Frontend-Only)</h3>
+  <div class="stage-card">
+    <div class="stage-num">User changes parameter slider — <em>no server round-trip</em></div>
+    <ol style="margin: 12px 0 0 24px; line-height: 1.8;">
+      <li>Client sends: <code>{ type: 'set_parameter', name: 'pod_count', value: 3 }</code> (for sync to other clients)</li>
+      <li>Frontend: EnvironmentAPI.setParameter('pod_count', 3)</li>
+      <li>SceneGraph: bindings propagate via MapperRegistry, elements marked dirty</li>
+      <li>Next render frame picks up dirty elements (&lt;16ms)</li>
+      <li><strong>No server call required</strong> — Law 2 (Parameters Over Regeneration)</li>
+    </ol>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- WEBSOCKET EVENTS -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section>
+  <div class="section-header">
+    <div class="section-tag">Reference</div>
+    <h2>WebSocket Events</h2>
+  </div>
+
+  <h3>WSServerEvent (Server → Client)</h3>
+  <div class="type-block">
+<span class="keyword">// State & session</span>
+{ <span class="prop">type</span>: <span class="string">'state_change'</span>, <span class="prop">from</span>, <span class="prop">to</span>: <span class="type">SessionState</span>, <span class="prop">metadata</span>? }
+{ <span class="prop">type</span>: <span class="string">'graph_update'</span>, <span class="prop">mutation</span>: <span class="type">GraphMutation</span> }
+
+<span class="keyword">// Storyboard (before presentation)</span>
+{ <span class="prop">type</span>: <span class="string">'storyboard_ready'</span>, <span class="prop">checkpoints</span>, <span class="prop">parameters</span>, <span class="prop">totalScenes</span> }
+{ <span class="prop">type</span>: <span class="string">'scene_prepare_status'</span>, <span class="prop">sceneIndex</span>, <span class="prop">status</span>, <span class="prop">totalScenes</span> }
+
+<span class="keyword">// Presentation</span>
+{ <span class="prop">type</span>: <span class="string">'scene_change'</span>, <span class="prop">scene</span>: <span class="type">StoryboardScene</span> }
+{ <span class="prop">type</span>: <span class="string">'narration_text'</span>, <span class="prop">text</span>, <span class="prop">sceneId</span> }
+{ <span class="prop">type</span>: <span class="string">'agent_audio_meta'</span>, <span class="prop">durationMs</span>, <span class="prop">sceneId</span>, <span class="prop">wordTimestamps</span>? }
+<span class="keyword">// @deprecated — legacy path only (demo): visualScript?, illustrations? — frontend uses agentCommands from scene_change</span>
+{ <span class="prop">type</span>: <span class="string">'agent_audio'</span>, <span class="prop">data</span>: <span class="type">ArrayBuffer</span> }
+
+<span class="keyword">// Interrupt / parameters</span>
+{ <span class="prop">type</span>: <span class="string">'bookmark_created'</span> | <span class="string">'bookmark_resumed'</span>, <span class="prop">bookmark</span> }
+{ <span class="prop">type</span>: <span class="string">'parameter_update'</span>, <span class="prop">name</span>, <span class="prop">value</span> }
+{ <span class="prop">type</span>: <span class="string">'checkpoint_created'</span> | <span class="string">'checkpoint_restored'</span>, ... }
+{ <span class="prop">type</span>: <span class="string">'rl_update'</span>, <span class="prop">policy</span>, <span class="prop">learnerState</span>? }
+{ <span class="prop">type</span>: <span class="string">'error'</span>, <span class="prop">message</span>, <span class="prop">code</span> }
+{ <span class="prop">type</span>: <span class="string">'pong'</span> }
+  </div>
+
+  <h3>WSClientEvent (Client → Server)</h3>
+  <div class="type-block">
+{ <span class="prop">type</span>: <span class="string">'start_session'</span>, <span class="prop">topic</span> }
+{ <span class="prop">type</span>: <span class="string">'text_input'</span>, <span class="prop">text</span> }
+{ <span class="prop">type</span>: <span class="string">'user_command'</span>, <span class="prop">command</span> }
+{ <span class="prop">type</span>: <span class="string">'set_parameter'</span>, <span class="prop">name</span>, <span class="prop">value</span> }
+{ <span class="prop">type</span>: <span class="string">'restore_checkpoint'</span>, <span class="prop">name</span> }
+{ <span class="prop">type</span>: <span class="string">'audio_chunk'</span>, <span class="prop">data</span>: <span class="type">ArrayBuffer</span> }
+{ <span class="prop">type</span>: <span class="string">'ping'</span> }
   </div>
 </section>
 
@@ -669,27 +844,21 @@ flowchart LR
         </tr>
         <tr style="border-bottom: 1px solid var(--border);">
           <td style="padding:12px;">4</td>
-          <td style="padding:12px;">KnowledgeGraph, RLPolicy</td>
-          <td style="padding:12px;">PresentationScene[]</td>
-          <td style="padding:12px;">PresentationPlanner.computeTraversalOrder(), composeSceneLocals()</td>
+          <td style="padding:12px;">KnowledgeGraph, LearnerProfile</td>
+          <td style="padding:12px;">Storyboard</td>
+          <td style="padding:12px;">StoryboardEngine.plan()</td>
         </tr>
         <tr style="border-bottom: 1px solid var(--border);">
           <td style="padding:12px;">5</td>
-          <td style="padding:12px;">PresentationScene, focusNode, wordTimestamps</td>
-          <td style="padding:12px;">VisualScript (in scene.visualScript)</td>
-          <td style="padding:12px;">AgentOrchestrator → VisualScriptGenerator.generateScript()</td>
-        </tr>
-        <tr style="border-bottom: 1px solid var(--border);">
-          <td style="padding:12px;">5b</td>
-          <td style="padding:12px;">PresentationScene + VisualScript + TTS</td>
-          <td style="padding:12px;">PreparedScene</td>
-          <td style="padding:12px;">ScenePipelineOrchestrator.prepareScene()</td>
+          <td style="padding:12px;">Storyboard, KnowledgeGraph, RLPolicy</td>
+          <td style="padding:12px;">PreparedScene[] (VisualScript + TTS)</td>
+          <td style="padding:12px;">ScenePipelineOrchestrator.prepareAllScenesFromStoryboard()</td>
         </tr>
         <tr style="border-bottom: 1px solid var(--border);">
           <td style="padding:12px;">6</td>
-          <td style="padding:12px;">PresentationScene (with visualScript)</td>
-          <td style="padding:12px;">StoryboardScene</td>
-          <td style="padding:12px;">compilePresentationScene() — VisualScriptCompiler</td>
+          <td style="padding:12px;">StoryboardScene + VisualScript + wordTimestamps</td>
+          <td style="padding:12px;">StoryboardScene (compiled)</td>
+          <td style="padding:12px;">compileStoryboardScene() — shared/VisualScriptCompiler</td>
         </tr>
         <tr style="border-bottom: 1px solid var(--border);">
           <td style="padding:12px;">7</td>
@@ -705,7 +874,7 @@ flowchart LR
 </div>
 
 <footer>
-  Agentic Presentation System — Data Flow Reference. See <code>shared/types.ts</code>, <code>TECHNICAL_ARCHITECTURE.md</code>.
+  Agentic Presentation System — Data Flow Reference. See <code>shared/types.ts</code>, <code>shared/VisualScriptCompiler.ts</code>, <code>TECHNICAL_ARCHITECTURE.md</code>.
 </footer>
 
 <script>

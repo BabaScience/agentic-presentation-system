@@ -275,6 +275,23 @@ export class WebSocketGateway {
     await this.progressivePresentLoop(session);
   }
 
+  /** Derive PresentationScene from StoryboardScene when scene is absent (legacy compat). */
+  private storyboardToPresentationScene(sb: StoryboardScene): PresentationScene {
+    const viewport = 'center' in sb.viewport
+      ? { x: sb.viewport.center.x, y: sb.viewport.center.y, zoom: sb.viewport.zoom }
+      : { x: sb.viewport.x, y: sb.viewport.y, zoom: sb.viewport.zoom };
+    return {
+      id: sb.id,
+      nodeIds: sb.nodeIds ?? [],
+      edgeIds: [],
+      narration: sb.narration,
+      focusNodeId: sb.focusNodeId ?? sb.nodeIds?.[0] ?? '',
+      viewport,
+      visualCommands: [],
+      durationEstimate: (sb.estimatedDurationSeconds ?? 15) * 1000,
+    };
+  }
+
   // ── Progressive Presentation Loop ─────────────────────────
   // Consumes prepared scenes from the SceneReadyQueue one at a time.
   // Scene 1 plays as soon as it's ready; later scenes prepare during playback.
@@ -296,8 +313,8 @@ export class WebSocketGateway {
       const prepared = await queue.waitForScene(sceneIndex, signal);
       if (!prepared || signal.aborted) break;
 
-      const scene = prepared.scene;
-      const storyboard = prepared.storyboard ?? compilePresentationScene(scene);
+      const storyboard = prepared.storyboard;
+      const scene = prepared.scene ?? this.storyboardToPresentationScene(storyboard);
 
       // Store in traversalPath for interrupt/resume compatibility
       session.traversalPath[sceneIndex] = scene;
@@ -330,24 +347,18 @@ export class WebSocketGateway {
           durationMs: prepared.audioDurationMs!,
           sceneId: scene.id,
           wordTimestamps: prepared.wordTimestamps,
-          visualScript: scene.visualScript,
-          illustrations: scene.illustrations,
         });
         if (session.ws.readyState === WebSocket.OPEN) {
           session.ws.send(prepared.audioData);
         }
         await this.delay(prepared.audioDurationMs! + 500, signal);
       } else {
-        // No TTS audio — send visual metadata and use estimated duration
-        if (scene.visualScript || scene.illustrations) {
-          this.send(session.ws, {
-            type: 'agent_audio_meta',
-            durationMs: scene.durationEstimate,
-            sceneId: scene.id,
-            visualScript: scene.visualScript,
-            illustrations: scene.illustrations,
-          });
-        }
+        // No TTS audio — send duration for client timing
+        this.send(session.ws, {
+          type: 'agent_audio_meta',
+          durationMs: scene.durationEstimate,
+          sceneId: scene.id,
+        });
         await this.delay(scene.durationEstimate || 5000, signal);
       }
 
@@ -433,8 +444,6 @@ export class WebSocketGateway {
               durationMs: realDurationMs,
               sceneId: scene.id,
               wordTimestamps,
-              visualScript: scene.visualScript,
-              illustrations: scene.illustrations,
             });
             // Send audio as binary
             if (session.ws.readyState === WebSocket.OPEN) {
@@ -582,8 +591,6 @@ export class WebSocketGateway {
               durationMs,
               sceneId: scene.id,
               wordTimestamps,
-              visualScript: scene.visualScript,
-              illustrations: scene.illustrations,
             });
             if (session.ws.readyState === WebSocket.OPEN) {
               session.ws.send(audioData);

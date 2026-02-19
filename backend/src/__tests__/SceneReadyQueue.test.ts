@@ -1,8 +1,19 @@
 import { SceneReadyQueue } from '../services/SceneReadyQueue';
-import type { PreparedScene, PresentationScene } from '../../shared/types';
+import type { PreparedScene } from '../../shared/types';
 
 function makePreparedScene(id: string): PreparedScene {
+  const storyboard = {
+    id,
+    name: id,
+    narration: 'test',
+    checkpointName: `cp-${id}`,
+    agentCommands: [],
+    viewport: { x: 0, y: 0, zoom: 1 },
+    interactiveParameters: [],
+    estimatedDurationSeconds: 5,
+  };
   return {
+    storyboard,
     scene: {
       id,
       nodeIds: [],

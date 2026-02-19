@@ -389,6 +389,7 @@ export function compilePresentationScene(
     id: scene.id,
     name: scene.id,
     narration: scene.narration,
+    checkpointName: `checkpoint-${scene.id}`,
     agentCommands: commands,
     syncMarkers: allSyncMarkers.length > 0 ? allSyncMarkers : undefined,
     viewport,
@@ -498,14 +499,12 @@ export function compileStoryboardScene(
 
   let commands: AgentCommand[] = [];
 
-  // 1. Checkpoint first
-  if (scene.checkpointName) {
-    commands.push({
-      method: 'createCheckpoint',
-      args: { name: scene.checkpointName },
-      timing: 0,
-    });
-  }
+  // 1. Checkpoint first (checkpointName is required)
+  commands.push({
+    method: 'createCheckpoint',
+    args: { name: scene.checkpointName },
+    timing: 0,
+  });
 
   // 2. Viewport
   const viewport =
