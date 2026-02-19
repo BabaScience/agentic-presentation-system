@@ -172,7 +172,7 @@ describe('MathVisualizationService', () => {
       const narrations = [
         'This is a simple container',
         'The server handles requests',
-        'Deploy to production',
+        'Deploy the application',
       ];
 
       narrations.forEach((narration) => {

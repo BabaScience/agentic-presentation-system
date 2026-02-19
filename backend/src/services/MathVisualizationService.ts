@@ -73,20 +73,25 @@ export class MathVisualizationService {
       'cycloid',
       'polar',
       'curve',
-      '=',
-      '+',
-      '-',
-      '*',
-      '/',
-      '^',
       'sqrt',
       'sum',
       'product',
+      // Single-char operators: escape for RegExp (+, *, ^ are regex metacharacters)
+      '=',
+      '\\+',
+      '-',
+      '\\*',
+      '/',
+      '\\^',
     ];
 
-    return mathKeywords.some((keyword) =>
-      new RegExp(keyword, 'i').test(narration),
-    );
+    return mathKeywords.some((keyword) => {
+      try {
+        return new RegExp(keyword, 'i').test(narration);
+      } catch {
+        return false;
+      }
+    });
   }
 
   /**
