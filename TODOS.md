@@ -34,6 +34,18 @@
 - [x] Parameter propagation <16ms, zero API calls
 
 ## Session 6 — Migration
-- [ ] SceneGraph replaces frame selector in Illustration
-- [ ] Deprecate PresentationScene
-- [ ] Remove old path when new path achieves parity
+- [x] SceneGraph replaces frame selector in Illustration
+- [x] Deprecate PresentationScene
+- [x] Remove old path when new path achieves parity
+
+## Session 7 — LearnerProfileService (Journey-Level RL)
+- [ ] loadProfile() / saveProfile() with Redis persistence
+- [ ] updateMastery() signal write-back
+- [ ] Thompson Sampling state persists across sessions
+- [ ] Mastery signals from concept completion
+
+## Session 8 — Integration Test
+- [ ] Topic → Storyboard → SceneGraph → Checkpoints → Parameters → RL loop
+- [ ] Kubernetes networking demo on full new architecture
+- [ ] All performance contracts verified end-to-end
+- [ ] Old frame selector path confirmed deleted

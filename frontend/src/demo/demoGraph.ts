@@ -1,7 +1,8 @@
 /* ═══════════════════════════════════════════════════════════════
    Demo Knowledge Graph — Kubernetes Networking
    Embedded fallback for when backend is unavailable.
-   Includes frame-based visual scripts for the IllustrationCanvas.
+   DEMO_SCENES (PresentationScene[]) is compiled to StoryboardScene[]
+   in compiledDemoScenes.ts for SceneGraphPresenter consumption.
    ═══════════════════════════════════════════════════════════════ */
 
 import type { KGNode, KGEdge, PresentationScene, VisualScript } from '../stores/sessionStore';

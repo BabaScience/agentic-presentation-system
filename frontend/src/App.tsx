@@ -5,9 +5,9 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useSessionStore } from './stores/sessionStore';
-import type { KGNode, PresentationScene, StoryboardScene } from './stores/sessionStore';
-import { compilePresentationScene } from '@shared/VisualScriptCompiler';
-import { DEMO_NODES, DEMO_EDGES, DEMO_SCENES } from './demo/demoGraph';
+import type { KGNode, StoryboardScene } from './stores/sessionStore';
+import { DEMO_NODES, DEMO_EDGES } from './demo/demoGraph';
+import { COMPILED_DEMO_SCENES } from './demo/compiledDemoScenes';
 import { ScenePresenter } from './components/ScenePresenter';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { SoundEffectEngine } from './audio/SoundEffectEngine';
@@ -83,7 +83,7 @@ function Sidebar({
   onTabChange, onSendText, onCommand
 }: {
   nodes: Record<string, KGNode>;
-  currentScene: PresentationScene | StoryboardScene | null;
+  currentScene: StoryboardScene | null;
   narrationText: string;
   chatMessages: Array<{ role: string; text: string; timestamp: number }>;
   sessionState: string;
@@ -263,7 +263,7 @@ function TimelineBar({
   onCommand,
   onCheckpointClick,
 }: {
-  scenes: Array<PresentationScene | StoryboardScene>;
+  scenes: StoryboardScene[];
   storyboardCheckpoints?: StoryboardCheckpoint[];
   currentSceneIndex: number;
   sessionState: string;
@@ -350,7 +350,7 @@ function PresentationCanvas({
   onCommand,
 }: {
   sceneTransitioning: boolean;
-  scenes: Array<PresentationScene | StoryboardScene>;
+  scenes: StoryboardScene[];
   currentSceneIdx: number;
   setDemoSceneIndex: (fn: (prev: number) => number) => void;
   isDemoMode: boolean;
@@ -493,7 +493,7 @@ export default function App() {
             bindings: [],
           },
         ],
-        totalScenes: DEMO_SCENES.length,
+        totalScenes: COMPILED_DEMO_SCENES.length,
       });
       store.setSessionState('PRESENTING' as any);
       setDemoSceneIndex(0);
@@ -506,22 +506,21 @@ export default function App() {
 
   // ── Demo Auto-Advance ──────────────────────────────────
   useEffect(() => {
-    if (demoSceneIndex < 0 || demoSceneIndex >= DEMO_SCENES.length) return;
+    if (demoSceneIndex < 0 || demoSceneIndex >= COMPILED_DEMO_SCENES.length) return;
 
-    const scene = DEMO_SCENES[demoSceneIndex];
-    const compiled = compilePresentationScene(scene) as StoryboardScene;
-    store.setCurrentScene(compiled);
+    const scene = COMPILED_DEMO_SCENES[demoSceneIndex];
+    store.setCurrentScene(scene);
     store.setNarration(scene.narration);
     store.addChatMessage({ role: 'agent', text: scene.narration, timestamp: Date.now() });
 
     // Mark nodes as presented
-    for (const nid of scene.nodeIds) {
+    for (const nid of scene.nodeIds ?? []) {
       store.updateNode(nid, { isPresented: true });
     }
 
     // Auto-advance
     demoTimerRef.current = setTimeout(() => {
-      if (demoSceneIndex < DEMO_SCENES.length - 1) {
+      if (demoSceneIndex < COMPILED_DEMO_SCENES.length - 1) {
         setDemoSceneIndex(prev => prev + 1);
       } else {
         store.setSessionState('COMPLETED' as any);
@@ -531,24 +530,25 @@ export default function App() {
           timestamp: Date.now(),
         });
       }
-    }, scene.durationEstimate);
+    }, scene.durationEstimate ?? scene.estimatedDurationSeconds * 1000);
 
     return () => { if (demoTimerRef.current) clearTimeout(demoTimerRef.current); };
   }, [demoSceneIndex]);
 
   // ── Demo Time Simulation (drives frame transitions) ───
   useEffect(() => {
-    if (demoSceneIndex < 0 || demoSceneIndex >= DEMO_SCENES.length) return;
+    if (demoSceneIndex < 0 || demoSceneIndex >= COMPILED_DEMO_SCENES.length) return;
 
-    const scene = DEMO_SCENES[demoSceneIndex];
+    const scene = COMPILED_DEMO_SCENES[demoSceneIndex];
+    const durationMs = scene.durationEstimate ?? scene.estimatedDurationSeconds * 1000;
     const startRealTime = performance.now();
     store.updateAudioTime(0);
 
     let rafId: number;
     const tick = () => {
       const elapsed = performance.now() - startRealTime;
-      store.updateAudioTime(Math.min(elapsed, scene.durationEstimate));
-      if (elapsed < scene.durationEstimate) {
+      store.updateAudioTime(Math.min(elapsed, durationMs));
+      if (elapsed < durationMs) {
         rafId = requestAnimationFrame(tick);
       }
     };
@@ -563,7 +563,7 @@ export default function App() {
       // Demo mode commands
       if (demoTimerRef.current) clearTimeout(demoTimerRef.current);
 
-      if (cmd === 'skip' && demoSceneIndex < DEMO_SCENES.length - 1) {
+      if (cmd === 'skip' && demoSceneIndex < COMPILED_DEMO_SCENES.length - 1) {
         setDemoSceneIndex(prev => prev + 1);
       } else if (cmd === 'go_back' && demoSceneIndex > 0) {
         setDemoSceneIndex(prev => prev - 1);
@@ -598,7 +598,7 @@ export default function App() {
       // Resume after 5s
       setTimeout(() => {
         store.setSessionState('PRESENTING' as any);
-        if (demoSceneIndex < DEMO_SCENES.length - 1) {
+        if (demoSceneIndex < COMPILED_DEMO_SCENES.length - 1) {
           setDemoSceneIndex(prev => prev + 1);
         }
       }, 5000);
@@ -612,7 +612,7 @@ export default function App() {
     return <ConfigScreen onLaunch={handleLaunch} />;
   }
 
-  const scenes: Array<PresentationScene | StoryboardScene> = demoSceneIndex >= 0 ? DEMO_SCENES : store.sceneHistory;
+  const scenes: StoryboardScene[] = demoSceneIndex >= 0 ? COMPILED_DEMO_SCENES : store.sceneHistory;
   const currentSceneIdx =
     demoSceneIndex >= 0
       ? demoSceneIndex

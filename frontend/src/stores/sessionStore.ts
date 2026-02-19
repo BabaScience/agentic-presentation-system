@@ -71,6 +71,7 @@ export interface VisualScript {
   entities: Record<string, any>;
 }
 
+/** @deprecated Use StoryboardScene. Kept for demo compile path only. */
 export interface PresentationScene {
   id: string;
   nodeIds: string[];
@@ -82,6 +83,8 @@ export interface PresentationScene {
   durationEstimate: number;
   illustrations?: IllustrationSpec[];
   visualScript?: VisualScript;
+  /** When present with visualScript, compiler emits bindElementToParameter for demo mode. */
+  interactiveParameters?: string[];
 }
 
 /** StoryboardScene — compiled by the backend, ready for SceneExecutor. Use shared/types.StoryboardScene. */

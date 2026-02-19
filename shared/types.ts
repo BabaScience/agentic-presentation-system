@@ -131,6 +131,7 @@ export interface PresentationBookmark {
 }
 
 // ── Presentation Scene ───────────────────────────────────────
+/** @deprecated Use StoryboardScene. Kept for demo compile path and backend interrupt resume only. */
 export interface PresentationScene {
   id: string;
   nodeIds: string[];
