@@ -368,7 +368,43 @@ export class SceneGraph {
     for (const [elemId, element] of this.elements) {
       this.spatialIndex.insert(elemId, computeElementBounds(element));
     }
-    // Mark ALL elements dirty
+    // Full dirty mark is intentional here — we replaced the entire scene state.
+    // This is one of two permitted full re-renders (initial load + checkpoint restore).
+    // See CLAUDE.md Law 3.
+    this.dirtyElements.clear();
+    for (const elemId of this.elements.keys()) {
+      this.dirtyElements.add(elemId);
+    }
+  }
+
+  /**
+   * Apply an external snapshot (e.g. from backend).
+   * Does not store in snapshot history.
+   *
+   * NOTE: Parameter bindings are NOT restored from the snapshot.
+   * Bindings must be re-registered via bindElementToParameter()
+   * after applySnapshot() if this is a cold restore (page refresh,
+   * cross-session). For in-session checkpoint navigation, existing
+   * bindings remain valid.
+   */
+  applySnapshot(snapshot: SceneSnapshot): void {
+    this.elements = this.cloneElementsFrom(snapshot.elements);
+    this.viewport = { ...snapshot.viewport };
+    for (const [name, snappedParam] of snapshot.parameters) {
+      const current = this.parameters.get(name);
+      if (current) {
+        current.value = snappedParam.value;
+        current.min = snappedParam.min;
+        current.max = snappedParam.max;
+      }
+    }
+    this.spatialIndex.clear();
+    for (const [elemId, element] of this.elements) {
+      this.spatialIndex.insert(elemId, computeElementBounds(element));
+    }
+    // Full dirty mark is intentional here — we replaced the entire scene state.
+    // This is one of two permitted full re-renders (initial load + checkpoint restore).
+    // See CLAUDE.md Law 3.
     this.dirtyElements.clear();
     for (const elemId of this.elements.keys()) {
       this.dirtyElements.add(elemId);

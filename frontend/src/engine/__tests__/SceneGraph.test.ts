@@ -3,6 +3,7 @@ import { SceneGraph } from '../SceneGraph';
 import {
   CHECKPOINT_RESTORE_MS,
   PARAMETER_PROPAGATION_MS,
+  SPATIAL_QUERY_MS,
 } from '@shared/constants';
 
 describe('SceneGraph', () => {
@@ -119,7 +120,24 @@ describe('SceneGraph', () => {
     expect(sg.getDirtyElements().size).toBe(200);
   });
 
-  // ── Test 5: Spatial index queryPoint ────────────────────
+  // ── Test 5a: Spatial query performance <1ms ──────────────
+  it(`queryPoint for 200 elements completes in <${SPATIAL_QUERY_MS}ms`, () => {
+    const sg = new SceneGraph();
+    for (let i = 0; i < 200; i++) {
+      sg.createElement({
+        id: `spatial_${i}`,
+        type: 'box',
+        position: { x: i * 10, y: i * 10 },
+        properties: { width: 20, height: 20 },
+      });
+    }
+    const start = performance.now();
+    sg.queryPoint({ x: 500, y: 500 });
+    const elapsed = performance.now() - start;
+    expect(elapsed).toBeLessThan(SPATIAL_QUERY_MS);
+  });
+
+  // ── Test 5b: Spatial index queryPoint correctness ─────────
   it('returns correct elements for point queries', () => {
     const sg = new SceneGraph();
     sg.createElement({

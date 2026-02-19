@@ -10,6 +10,7 @@ export const SCENE_DIRTY_RENDER_MS = 8;
 export const AGENT_COMMAND_MS = 100;
 export const STORYBOARD_GENERATION_MS = 5000;
 export const SPATIAL_GRID_CELL_SIZE = 100;
+export const SPATIAL_QUERY_MS = 1;
 
 // ── Pipeline & Interaction Latencies ────────────────────────
 export const VOICE_FIRST_WORD_MS = 2000;

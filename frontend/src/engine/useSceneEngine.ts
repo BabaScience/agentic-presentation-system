@@ -49,6 +49,12 @@ export function useSceneEngine(): {
 
       const dirty = env.getDirtyElements();
       if (dirty.size > 0) {
+        if (import.meta.env.DEV && dirty.size > 20) {
+          console.error(
+            '[SceneGraph] Heuristic: dirtyElements.size > 20 — possible full re-render',
+            { size: dirty.size },
+          );
+        }
         // Law 3: only setState when dirty elements exist.
         // Rebuild from getAllElements so destroyed elements are naturally absent.
         const allElements = env.getAllElements();

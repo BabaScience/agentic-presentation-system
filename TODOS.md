@@ -17,9 +17,9 @@
 - [x] Phase H: Frontend storyboard_ready
 
 ## Session 2 — SceneGraph.ts
-- [ ] Persistent stage core
-- [ ] Elements, dirty tracking, snapshots, viewport
-- [ ] 7 mandatory tests, performance contracts
+- [x] Persistent stage core
+- [x] Elements, dirty tracking, snapshots, viewport
+- [x] 7 mandatory tests, performance contracts
 
 ## Session 3 — EnvironmentAPI.ts
 - [ ] Full agent manipulation surface
