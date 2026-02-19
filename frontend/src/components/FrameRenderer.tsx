@@ -12,7 +12,8 @@
    ═══════════════════════════════════════════════════════════════ */
 
 import React, { useMemo } from 'react';
-import { type VisualEntity, type VisualEntityType, CANVAS_WIDTH, CANVAS_HEIGHT } from '../../../shared/types';
+import { type VisualEntity, type VisualEntityType } from '../../../shared/types';
+import { CANVAS_WIDTH, CANVAS_HEIGHT } from '@shared/constants';
 import {
   Server, Database, Container, Pod, Cloud, User, Device, Arrow, DataFlow, Box,
   Concept, Entity, GroupEntity, LabelEntity, ComparisonEntity, TimelineEntity,

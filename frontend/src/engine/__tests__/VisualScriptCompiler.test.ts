@@ -300,4 +300,35 @@ describe('VisualScriptCompiler', () => {
     const showCmd = result.agentCommands.find((c) => c.method === 'showElement');
     expect(showCmd).toBeDefined();
   });
+
+  // ── Test 11: compilePresentationScene preserves sync markers ──
+  it('compilePresentationScene surfaces syncMarkers from visualCommands', () => {
+    const scene: PresentationScene = {
+      id: 'scene-sync',
+      nodeIds: ['n1'],
+      edgeIds: [],
+      narration: 'Sync test',
+      focusNodeId: 'n1',
+      viewport: { x: 0, y: 0, zoom: 1 },
+      durationEstimate: 5,
+      visualCommands: [
+        { type: 'reveal', targetId: 'n1', wordTrigger: 3 },
+        { type: 'highlight', targetId: 'n2', wordTrigger: 7 },
+        { type: 'zoom', targetId: '', params: { level: 2 } }, // no wordTrigger → agentCommand
+      ],
+    };
+
+    const result = compilePresentationScene(scene);
+
+    expect(result.syncMarkers).toBeDefined();
+    expect(result.syncMarkers!.length).toBe(2);
+    expect(result.syncMarkers![0].wordIndex).toBe(3);
+    expect(result.syncMarkers![0].command.method).toBe('showElement');
+    expect(result.syncMarkers![1].wordIndex).toBe(7);
+    expect(result.syncMarkers![1].command.method).toBe('highlight');
+
+    // The zoom command (no wordTrigger) should be in agentCommands, not syncMarkers
+    const zoomCmd = result.agentCommands.find((c) => c.method === 'zoomTo');
+    expect(zoomCmd).toBeDefined();
+  });
 });

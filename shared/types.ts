@@ -449,6 +449,8 @@ export type WSClientEvent =
   | { type: 'audio_chunk'; data: ArrayBuffer }
   | { type: 'user_command'; command: 'pause' | 'resume' | 'skip' | 'go_back' | 'show_graph' | 'toggle_voice' }
   | { type: 'start_session'; topic: string }
+  | { type: 'set_parameter'; name: string; value: unknown }
+  | { type: 'restore_checkpoint'; name: string }
   | { type: 'ping' };
 
 export type WSServerEvent =
@@ -463,6 +465,9 @@ export type WSServerEvent =
   | { type: 'agent_audio_meta'; durationMs: number; sceneId: string; wordTimestamps?: WordTimestamp[]; visualScript?: VisualScript; illustrations?: IllustrationSpec[] }
   | { type: 'rl_update'; policy: RLPolicy; learnerState: Partial<LearnerState> }
   | { type: 'scene_prepare_status'; sceneIndex: number; status: ScenePreparationStatus; totalScenes: number }
+  | { type: 'parameter_update'; name: string; value: unknown }
+  | { type: 'checkpoint_created'; name: string; handle: string }
+  | { type: 'checkpoint_restored'; name: string }
   | { type: 'error'; message: string; code: string }
   | { type: 'pong' };
 
@@ -478,31 +483,49 @@ export const DATA_TYPE_VISUALS: Record<DataType, { color: string; elementType: E
   [DataType.COUNTERPOINT]: { color: '#ff6b9d', elementType: 'callout',       icon: '⚠️' },
 };
 
-// ── Constants ────────────────────────────────────────────────
-export const KG_NODE_LIMIT = 50;
-export const KG_MAX_DEPTH = 4;
-export const INTERRUPT_DETECTION_MS = 300;
-export const BOOKMARK_RESUME_MS = 500;
-export const RL_UPDATE_INTERVAL_MS = 50;
-export const VOICE_SAMPLE_RATE = 16000;
-export const VOICE_CHUNK_SIZE = 4096;
-export const CONCURRENCY_POOL_CLAUDE_MAX = 5;
-export const CONCURRENCY_POOL_TTS_MAX = 2;
-export const CONCURRENCY_POOL_TOTAL_MAX = 6;
+// ── Constants — re-exported from shared/constants.ts (single source of truth) ──
+import {
+  KG_NODE_LIMIT,
+  KG_MAX_DEPTH,
+  INTERRUPT_DETECTION_MS,
+  BOOKMARK_RESUME_MS,
+  RL_UPDATE_INTERVAL_MS,
+  VOICE_SAMPLE_RATE,
+  VOICE_CHUNK_SIZE,
+  CONCURRENCY_POOL_CLAUDE_MAX,
+  CONCURRENCY_POOL_TTS_MAX,
+  CONCURRENCY_POOL_TOTAL_MAX,
+  CANVAS_WIDTH,
+  CANVAS_HEIGHT,
+  ANIMATION_DELAY_MIN_MS,
+  FRAME_DURATION_MIN_MS,
+  ILLUSTRATION_APPEAR_MIN_MS,
+  INTER_ENTITY_STAGGER_MIN_MS,
+  ENTITY_MIN_VISIBLE_MS,
+  ENTITY_LABEL_PADDING_PX,
+} from './constants';
 
-// ── Canvas & Visual Constants ────────────────────────────
-export const CANVAS_WIDTH = 1600;
-export const CANVAS_HEIGHT = 900;
-
-// ── Visual Timing Floors ────────────────────────────────
-export const ANIMATION_DELAY_MIN_MS = 150;
-export const FRAME_DURATION_MIN_MS = 2500;
-export const ILLUSTRATION_APPEAR_MIN_MS = 200;
-export const INTER_ENTITY_STAGGER_MIN_MS = 100;
-export const ENTITY_MIN_VISIBLE_MS = 1200;
-
-/** Extra pixels below entity body reserved for the text label */
-export const ENTITY_LABEL_PADDING_PX = 22;
+// Re-export so existing consumers of '@shared/types' don't break.
+export {
+  KG_NODE_LIMIT,
+  KG_MAX_DEPTH,
+  INTERRUPT_DETECTION_MS,
+  BOOKMARK_RESUME_MS,
+  RL_UPDATE_INTERVAL_MS,
+  VOICE_SAMPLE_RATE,
+  VOICE_CHUNK_SIZE,
+  CONCURRENCY_POOL_CLAUDE_MAX,
+  CONCURRENCY_POOL_TTS_MAX,
+  CONCURRENCY_POOL_TOTAL_MAX,
+  CANVAS_WIDTH,
+  CANVAS_HEIGHT,
+  ANIMATION_DELAY_MIN_MS,
+  FRAME_DURATION_MIN_MS,
+  ILLUSTRATION_APPEAR_MIN_MS,
+  INTER_ENTITY_STAGGER_MIN_MS,
+  ENTITY_MIN_VISIBLE_MS,
+  ENTITY_LABEL_PADDING_PX,
+};
 
 /**
  * Clamp an entity's center position so the entity (including its label)
@@ -1216,6 +1239,7 @@ export interface StoryboardScene {
   name: string;
   narration: string;
   agentCommands: AgentCommand[];
+  syncMarkers?: SyncMarker[];
   viewport: ViewportState;
   interactiveParameters: string[];
   transitionFrom?: TransitionSpec;

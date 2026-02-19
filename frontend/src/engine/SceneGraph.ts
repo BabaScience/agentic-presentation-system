@@ -225,8 +225,8 @@ export class SceneGraph {
     this.updateElement(id, { visible: false, opacity: 0 });
   }
 
-  getElementById(id: string): SceneElement | undefined {
-    return this.elements.get(id);
+  getElementById(id: string): SceneElement | null {
+    return this.elements.get(id) ?? null;
   }
 
   getAllElements(): SceneElement[] {
@@ -284,8 +284,8 @@ export class SceneGraph {
     }
   }
 
-  getParameter(name: string): Parameter | undefined {
-    return this.parameters.get(name);
+  getParameter(name: string): Parameter | null {
+    return this.parameters.get(name) ?? null;
   }
 
   bindElementToParameter(
@@ -342,10 +342,14 @@ export class SceneGraph {
     return snapshot;
   }
 
-  restoreSnapshot(id: string): void {
-    const snapshot = this.snapshots.get(id);
+  /**
+   * Restore by snapshot ID or checkpoint name.
+   * CONTRACT: <100ms for up to 200 elements.
+   */
+  restoreSnapshot(idOrName: string): void {
+    const snapshot = this.resolveSnapshot(idOrName);
     if (!snapshot) {
-      throw new Error(`Snapshot "${id}" not found`);
+      throw new Error(`Snapshot "${idOrName}" not found`);
     }
     // Clone again so the stored snapshot stays frozen
     this.elements = this.cloneElementsFrom(snapshot.elements);
@@ -371,16 +375,36 @@ export class SceneGraph {
     }
   }
 
-  getSnapshot(id: string): SceneSnapshot | undefined {
-    return this.snapshots.get(id);
+  getSnapshot(idOrName: string): SceneSnapshot | null {
+    return this.resolveSnapshot(idOrName);
   }
 
   listSnapshots(): SceneSnapshot[] {
     return Array.from(this.snapshots.values());
   }
 
-  deleteSnapshot(id: string): void {
-    this.snapshots.delete(id);
+  deleteSnapshot(idOrName: string): void {
+    const snapshot = this.resolveSnapshot(idOrName);
+    if (snapshot) {
+      this.snapshots.delete(snapshot.id);
+    }
+  }
+
+  /** Look up by ID first, then by checkpoint name (most recent match). */
+  private resolveSnapshot(idOrName: string): SceneSnapshot | null {
+    // Direct ID lookup
+    const byId = this.snapshots.get(idOrName);
+    if (byId) return byId;
+    // Name lookup — return the most recent snapshot with that name
+    let best: SceneSnapshot | null = null;
+    for (const snap of this.snapshots.values()) {
+      if (snap.checkpointName === idOrName) {
+        if (!best || snap.timestamp > best.timestamp) {
+          best = snap;
+        }
+      }
+    }
+    return best;
   }
 
   // ── Spatial Queries (public wrappers) ───────────────────

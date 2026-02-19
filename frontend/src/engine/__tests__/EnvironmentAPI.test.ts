@@ -128,7 +128,7 @@ describe('EnvironmentAPI', () => {
     expect(cp.name).toBe('before-destroy');
 
     env.destroyElement('persist');
-    expect(env.getElementById('persist')).toBeUndefined();
+    expect(env.getElementById('persist')).toBeNull();
 
     await env.restoreCheckpoint(cp.id);
     const restored = env.getElementById('persist')!;

@@ -15,15 +15,11 @@ import React, { useEffect, useMemo } from 'react';
 import type {
   PresentationScene,
   WordTimestamp,
-  SyncMarker,
   StoryboardScene,
   AgentCommand,
 } from '@shared/types';
 import { useSceneEngine } from '../engine/useSceneEngine';
-import {
-  compilePresentationScene,
-  compileVisualCommands,
-} from '../engine/VisualScriptCompiler';
+import { compilePresentationScene } from '../engine/VisualScriptCompiler';
 import { elementsToVisualEntities } from '../engine/elementToVisualEntity';
 import { FrameRenderer } from './FrameRenderer';
 
@@ -92,18 +88,7 @@ export function SceneGraphPresenter({
     // Fix the ordering mismatch before handing off to the executor.
     const fixed = fixCommandOrdering(storyboard);
 
-    // compilePresentationScene doesn't surface sync markers from visualCommands —
-    // extract them directly so updateNarrationTime fires them correctly.
-    let syncMarkers: SyncMarker[] = [];
-    if (currentScene.visualCommands && currentScene.visualCommands.length > 0) {
-      const { syncMarkers: fromCommands } = compileVisualCommands(
-        currentScene.visualCommands,
-        wordTimestamps,
-      );
-      syncMarkers = fromCommands;
-    }
-
-    executor.execute(fixed, syncMarkers, wordTimestamps);
+    executor.execute(fixed, fixed.syncMarkers ?? [], wordTimestamps);
   }, [currentScene?.id]); // re-run only on scene identity change
 
   // Drive sync-marker commands with the narration clock.

@@ -193,6 +193,10 @@ interface SessionStore {
   sendTextInput: (text: string) => void;
   sendCommand: (cmd: string) => void;
 
+  // Stage engine commands
+  sendSetParameter: (name: string, value: unknown) => void;
+  sendRestoreCheckpoint: (name: string) => void;
+
   reset: () => void;
 }
 
@@ -341,6 +345,15 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
             store.setRLPolicy(msg.policy);
             break;
 
+          case 'parameter_update':
+            // Server confirms a parameter change — no local action needed
+            // beyond logging; the stage engine handles parameter state internally.
+            break;
+
+          case 'checkpoint_restored':
+            // Server confirms checkpoint was restored
+            break;
+
           case 'error':
             console.error('[WS] Server error:', msg.message);
             break;
@@ -475,6 +488,14 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
   sendCommand: (cmd: string) => {
     get().sendMessage({ type: 'user_command', command: cmd });
+  },
+
+  sendSetParameter: (name: string, value: unknown) => {
+    get().sendMessage({ type: 'set_parameter', name, value });
+  },
+
+  sendRestoreCheckpoint: (name: string) => {
+    get().sendMessage({ type: 'restore_checkpoint', name });
   },
 
   reset: () => {

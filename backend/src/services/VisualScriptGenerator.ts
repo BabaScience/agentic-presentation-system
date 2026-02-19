@@ -24,11 +24,13 @@ import {
   type SceneContract,
   type DomainGuidance,
   DataType,
+  clampEntityPosition,
+} from '../../shared/types';
+import {
   FRAME_DURATION_MIN_MS,
   INTER_ENTITY_STAGGER_MIN_MS,
   ENTITY_MIN_VISIBLE_MS,
-  clampEntityPosition,
-} from '../../shared/types';
+} from '../../shared/constants';
 import { v4 as uuid } from 'uuid';
 import { getEnvironmentGuideForPrompt } from '../prompts/presentationEnvironmentGuide';
 import { CodeExecutionService } from './CodeExecutionService';

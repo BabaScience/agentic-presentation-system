@@ -55,6 +55,10 @@ export class SceneExecutor {
   private sequentialDone = false;
   private wordTimestamps: WordTimestamp[] = [];
 
+  /** Tracks element IDs created during the current scene for cross-scene cleanup. */
+  private currentSceneElementIds: Set<string> = new Set();
+  private currentSceneId: string | null = null;
+
   constructor(env: EnvironmentAPI, options?: SceneExecutorOptions) {
     this.env = env;
     this.options = options ?? {};
@@ -71,6 +75,11 @@ export class SceneExecutor {
       this.abort();
     }
 
+    // Cross-scene cleanup: destroy elements created by the previous scene.
+    // Law 1 compliance: only scene-owned elements are removed; elements
+    // placed by the agent outside of scene scripts persist.
+    this.cleanupPreviousScene();
+
     this.state = 'executing';
     this.elapsedMs = 0;
     this.executedCommands = 0;
@@ -79,6 +88,8 @@ export class SceneExecutor {
     this.sequentialQueue = [];
     this.syncMarkerQueue = [];
     this.wordTimestamps = wordTimestamps ?? [];
+    this.currentSceneId = scene.id;
+    this.currentSceneElementIds = new Set();
 
     // Create checkpoint at scene start (Law 1)
     this.env.createCheckpoint(`scene:${scene.id}`);
@@ -207,9 +218,10 @@ export class SceneExecutor {
     args: Record<string, unknown>,
   ): Promise<void> {
     switch (method) {
-      case 'createElement':
+      case 'createElement': {
+        const elId = args['id'] as string;
         this.env.createElement({
-          id: args['id'] as string,
+          id: elId,
           type: args['type'] as 'box' | 'circle' | 'arrow' | 'text' | 'code' | 'diagram' | 'label' | 'connection' | 'group',
           position: args['position'] as Vector2,
           properties: args['properties'] as Record<string, unknown> | undefined,
@@ -217,11 +229,16 @@ export class SceneExecutor {
           opacity: args['opacity'] as number | undefined,
           zIndex: args['zIndex'] as number | undefined,
         });
+        this.currentSceneElementIds.add(elId);
         return;
+      }
 
-      case 'destroyElement':
-        this.env.destroyElement(args['id'] as string);
+      case 'destroyElement': {
+        const destroyId = args['id'] as string;
+        this.env.destroyElement(destroyId);
+        this.currentSceneElementIds.delete(destroyId);
         return;
+      }
 
       case 'updateElement':
         this.env.updateElement(
@@ -365,6 +382,20 @@ export class SceneExecutor {
       default:
         throw new Error(`Unknown command method: "${method}"`);
     }
+  }
+
+  // ── Private: Cross-scene cleanup ──────────────────────────
+
+  private cleanupPreviousScene(): void {
+    if (this.currentSceneElementIds.size === 0) return;
+
+    for (const id of this.currentSceneElementIds) {
+      // Element may already have been destroyed during normal execution
+      if (this.env.getElementById(id)) {
+        this.env.destroyElement(id);
+      }
+    }
+    this.currentSceneElementIds.clear();
   }
 
   // ── Private: Helpers ───────────────────────────────────────

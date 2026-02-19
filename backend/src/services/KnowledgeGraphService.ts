@@ -7,11 +7,11 @@ import { v4 as uuid } from 'uuid';
 import {
   DataType, EdgeType,
   DATA_TYPE_VISUALS,
-  KG_NODE_LIMIT, KG_MAX_DEPTH,
   type KnowledgeGraph, type KGNode, type KGEdge,
   type GraphMutation, type ReasoningOutput,
   type SceneContract,
 } from '../../shared/types';
+import { KG_NODE_LIMIT, KG_MAX_DEPTH } from '../../shared/constants';
 import type { RLService } from './RLService';
 
 export class KnowledgeGraphService {

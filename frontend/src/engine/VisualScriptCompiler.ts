@@ -345,6 +345,7 @@ export function compilePresentationScene(
     name: scene.id,
     narration: scene.narration,
     agentCommands: commands,
+    syncMarkers: allSyncMarkers.length > 0 ? allSyncMarkers : undefined,
     viewport,
     interactiveParameters: [],
     estimatedDurationSeconds: scene.durationEstimate,

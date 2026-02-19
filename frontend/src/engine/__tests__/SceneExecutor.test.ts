@@ -96,7 +96,7 @@ describe('SceneExecutor', () => {
 
     // At 200ms — should not have fired
     executor.tick(200);
-    expect(env.getElementById('timed-el')).toBeUndefined();
+    expect(env.getElementById('timed-el')).toBeNull();
 
     // At 500ms total — should fire
     executor.tick(300);
@@ -229,7 +229,7 @@ describe('SceneExecutor', () => {
 
     // Even after sufficient time, the command should not fire
     executor.tick(2000);
-    expect(env.getElementById('abort-el')).toBeUndefined();
+    expect(env.getElementById('abort-el')).toBeNull();
   });
 
   // ── Test 7: Unknown method triggers onCommandError ─────────
@@ -310,7 +310,57 @@ describe('SceneExecutor', () => {
     expect(executor.getState()).toBe('idle');
   });
 
-  // ── Test 10: 50 immediate createElement commands within perf budget ──
+  // ── Test 10: Cross-scene cleanup destroys previous scene elements ──
+  it('executing a new scene destroys elements from the previous scene', async () => {
+    const { env } = makeEnv();
+    const executor = new SceneExecutor(env);
+
+    // Scene 1: creates two elements
+    const scene1 = makeScene({
+      id: 'scene-1',
+      agentCommands: [
+        {
+          method: 'createElement',
+          args: { id: 's1:a', type: 'box', position: { x: 0, y: 0 }, properties: { width: 50, height: 50 } },
+          timing: 'immediate',
+        },
+        {
+          method: 'createElement',
+          args: { id: 's1:b', type: 'box', position: { x: 100, y: 0 }, properties: { width: 50, height: 50 } },
+          timing: 'immediate',
+        },
+      ],
+    });
+
+    executor.execute(scene1);
+    await flushMicrotasks();
+
+    expect(env.getElementById('s1:a')).toBeDefined();
+    expect(env.getElementById('s1:b')).toBeDefined();
+
+    // Scene 2: creates one element — scene 1 elements should be cleaned up
+    const scene2 = makeScene({
+      id: 'scene-2',
+      agentCommands: [
+        {
+          method: 'createElement',
+          args: { id: 's2:c', type: 'circle', position: { x: 50, y: 50 }, properties: { width: 40, height: 40 } },
+          timing: 'immediate',
+        },
+      ],
+    });
+
+    executor.execute(scene2);
+    await flushMicrotasks();
+
+    // Previous scene elements gone
+    expect(env.getElementById('s1:a')).toBeNull();
+    expect(env.getElementById('s1:b')).toBeNull();
+    // New scene element present
+    expect(env.getElementById('s2:c')).toBeDefined();
+  });
+
+  // ── Test 11: 50 immediate createElement commands within perf budget ──
   it(`50 immediate createElement commands execute within ${AGENT_COMMAND_MS}ms`, async () => {
     const { env } = makeEnv();
     const executor = new SceneExecutor(env);

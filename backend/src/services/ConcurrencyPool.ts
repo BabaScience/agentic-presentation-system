@@ -8,7 +8,7 @@ import {
   CONCURRENCY_POOL_CLAUDE_MAX,
   CONCURRENCY_POOL_TTS_MAX,
   CONCURRENCY_POOL_TOTAL_MAX,
-} from '../../shared/types';
+} from '../../shared/constants';
 
 export type PoolTaskType = 'claude' | 'elevenlabs';
 

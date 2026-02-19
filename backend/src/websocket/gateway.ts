@@ -25,11 +25,13 @@ import {
   type PresentationScene,
   type PresentationBookmark,
   type KnowledgeGraph,
+} from '../../shared/types';
+import {
   ANIMATION_DELAY_MIN_MS,
   FRAME_DURATION_MIN_MS,
   ILLUSTRATION_APPEAR_MIN_MS,
   INTER_ENTITY_STAGGER_MIN_MS,
-} from '../../shared/types';
+} from '../../shared/constants';
 
 interface ClientSession {
   id: string;
@@ -138,6 +140,18 @@ export class WebSocketGateway {
         case 'text_input':
           // Fallback: text input when voice is disabled
           await this.handleTextInput(session, msg.text);
+          break;
+
+        case 'set_parameter':
+          // Forward parameter change to client's stage engine.
+          // In Phase 1, the stage engine lives client-side; the server
+          // echoes the update so other potential clients stay in sync.
+          this.send(session.ws, { type: 'parameter_update', name: msg.name, value: msg.value });
+          break;
+
+        case 'restore_checkpoint':
+          // Echo checkpoint restore confirmation.
+          this.send(session.ws, { type: 'checkpoint_restored', name: msg.name });
           break;
 
         case 'ping':

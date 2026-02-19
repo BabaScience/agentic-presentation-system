@@ -204,4 +204,55 @@ describe('SceneGraph', () => {
     expect(vp2.zoom).toBe(2.0); // still 2.0 from before
     expect(vp2.rotation).toBe(0);
   });
+
+  // ── Test 8: Name-based snapshot restore ──────────────────
+  it('restores snapshots by checkpoint name', () => {
+    const sg = new SceneGraph();
+    sg.createElement({
+      id: 'named_el',
+      type: 'box',
+      position: { x: 10, y: 20 },
+      properties: { width: 50, height: 50 },
+    });
+
+    sg.createSnapshot('my-checkpoint');
+
+    // Mutate
+    sg.updateElement('named_el', { position: { x: 999, y: 999 } });
+    expect(sg.getElementById('named_el')!.position.x).toBe(999);
+
+    // Restore by NAME (not by internal ID)
+    sg.restoreSnapshot('my-checkpoint');
+    const restored = sg.getElementById('named_el')!;
+    expect(restored.position.x).toBe(10);
+    expect(restored.position.y).toBe(20);
+  });
+
+  // ── Test 9: getSnapshot returns null for non-existent ────
+  it('returns null for non-existent snapshot', () => {
+    const sg = new SceneGraph();
+    expect(sg.getSnapshot('does-not-exist')).toBeNull();
+  });
+
+  // ── Test 10: getElementById returns null for missing id ──
+  it('returns null for non-existent element', () => {
+    const sg = new SceneGraph();
+    expect(sg.getElementById('ghost')).toBeNull();
+  });
+
+  // ── Test 11: deleteSnapshot by name ──────────────────────
+  it('deletes snapshot by checkpoint name', () => {
+    const sg = new SceneGraph();
+    sg.createElement({
+      id: 'del_el',
+      type: 'box',
+      position: { x: 0, y: 0 },
+      properties: { width: 50, height: 50 },
+    });
+    sg.createSnapshot('to-delete');
+    expect(sg.getSnapshot('to-delete')).not.toBeNull();
+
+    sg.deleteSnapshot('to-delete');
+    expect(sg.getSnapshot('to-delete')).toBeNull();
+  });
 });

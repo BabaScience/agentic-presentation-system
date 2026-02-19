@@ -113,7 +113,7 @@ export class EnvironmentAPI {
     this.sceneGraph.updateElement(id, changes);
   }
 
-  getElementById(id: string): SceneElement | undefined {
+  getElementById(id: string): SceneElement | null {
     return this.sceneGraph.getElementById(id);
   }
 
@@ -565,7 +565,7 @@ export class EnvironmentAPI {
     this.sceneGraph.setParameter(name, value);
   }
 
-  getParameter(name: string): Parameter | undefined {
+  getParameter(name: string): Parameter | null {
     return this.sceneGraph.getParameter(name);
   }
 

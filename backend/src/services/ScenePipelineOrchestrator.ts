@@ -13,12 +13,14 @@ import {
   type PresentationScene,
   type WordTimestamp,
   type VisualScript,
+} from '../../shared/types';
+import {
   ANIMATION_DELAY_MIN_MS,
   FRAME_DURATION_MIN_MS,
   ILLUSTRATION_APPEAR_MIN_MS,
   INTER_ENTITY_STAGGER_MIN_MS,
   ENTITY_MIN_VISIBLE_MS,
-} from '../../shared/types';
+} from '../../shared/constants';
 import { PresentationPlanner } from './PresentationPlanner';
 import { VisualScriptGenerator } from './VisualScriptGenerator';
 import { VoiceService } from './VoiceService';
