@@ -381,6 +381,39 @@ export function compilePresentationScene(
   // createElement always fires before its paired fadeIn.
   commands = fixCommandOrdering(commands);
 
+  // Demo mode: emit bindElementToParameter when interactiveParameters + visualScript present
+  const interactiveParams = scene.interactiveParameters ?? [];
+  if (interactiveParams.length > 0 && scene.visualScript) {
+    const entities = buildEntitiesFromScript(scene.visualScript);
+    const paramUpdates = inferParameterBindings(
+      scene.id,
+      entities,
+      interactiveParams,
+    );
+    const bindingCommands: AgentCommand[] = [];
+    for (const paramName of interactiveParams) {
+      const bindings = paramUpdates.get(paramName);
+      if (!bindings?.length) continue;
+      for (const b of bindings) {
+        bindingCommands.push({
+          method: 'bindElementToParameter',
+          args: { elementId: b.elementId, paramName, mapper: b.mapper },
+          timing: 0,
+        });
+      }
+    }
+    const createCommandMaxT = Math.max(
+      0,
+      ...commands
+        .filter((c) => c.method === 'createElement')
+        .map((c) => (typeof c.timing === 'number' ? c.timing : 0)),
+    );
+    for (const c of bindingCommands) {
+      (c as AgentCommand & { timing: number }).timing = createCommandMaxT + 1;
+    }
+    commands.push(...bindingCommands);
+  }
+
   const viewport: ViewportState = scene.viewport
     ? { x: scene.viewport.x, y: scene.viewport.y, zoom: scene.viewport.zoom, rotation: 0 }
     : { x: 0, y: 0, zoom: 1, rotation: 0 };
@@ -393,13 +426,24 @@ export function compilePresentationScene(
     agentCommands: commands,
     syncMarkers: allSyncMarkers.length > 0 ? allSyncMarkers : undefined,
     viewport,
-    interactiveParameters: [],
+    interactiveParameters: interactiveParams,
     estimatedDurationSeconds: scene.durationEstimate,
     // Pass through for demo/legacy compatibility
     nodeIds: scene.nodeIds,
     focusNodeId: scene.focusNodeId,
     durationEstimate: scene.durationEstimate,
   };
+}
+
+/** Build entities map from visual script frames (for demo mode binding inference). */
+function buildEntitiesFromScript(script: VisualScript): Record<string, VisualEntity> {
+  const entities: Record<string, VisualEntity> = {};
+  for (const frame of script.frames) {
+    for (const entity of frame.entities) {
+      if (!entities[entity.id]) entities[entity.id] = entity;
+    }
+  }
+  return entities;
 }
 
 // ── compileStoryboardScene (StoryboardEngine pipeline) ─────────
@@ -527,19 +571,6 @@ export function compileStoryboardScene(
   commands.push(...scriptCommands);
   commands = fixCommandOrdering(commands);
 
-  // 4. Sync markers: map numeric timing to closest word
-  const syncMarkers: SyncMarker[] = [];
-  const timedCommands: AgentCommand[] = [];
-  for (const cmd of commands) {
-    if (typeof cmd.timing === 'number' && cmd.timing > 0 && wordTimestamps.length > 0) {
-      const wordIdx = timingToWordIndex(cmd.timing, wordTimestamps);
-      syncMarkers.push({ wordIndex: wordIdx, command: { ...cmd, timing: 'immediate' as const } });
-    } else {
-      timedCommands.push(cmd);
-    }
-  }
-  syncMarkers.sort((a, b) => a.wordIndex - b.wordIndex);
-
   // 5. Parameter bindings
   const paramUpdates = inferParameterBindings(
     scene.id,
@@ -554,10 +585,49 @@ export function compileStoryboardScene(
     return p;
   });
 
+  // 6. Emit bindElementToParameter commands — elements must exist before binding.
+  // Use createElement max timing only so bindings fire after last element created,
+  // not after last animation (e.g. fadeIn). Parameters become interactive immediately.
+  const bindingCommands: AgentCommand[] = [];
+  for (const p of updatedParameters) {
+    if (!p.bindings?.length) continue;
+    for (const b of p.bindings) {
+      const spec = 'elementId' in b ? b : { elementId: (b as { elementId: string }).elementId, mapper: (b as { mapper: string }).mapper };
+      bindingCommands.push({
+        method: 'bindElementToParameter',
+        args: { elementId: spec.elementId, paramName: p.name, mapper: spec.mapper },
+        timing: 0,
+      });
+    }
+  }
+  const createCommandMaxT = Math.max(
+    0,
+    ...commands
+      .filter((c) => c.method === 'createElement')
+      .map((c) => (typeof c.timing === 'number' ? c.timing : 0)),
+  );
+  for (const c of bindingCommands) {
+    (c as AgentCommand & { timing: number }).timing = createCommandMaxT + 1;
+  }
+  commands.push(...bindingCommands);
+
+  // Re-run sync marker extraction to include binding commands
+  const syncMarkersFinal: SyncMarker[] = [];
+  const timedCommandsFinal: AgentCommand[] = [];
+  for (const cmd of commands) {
+    if (typeof cmd.timing === 'number' && cmd.timing > 0 && wordTimestamps.length > 0) {
+      const wordIdx = timingToWordIndex(cmd.timing, wordTimestamps);
+      syncMarkersFinal.push({ wordIndex: wordIdx, command: { ...cmd, timing: 'immediate' as const } });
+    } else {
+      timedCommandsFinal.push(cmd);
+    }
+  }
+  syncMarkersFinal.sort((a, b) => a.wordIndex - b.wordIndex);
+
   const compiledScene: StoryboardScene = {
     ...scene,
-    agentCommands: timedCommands,
-    syncMarkers: syncMarkers.length > 0 ? syncMarkers : undefined,
+    agentCommands: timedCommandsFinal,
+    syncMarkers: syncMarkersFinal.length > 0 ? syncMarkersFinal : undefined,
     viewport,
   };
 

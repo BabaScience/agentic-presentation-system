@@ -315,7 +315,8 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({
       return (
         <g>
           <Pod x={x} y={y} size={entity.size.width} color={color}
-            label={entity.label} className={combinedClass} animationDelay={animDelay} />
+            label={entity.label} className={combinedClass} animationDelay={animDelay}
+            itemCount={entity.metadata?.itemCount} />
           {children && renderChildren(children, x, y, entity.size, canvasWidth, canvasHeight, posMap, childrenMap)}
         </g>
       );

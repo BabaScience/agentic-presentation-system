@@ -71,7 +71,7 @@ export const Container: React.FC<SVGComponentProps> = ({ x, y, size = 70, color 
   </g>
 );
 
-export const Pod: React.FC<SVGComponentProps> = ({ x, y, size = 50, color = '#00e676', label, className = '', animationDelay = 0 }) => (
+const PodSingle: React.FC<SVGComponentProps & { itemCount?: number }> = ({ x, y, size = 50, color = '#00e676', label, className = '', animationDelay = 0 }) => (
   <g transform={`translate(${x}, ${y})`}>
     <g className={className} style={ANIM_STYLE(animationDelay)}>
       <rect x={-size/2} y={-size/2} width={size} height={size * 0.7} rx={4} fill={`${color}20`} stroke={color} strokeWidth={2} />
@@ -83,6 +83,22 @@ export const Pod: React.FC<SVGComponentProps> = ({ x, y, size = 50, color = '#00
     </g>
   </g>
 );
+
+export const Pod: React.FC<SVGComponentProps & { itemCount?: number }> = ({ x, y, size = 50, color = '#00e676', label, className = '', animationDelay = 0, itemCount = 1 }) => {
+  const n = Math.max(1, Math.round(Number(itemCount)));
+  if (n === 1) return <PodSingle x={x} y={y} size={size} color={color} label={label} className={className} animationDelay={animationDelay} />;
+  const pad = size * 0.3;
+  const unitSize = Math.min(size, (size * 2 + pad * (n - 1)) / n);
+  return (
+    <g transform={`translate(${x}, ${y})`}>
+      {Array.from({ length: n }, (_, i) => {
+        const ox = -((n - 1) * (unitSize + pad)) / 2 + i * (unitSize + pad);
+        return <PodSingle key={i} x={ox} y={0} size={unitSize} color={color} className={className} animationDelay={animationDelay} />;
+      })}
+      {label && <text x={0} y={size/2 + 20} textAnchor="middle" fill={color} fontSize={11} fontWeight={500}>{label}</text>}
+    </g>
+  );
+};
 
 export const Cloud: React.FC<SVGComponentProps> = ({ x, y, size = 80, color = '#00bcd4', label, className = '', animationDelay = 0 }) => (
   <g transform={`translate(${x}, ${y})`}>

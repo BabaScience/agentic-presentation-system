@@ -703,6 +703,7 @@ export const DEMO_SCENES: PresentationScene[] = [
       { type: 'connect', targetId: 'e9', wordTrigger: 32 },
     ], durationEstimate: 12000,
     visualScript: SCENE_2_VISUAL_SCRIPT,
+    interactiveParameters: ['pod_count'],
   },
   {
     id: 'scene-3', nodeIds: ['service', 'phone-book'], edgeIds: ['e2', 'e4', 'e6'],

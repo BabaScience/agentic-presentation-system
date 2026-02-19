@@ -143,6 +143,8 @@ export interface PresentationScene {
   illustrations?: IllustrationSpec[]; // Legacy support
   visualScript?: VisualScript; // New frame-based system
   sceneContract?: SceneContract; // Multi-agent binding contract
+  /** When present with visualScript, compiler emits bindElementToParameter for demo mode. */
+  interactiveParameters?: string[];
 }
 
 export interface VisualCommand {

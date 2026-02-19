@@ -164,7 +164,7 @@ interface SessionStore {
 
   // Storyboard (from storyboard_ready, before scenes presented)
   storyboardCheckpoints: import('@shared/types').StoryboardCheckpoint[];
-  storyboardParameters: Array<{ name: string; label: string }>;
+  storyboardParameters: import('@shared/types').ParameterDefinition[];
   totalScenes: number;
 
   // UI
@@ -233,7 +233,7 @@ const initialState = {
   scenePreparationStatus: {} as Record<number, 'pending' | 'preparing' | 'ready' | 'failed'>,
   totalScenesToPrepare: 0,
   storyboardCheckpoints: [] as import('@shared/types').StoryboardCheckpoint[],
-  storyboardParameters: [] as Array<{ name: string; label: string }>,
+  storyboardParameters: [] as import('@shared/types').ParameterDefinition[],
   totalScenes: 0,
   chatMessages: [] as ChatMessage[],
   sidebarTab: 'info' as const,
@@ -342,7 +342,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
           case 'storyboard_ready':
             set({
               storyboardCheckpoints: msg.checkpoints ?? [],
-              storyboardParameters: (msg.parameters ?? []).map((p: any) => ({ name: p.name, label: p.label ?? p.name })),
+              storyboardParameters: msg.parameters ?? [],
               totalScenes: msg.totalScenes ?? 0,
             });
             break;

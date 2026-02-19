@@ -336,6 +336,42 @@ describe('VisualScriptCompiler', () => {
     expect(zoomCmd).toBeDefined();
   });
 
+  it('compilePresentationScene with interactiveParameters emits bindElementToParameter', () => {
+    const scene: PresentationScene = {
+      id: 'scene-pod',
+      nodeIds: ['pod'],
+      edgeIds: [],
+      narration: 'Pod demo',
+      focusNodeId: 'pod',
+      viewport: { x: 200, y: 200, zoom: 1 },
+      visualCommands: [],
+      durationEstimate: 10000,
+      visualScript: makeScript(
+        [
+          {
+            id: 'f1',
+            startTime: 0,
+            endTime: 3000,
+            entities: [makeEntity({ id: 'pod-main', type: 'Pod' })],
+            narrationSegment: 'Pod appears',
+            description: '',
+          },
+        ],
+        'scene-pod',
+      ),
+      interactiveParameters: ['pod_count'],
+    };
+
+    const result = compilePresentationScene(scene);
+
+    const bindCmds = result.agentCommands.filter((c) => c.method === 'bindElementToParameter');
+    expect(bindCmds.length).toBeGreaterThan(0);
+    expect(bindCmds[0].args['elementId']).toBe('scene-pod:pod-main');
+    expect(bindCmds[0].args['paramName']).toBe('pod_count');
+    expect(bindCmds[0].args['mapper']).toBe('itemCount');
+    expect(result.interactiveParameters).toEqual(['pod_count']);
+  });
+
   // ── compileStoryboardScene ─────────────────────────────────
   describe('compileStoryboardScene', () => {
     it('createCheckpoint is always first when checkpointName present', () => {

@@ -30,8 +30,8 @@
 - [x] Restore <100ms for 20 checkpoints, 50 elements each
 
 ## Session 5 — ParameterPanel.tsx
-- [ ] Reactive controls
-- [ ] Parameter propagation <16ms, zero API calls
+- [x] Reactive controls
+- [x] Parameter propagation <16ms, zero API calls
 
 ## Session 6 — Migration
 - [ ] SceneGraph replaces frame selector in Illustration

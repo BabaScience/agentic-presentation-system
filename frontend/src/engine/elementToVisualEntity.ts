@@ -27,6 +27,7 @@ export function elementToVisualEntity(element: SceneElement): VisualEntity {
   const width = typeof props['width'] === 'number' ? props['width'] : 100;
   const height = typeof props['height'] === 'number' ? props['height'] : 100;
 
+  const itemCount = typeof props['itemCount'] === 'number' ? props['itemCount'] : undefined;
   return {
     id: entityId,
     type,
@@ -47,6 +48,8 @@ export function elementToVisualEntity(element: SceneElement): VisualEntity {
     // does not apply CSS entry animations. Spring/linear transitions are
     // driven by the engine tick loop, not CSS.
     animation: { type: 'none', duration: 0, delay: 0 },
+    // Parameter-driven properties for reactive controls (e.g. pod_count → itemCount)
+    ...(itemCount != null && { metadata: { itemCount } }),
   };
 }
 

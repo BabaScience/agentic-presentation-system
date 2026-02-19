@@ -303,8 +303,17 @@ export class SceneGraph {
     const binding: ParameterBinding = { elementId, paramName, mapper };
     bindings.push(binding);
 
-    // Track on the element
     const element = this.elements.get(elementId)!;
+
+    // Apply current parameter value immediately so element reflects default
+    const param = this.parameters.get(paramName);
+    if (param) {
+      const changes = mapper(param.value);
+      Object.assign(element, changes);
+      this.dirtyElements.add(elementId);
+    }
+
+    // Track on the element
     if (!element.boundParameters) element.boundParameters = [];
     if (!element.boundParameters.includes(paramName)) {
       element.boundParameters.push(paramName);

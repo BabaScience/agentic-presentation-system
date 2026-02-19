@@ -12,6 +12,8 @@ import { ScenePresenter } from './components/ScenePresenter';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { SoundEffectEngine } from './audio/SoundEffectEngine';
 import { StageEngineProvider, useStageEngine } from './engine/StageEngineContext';
+import { ParameterBootstrap } from './components/ParameterBootstrap';
+import { ParameterPanel } from './components/ParameterPanel';
 import type { StoryboardCheckpoint } from '@shared/types';
 
 // ── Data Type → Visual Config (used by Sidebar) ──────────────
@@ -77,7 +79,7 @@ function ConfigScreen({ onLaunch }: { onLaunch: (topic: string, mode: 'live' | '
 // ══════════════════════════════════════════════════════════════
 function Sidebar({
   nodes, currentScene, narrationText, chatMessages, sessionState,
-  sidebarTab, bookmark, rlPolicy, selectedNodeId,
+  sidebarTab, bookmark, rlPolicy, selectedNodeId, storyboardParameters,
   onTabChange, onSendText, onCommand
 }: {
   nodes: Record<string, KGNode>;
@@ -89,6 +91,7 @@ function Sidebar({
   bookmark: any;
   rlPolicy: any;
   selectedNodeId: string | null;
+  storyboardParameters: import('@shared/types').ParameterDefinition[];
   onTabChange: (tab: 'info' | 'graph' | 'chat') => void;
   onSendText: (text: string) => void;
   onCommand: (cmd: string) => void;
@@ -157,6 +160,12 @@ function Sidebar({
             ) : (
               <p className="panel-empty">Select a node or start a presentation to see details.</p>
             )}
+
+            {/* Parameter controls */}
+            <ParameterPanel
+              parameters={storyboardParameters}
+              currentScene={currentScene}
+            />
 
             {/* RL Policy */}
             {rlPolicy && (
@@ -472,6 +481,20 @@ export default function App() {
       // Load demo data directly
       for (const node of Object.values(DEMO_NODES)) store.addNode(node);
       for (const edge of Object.values(DEMO_EDGES)) store.addEdge(edge);
+      useSessionStore.setState({
+        storyboardParameters: [
+          {
+            name: 'pod_count',
+            type: 'integer',
+            default: 1,
+            min: 1,
+            max: 5,
+            label: 'Pod count',
+            bindings: [],
+          },
+        ],
+        totalScenes: DEMO_SCENES.length,
+      });
       store.setSessionState('PRESENTING' as any);
       setDemoSceneIndex(0);
     } else {
@@ -627,10 +650,11 @@ export default function App() {
         </div>
       </header>
 
-      {/* Main Layout */}
-      <div className="main-layout">
-        <div className="canvas-area">
-          <StageEngineProvider>
+      {/* Main Layout — StageEngineProvider wraps both canvas and Sidebar for ParameterPanel env access */}
+      <StageEngineProvider>
+        <ParameterBootstrap />
+        <div className="main-layout">
+          <div className="canvas-area">
             <PresentationCanvas
               sceneTransitioning={sceneTransitioning}
               scenes={scenes}
@@ -639,27 +663,28 @@ export default function App() {
               isDemoMode={demoSceneIndex >= 0}
               onCommand={handleCommand}
             />
-          </StageEngineProvider>
-        </div>
+          </div>
 
-        {/* Sidebar */}
-        <ErrorBoundary fallbackMessage="Sidebar encountered an error.">
-          <Sidebar
-            nodes={store.nodes}
-            currentScene={store.currentScene}
-            narrationText={store.narrationText}
-            chatMessages={store.chatMessages}
-            sessionState={store.sessionState}
-            sidebarTab={store.sidebarTab}
-            bookmark={store.bookmark}
-            rlPolicy={store.rlPolicy}
-            selectedNodeId={null}
-            onTabChange={store.setSidebarTab}
-            onSendText={handleSendText}
-            onCommand={handleCommand}
-          />
+          {/* Sidebar */}
+          <ErrorBoundary fallbackMessage="Sidebar encountered an error.">
+            <Sidebar
+              nodes={store.nodes}
+              currentScene={store.currentScene}
+              narrationText={store.narrationText}
+              chatMessages={store.chatMessages}
+              sessionState={store.sessionState}
+              sidebarTab={store.sidebarTab}
+              bookmark={store.bookmark}
+              rlPolicy={store.rlPolicy}
+              selectedNodeId={null}
+              storyboardParameters={store.storyboardParameters}
+              onTabChange={store.setSidebarTab}
+              onSendText={handleSendText}
+              onCommand={handleCommand}
+            />
         </ErrorBoundary>
-      </div>
+        </div>
+      </StageEngineProvider>
     </div>
   );
 }
