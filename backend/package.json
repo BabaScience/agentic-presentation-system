@@ -11,7 +11,8 @@
     "test:watch": "jest --watch",
     "test:unit": "jest --testPathPattern=unit",
     "test:integration": "jest --testPathPattern=integration",
-    "test:e2e": "jest --testPathPattern=e2e"
+    "test:e2e": "jest --testPathPattern=e2e",
+    "test:performance": "jest --testPathPattern='ScenePipelineOrchestrator|StoryboardEngine'"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.30.0",

@@ -45,7 +45,7 @@
 - [x] Mastery signals from concept completion
 
 ## Session 8 — Integration Test
-- [ ] Topic → Storyboard → SceneGraph → Checkpoints → Parameters → RL loop
-- [ ] Kubernetes networking demo on full new architecture
-- [ ] All performance contracts verified end-to-end
-- [ ] Old frame selector path confirmed deleted
+- [x] Topic → Storyboard → SceneGraph → Checkpoints → Parameters → RL loop
+- [x] Kubernetes networking demo on full new architecture
+- [x] All performance contracts verified end-to-end
+- [x] Old frame selector path confirmed deleted

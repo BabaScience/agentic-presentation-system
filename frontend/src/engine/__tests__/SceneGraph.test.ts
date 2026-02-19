@@ -3,6 +3,7 @@ import { SceneGraph } from '../SceneGraph';
 import {
   CHECKPOINT_RESTORE_MS,
   PARAMETER_PROPAGATION_MS,
+  SCENE_DIRTY_RENDER_MS,
   SPATIAL_QUERY_MS,
 } from '@shared/constants';
 
@@ -150,6 +151,33 @@ describe('SceneGraph', () => {
     const el = sg.getElementById('restore_0')!;
     expect(el.opacity).toBe(1);
     expect(sg.getDirtyElements().size).toBe(200);
+  });
+
+  // ── Test 4c: Dirty tracking performance <8ms ───────────────
+  it(`getDirtyElements + clearDirty for 200 elements (10 dirty) in <${SCENE_DIRTY_RENDER_MS}ms`, () => {
+    const sg = new SceneGraph();
+    for (let i = 0; i < 200; i++) {
+      sg.createElement({
+        id: `dirty_${i}`,
+        type: 'box',
+        position: { x: i * 5, y: i * 5 },
+        properties: { width: 30, height: 30 },
+      });
+    }
+    sg.clearDirty();
+
+    // Mark 10 elements dirty
+    for (let i = 0; i < 10; i++) {
+      sg.updateElement(`dirty_${i * 20}`, { opacity: 0.8 });
+    }
+
+    const start = performance.now();
+    const dirty = sg.getDirtyElements();
+    sg.clearDirty();
+    const elapsed = performance.now() - start;
+
+    expect(elapsed).toBeLessThan(SCENE_DIRTY_RENDER_MS);
+    expect(dirty.size).toBe(10);
   });
 
   // ── Test 5a: Spatial query performance <1ms ──────────────
