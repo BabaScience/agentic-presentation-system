@@ -129,8 +129,7 @@ export class VoiceService {
     }
 
     try {
-      // "George" voice — calm, authoritative, great for presentations
-      const voice = voiceId || 'JBFqnCBsd6RMkjVDRZzb';
+      const voice = voiceId || process.env.ELEVENLABS_VOICE_ID || 'l30f87tf05uxyknGdDw6';
       const response = await fetch(
         `https://api.elevenlabs.io/v1/text-to-speech/${voice}/with-timestamps`,
         {
