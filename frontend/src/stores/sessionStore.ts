@@ -146,14 +146,8 @@ interface SessionStore {
   scenePreparationStatus: Record<number, 'pending' | 'preparing' | 'ready' | 'failed'>;
   totalScenesToPrepare: number;
 
-  // Canvas viewport (zoom/pan)
-  canvasViewport: { x: number; y: number; zoom: number };
-  targetViewport: { x: number; y: number; zoom: number };
-  viewportTransitionMs: number;
-
   // UI
   sidebarTab: 'info' | 'graph' | 'chat';
-  showMinimap: boolean;
 
   // Actions
   setSessionState: (state: SessionState) => void;
@@ -177,9 +171,6 @@ interface SessionStore {
   setRLPolicy: (policy: RLPolicy) => void;
   setWordTimestamps: (timestamps: WordTimestamp[]) => void;
   updateAudioTime: (time: number) => void;
-
-  setTargetViewport: (viewport: { x: number; y: number; zoom: number }, durationMs: number) => void;
-  resetViewport: () => void;
 
   addChatMessage: (msg: ChatMessage) => void;
   sendTextInput: (text: string) => void;
@@ -221,11 +212,7 @@ const initialState = {
   scenePreparationStatus: {} as Record<number, 'pending' | 'preparing' | 'ready' | 'failed'>,
   totalScenesToPrepare: 0,
   chatMessages: [] as ChatMessage[],
-  canvasViewport: { x: 800, y: 450, zoom: 1 },
-  targetViewport: { x: 800, y: 450, zoom: 1 },
-  viewportTransitionMs: 0,
   sidebarTab: 'info' as const,
-  showMinimap: true,
 };
 
 // ── Store ────────────────────────────────────────────────────
@@ -442,20 +429,6 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   setRLPolicy: (policy) => set({ rlPolicy: policy }),
   setWordTimestamps: (timestamps) => set({ currentWordTimestamps: timestamps }),
   updateAudioTime: (time) => set({ currentAudioTime: time }),
-
-  setTargetViewport: (viewport, durationMs) => {
-    const clampedZoom = Math.max(0.5, Math.min(2.5, viewport.zoom));
-    set({
-      targetViewport: { ...viewport, zoom: clampedZoom },
-      canvasViewport: { ...viewport, zoom: clampedZoom },
-      viewportTransitionMs: durationMs,
-    });
-  },
-  resetViewport: () => set({
-    canvasViewport: { x: 800, y: 450, zoom: 1 },
-    targetViewport: { x: 800, y: 450, zoom: 1 },
-    viewportTransitionMs: 600,
-  }),
 
   addChatMessage: (msg) => set(produce((s: SessionStore) => { s.chatMessages.push(msg); })),
 

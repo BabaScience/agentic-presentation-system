@@ -294,10 +294,10 @@ export class WebSocketGateway {
         sceneId: scene.id,
       });
 
-      // Send visual commands
-      for (const cmd of scene.visualCommands) {
-        this.send(session.ws, { type: 'visual_command', command: cmd });
-      }
+      // Visual commands are compiled client-side by VisualScriptCompiler
+      // and executed by the stage engine (SceneExecutor). No need to send
+      // individual visual_command events — the scene_change payload carries
+      // all visual data the client needs.
 
       // Use pre-generated audio if available, otherwise fall back to delay
       if (prepared.audioData && prepared.audioData.byteLength > 0) {
@@ -395,10 +395,8 @@ export class WebSocketGateway {
         sceneId: scene.id,
       });
 
-      // Send visual commands with word triggers (staggered by frontend)
-      for (const cmd of scene.visualCommands) {
-        this.send(session.ws, { type: 'visual_command', command: cmd });
-      }
+      // Visual commands are compiled client-side by the stage engine.
+      // No individual visual_command events needed.
 
       // Generate and stream TTS audio (or fall back to delay)
       if (process.env.ELEVENLABS_API_KEY) {
@@ -550,9 +548,7 @@ export class WebSocketGateway {
         sceneId: scene.id,
       });
 
-      for (const cmd of scene.visualCommands) {
-        this.send(session.ws, { type: 'visual_command', command: cmd });
-      }
+      // Visual commands are compiled client-side by the stage engine.
 
       // TTS with real timestamps for interrupt scenes
       if (process.env.ELEVENLABS_API_KEY) {
