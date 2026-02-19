@@ -11,6 +11,8 @@ import { DEMO_NODES, DEMO_EDGES, DEMO_SCENES } from './demo/demoGraph';
 import { ScenePresenter } from './components/ScenePresenter';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { SoundEffectEngine } from './audio/SoundEffectEngine';
+import { StageEngineProvider, useStageEngine } from './engine/StageEngineContext';
+import type { StoryboardCheckpoint } from '@shared/types';
 
 // ── Data Type → Visual Config (used by Sidebar) ──────────────
 const TYPE_COLORS: Record<string, string> = {
@@ -250,15 +252,36 @@ function TimelineBar({
   currentSceneIndex,
   sessionState,
   onCommand,
+  onCheckpointClick,
 }: {
   scenes: Array<PresentationScene | StoryboardScene>;
-  storyboardCheckpoints?: Array<{ sceneId: string; checkpointName: string; estimatedDurationSeconds: number }>;
+  storyboardCheckpoints?: StoryboardCheckpoint[];
   currentSceneIndex: number;
   sessionState: string;
   onCommand: (cmd: string) => void;
+  onCheckpointClick?: (index: number, checkpointName: string) => void;
 }) {
   const markers = (storyboardCheckpoints?.length ? storyboardCheckpoints : scenes) as Array<{ id?: string; sceneId?: string }>;
   const markerCount = markers.length;
+
+  // Duration-based positioning when storyboardCheckpoints have duration data
+  const totalDuration =
+    storyboardCheckpoints?.reduce(
+      (sum, cp) => sum + (cp.actualDurationSeconds ?? cp.estimatedDurationSeconds),
+      0,
+    ) ?? 0;
+  const useDurationBased = storyboardCheckpoints != null && markerCount > 0 && totalDuration > 0;
+
+  const getLeft = (i: number) => {
+    if (!useDurationBased) {
+      return markerCount > 1 ? (i / (markerCount - 1)) * 100 : 50;
+    }
+    const cumulative = storyboardCheckpoints!
+      .slice(0, i)
+      .reduce((s, cp) => s + (cp.actualDurationSeconds ?? cp.estimatedDurationSeconds), 0);
+    return (cumulative / totalDuration) * 100;
+  };
+
   const progress = markerCount > 0 ? ((currentSceneIndex + 1) / markerCount) * 100 : 0;
 
   return (
@@ -277,17 +300,19 @@ function TimelineBar({
       <div className="timeline-track">
         <div className="timeline-progress" style={{ width: `${progress}%` }} />
         {markers.map((m, i) => {
-          const left = markerCount > 1 ? (i / (markerCount - 1)) * 100 : 50;
+          const left = getLeft(i);
           const isCurrent = i === currentSceneIndex;
           const isPassed = i < currentSceneIndex;
           const cp = storyboardCheckpoints?.[i];
           const title = cp?.checkpointName ?? (m as any).name ?? `Scene ${i + 1}`;
+          const checkpointName = cp?.checkpointName;
           return (
             <button
               key={m.sceneId ?? m.id ?? `marker-${i}`}
               className={`tl-checkpoint ${isCurrent ? 'active' : ''} ${isPassed ? 'passed' : ''}`}
               style={{ left: `${left}%` }}
               title={title}
+              onClick={() => checkpointName != null && onCheckpointClick?.(i, checkpointName)}
             >
               <span className="cp-dot" />
             </button>
@@ -301,6 +326,71 @@ function TimelineBar({
         </span>
       </div>
     </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════
+// PRESENTATION CANVAS — Inside StageEngineProvider, wires checkpoint restore
+// ══════════════════════════════════════════════════════════════
+function PresentationCanvas({
+  sceneTransitioning,
+  scenes,
+  currentSceneIdx,
+  setDemoSceneIndex,
+  isDemoMode,
+  onCommand,
+}: {
+  sceneTransitioning: boolean;
+  scenes: Array<PresentationScene | StoryboardScene>;
+  currentSceneIdx: number;
+  setDemoSceneIndex: (fn: (prev: number) => number) => void;
+  isDemoMode: boolean;
+  onCommand: (cmd: string) => void;
+}) {
+  const { restoreCheckpoint } = useStageEngine();
+  const store = useSessionStore();
+
+  const onCheckpointClick = (i: number, name: string) => {
+    if (isDemoMode) {
+      setDemoSceneIndex(() => i);
+      return;
+    }
+    restoreCheckpoint(name);
+    const historicalScene = store.sceneHistory[i];
+    if (historicalScene) {
+      store.setCurrentScene(historicalScene);
+    }
+    store.sendRestoreCheckpoint(name);
+  };
+
+  return (
+    <>
+      <div className={`canvas-container ${sceneTransitioning ? 'canvas-transitioning' : ''}`}>
+        <ErrorBoundary fallbackMessage="Presentation renderer encountered an error.">
+          <ScenePresenter currentScene={store.currentScene} />
+        </ErrorBoundary>
+
+        {(store.sessionState === 'LISTENING' || store.sessionState === 'REASONING' || store.sessionState === 'BUILDING_GRAPH') && Object.keys(store.nodes).length === 0 && (
+          <div className="canvas-overlay">
+            <div className="loading-spinner" />
+            <p>
+              {store.sessionState === 'LISTENING' && 'Starting presentation...'}
+              {store.sessionState === 'REASONING' && 'Reasoning about your topic...'}
+              {store.sessionState === 'BUILDING_GRAPH' && 'Building knowledge graph...'}
+            </p>
+          </div>
+        )}
+      </div>
+
+      <TimelineBar
+        scenes={scenes}
+        storyboardCheckpoints={store.storyboardCheckpoints.length > 0 ? store.storyboardCheckpoints : undefined}
+        currentSceneIndex={currentSceneIdx}
+        sessionState={store.sessionState}
+        onCommand={onCommand}
+        onCheckpointClick={onCheckpointClick}
+      />
+    </>
   );
 }
 
@@ -540,34 +630,16 @@ export default function App() {
       {/* Main Layout */}
       <div className="main-layout">
         <div className="canvas-area">
-          <div className={`canvas-container ${sceneTransitioning ? 'canvas-transitioning' : ''}`}>
-            <ErrorBoundary fallbackMessage="Presentation renderer encountered an error.">
-              <ScenePresenter
-                currentScene={store.currentScene}
-              />
-            </ErrorBoundary>
-
-            {/* Loading overlay */}
-            {(store.sessionState === 'LISTENING' || store.sessionState === 'REASONING' || store.sessionState === 'BUILDING_GRAPH') && Object.keys(store.nodes).length === 0 && (
-              <div className="canvas-overlay">
-                <div className="loading-spinner" />
-                <p>
-                  {store.sessionState === 'LISTENING' && 'Starting presentation...'}
-                  {store.sessionState === 'REASONING' && 'Reasoning about your topic...'}
-                  {store.sessionState === 'BUILDING_GRAPH' && 'Building knowledge graph...'}
-                </p>
-              </div>
-            )}
-          </div>
-
-          {/* Timeline */}
-          <TimelineBar
-            scenes={scenes}
-            storyboardCheckpoints={store.storyboardCheckpoints.length > 0 ? store.storyboardCheckpoints : undefined}
-            currentSceneIndex={currentSceneIdx}
-            sessionState={store.sessionState}
-            onCommand={handleCommand}
-          />
+          <StageEngineProvider>
+            <PresentationCanvas
+              sceneTransitioning={sceneTransitioning}
+              scenes={scenes}
+              currentSceneIdx={currentSceneIdx}
+              setDemoSceneIndex={setDemoSceneIndex}
+              isDemoMode={demoSceneIndex >= 0}
+              onCommand={handleCommand}
+            />
+          </StageEngineProvider>
         </div>
 
         {/* Sidebar */}

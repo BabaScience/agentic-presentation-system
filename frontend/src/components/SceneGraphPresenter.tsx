@@ -18,7 +18,7 @@
 
 import React, { useEffect, useMemo } from 'react';
 import type { WordTimestamp, StoryboardScene } from '@shared/types';
-import { useSceneEngine } from '../engine/useSceneEngine';
+import { useStageEngine } from '../engine/StageEngineContext';
 import { elementsToVisualEntities } from '../engine/elementToVisualEntity';
 import { FrameRenderer } from './FrameRenderer';
 
@@ -38,7 +38,7 @@ export function SceneGraphPresenter({
   height,
 }: SceneGraphPresenterProps) {
   // executor is created inside useSceneEngine and ticked every rAF frame.
-  const { executor, elementStates, viewport } = useSceneEngine();
+  const { executor, elementStates, viewport } = useStageEngine();
 
   // When scene changes: execute the pre-compiled StoryboardScene.
   // eslint-disable-next-line react-hooks/exhaustive-deps

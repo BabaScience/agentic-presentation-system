@@ -89,7 +89,39 @@ describe('SceneGraph', () => {
     expect(snappedElement.properties['label']).toBe('original');
   });
 
-  // ── Test 4: Snapshot restore speed < 100ms ──────────────
+  // ── Test 4a: 20 checkpoints × 50 elements, restore one < 100ms ──
+  it(`restores one of 20 checkpoints (50 elements each) in <${CHECKPOINT_RESTORE_MS}ms`, () => {
+    const sg = new SceneGraph();
+    const checkpointIds: string[] = [];
+
+    for (let c = 0; c < 20; c++) {
+      for (let i = 0; i < 50; i++) {
+        sg.createElement({
+          id: `cp${c}_el${i}`,
+          type: 'box',
+          position: { x: c * 100 + i, y: i },
+          properties: { width: 20, height: 20 },
+        });
+      }
+      const snap = sg.createSnapshot(`checkpoint-${c}`);
+      checkpointIds.push(snap.id);
+    }
+
+    // Mutate so restore has work to do
+    for (let i = 0; i < 50; i++) {
+      sg.updateElement(`cp10_el${i}`, { opacity: 0 });
+    }
+    sg.clearDirty();
+
+    const start = performance.now();
+    sg.restoreSnapshot(checkpointIds[10]);
+    const elapsed = performance.now() - start;
+
+    expect(elapsed).toBeLessThan(CHECKPOINT_RESTORE_MS);
+    expect(sg.getElementById('cp10_el0')!.opacity).toBe(1);
+  });
+
+  // ── Test 4b: Snapshot restore speed < 100ms ──────────────
   it(`restores snapshot of 200 elements in <${CHECKPOINT_RESTORE_MS}ms`, () => {
     const sg = new SceneGraph();
     for (let i = 0; i < 200; i++) {

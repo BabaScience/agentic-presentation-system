@@ -26,8 +26,8 @@
 - [x] 25 API methods tested, <100ms per command
 
 ## Session 4 — CheckpointManager + TimelineBar
-- [ ] Time travel: create, restore, navigate
-- [ ] Restore <100ms for 20 checkpoints, 50 elements each
+- [x] Time travel: create, restore, navigate
+- [x] Restore <100ms for 20 checkpoints, 50 elements each
 
 ## Session 5 — ParameterPanel.tsx
 - [ ] Reactive controls

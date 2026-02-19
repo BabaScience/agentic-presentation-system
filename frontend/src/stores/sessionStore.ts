@@ -163,7 +163,7 @@ interface SessionStore {
   totalScenesToPrepare: number;
 
   // Storyboard (from storyboard_ready, before scenes presented)
-  storyboardCheckpoints: Array<{ sceneId: string; checkpointName: string; estimatedDurationSeconds: number }>;
+  storyboardCheckpoints: import('@shared/types').StoryboardCheckpoint[];
   storyboardParameters: Array<{ name: string; label: string }>;
   totalScenes: number;
 
@@ -232,7 +232,7 @@ const initialState = {
   rlPolicy: null as RLPolicy | null,
   scenePreparationStatus: {} as Record<number, 'pending' | 'preparing' | 'ready' | 'failed'>,
   totalScenesToPrepare: 0,
-  storyboardCheckpoints: [] as Array<{ sceneId: string; checkpointName: string; estimatedDurationSeconds: number }>,
+  storyboardCheckpoints: [] as import('@shared/types').StoryboardCheckpoint[],
   storyboardParameters: [] as Array<{ name: string; label: string }>,
   totalScenes: 0,
   chatMessages: [] as ChatMessage[],
@@ -311,6 +311,16 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
             // Informational — audio binary follows immediately
             if (msg.wordTimestamps) {
               store.setWordTimestamps(msg.wordTimestamps);
+            }
+            // Update checkpoint duration with real TTS duration
+            if (msg.sceneId != null && msg.durationMs != null) {
+              set((state) => ({
+                storyboardCheckpoints: state.storyboardCheckpoints.map((cp) =>
+                  cp.sceneId === msg.sceneId
+                    ? { ...cp, actualDurationSeconds: msg.durationMs / 1000 }
+                    : cp,
+                ),
+              }));
             }
             break;
 

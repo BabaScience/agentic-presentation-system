@@ -457,6 +457,14 @@ export type WSClientEvent =
   | { type: 'restore_checkpoint'; name: string }
   | { type: 'ping' };
 
+/** Checkpoint marker for timeline. actualDurationSeconds set when agent_audio_meta arrives. */
+export interface StoryboardCheckpoint {
+  sceneId: string;
+  checkpointName: string;
+  estimatedDurationSeconds: number;
+  actualDurationSeconds?: number;
+}
+
 export type WSServerEvent =
   | { type: 'agent_audio'; data: ArrayBuffer }
   | { type: 'graph_update'; mutation: GraphMutation }
@@ -471,7 +479,7 @@ export type WSServerEvent =
   | { type: 'parameter_update'; name: string; value: unknown }
   | { type: 'checkpoint_created'; name: string; handle: string }
   | { type: 'checkpoint_restored'; name: string }
-  | { type: 'storyboard_ready'; checkpoints: Array<{ sceneId: string; checkpointName: string; estimatedDurationSeconds: number }>; parameters: ParameterDefinition[]; totalScenes: number }
+  | { type: 'storyboard_ready'; checkpoints: StoryboardCheckpoint[]; parameters: ParameterDefinition[]; totalScenes: number }
   | { type: 'error'; message: string; code: string }
   | { type: 'pong' };
 
