@@ -532,6 +532,12 @@ export class EnvironmentAPI {
 
   // ── Checkpoints ───────────────────────────────────────────
 
+  // applySnapshot(snapshot: SceneSnapshot): void
+  // Intentionally not implemented here in Session 3.
+  // CheckpointManager (Session 4) will call sceneGraph.applySnapshot() directly
+  // or expose this method based on its actual needs.
+  // See: TODOS.md Session 4, TECHNICAL_ARCHITECTURE.md §Checkpoint Contract
+
   createCheckpoint(name: string): CheckpointHandle {
     const snapshot = this.sceneGraph.createSnapshot(name);
     return {

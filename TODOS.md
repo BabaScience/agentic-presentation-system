@@ -22,8 +22,8 @@
 - [x] 7 mandatory tests, performance contracts
 
 ## Session 3 — EnvironmentAPI.ts
-- [ ] Full agent manipulation surface
-- [ ] 25 API methods tested, <100ms per command
+- [x] Full agent manipulation surface
+- [x] 25 API methods tested, <100ms per command
 
 ## Session 4 — CheckpointManager + TimelineBar
 - [ ] Time travel: create, restore, navigate

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { SceneGraph } from '../SceneGraph';
 import { EnvironmentAPI } from '../EnvironmentAPI';
+import { AGENT_COMMAND_MS } from '@shared/constants';
 
 // ── Helper ──────────────────────────────────────────────────
 
@@ -317,5 +318,308 @@ describe('EnvironmentAPI', () => {
     expect(connAnn.connectionStyle!.strokeWidth).toBe(2);
     expect(connAnn.connectionStyle!.dashArray).toBe('5 5');
     expect(connAnn.connectionStyle!.animated).toBe(true);
+  });
+
+  // ── Test 14: showElement ───────────────────────────────────
+  it('showElement — immediate and with duration', async () => {
+    const sg = new SceneGraph();
+    const env = new EnvironmentAPI(sg);
+    env.createElement({
+      id: 'show_el',
+      type: 'box',
+      position: { x: 0, y: 0 },
+      visible: false,
+      opacity: 0,
+      properties: { width: 50, height: 50 },
+    });
+
+    // Immediate
+    await env.showElement('show_el');
+    expect(env.getElementById('show_el')!.visible).toBe(true);
+    expect(env.getElementById('show_el')!.opacity).toBe(1);
+
+    // With duration (fadeIn path)
+    env.updateElement('show_el', { opacity: 0 });
+    const promise = env.showElement('show_el', 200);
+    tickUntilSettled(env);
+    await promise;
+    expect(env.getElementById('show_el')!.opacity).toBeCloseTo(1, 1);
+  });
+
+  // ── Test 15: hideElement ───────────────────────────────────
+  it('hideElement — immediate and with duration', async () => {
+    const sg = new SceneGraph();
+    const env = new EnvironmentAPI(sg);
+    env.createElement({
+      id: 'hide_el',
+      type: 'box',
+      position: { x: 0, y: 0 },
+      properties: { width: 50, height: 50 },
+    });
+
+    // With duration (fadeOut path)
+    const promise = env.hideElement('hide_el', 200);
+    tickUntilSettled(env);
+    await promise;
+    expect(env.getElementById('hide_el')!.visible).toBe(false);
+
+    // Immediate (element still exists)
+    env.updateElement('hide_el', { visible: true });
+    await env.hideElement('hide_el');
+    expect(env.getElementById('hide_el')!.visible).toBe(false);
+  });
+
+  // ── Test 16: moveBy ───────────────────────────────────────
+  it('moveBy — delta applied, settles at new position', async () => {
+    const sg = new SceneGraph();
+    const env = new EnvironmentAPI(sg);
+    env.createElement({
+      id: 'moveby_el',
+      type: 'box',
+      position: { x: 100, y: 50 },
+      properties: { width: 50, height: 50 },
+    });
+
+    const promise = env.moveBy('moveby_el', { x: 30, y: -20 });
+    tickUntilSettled(env);
+    await promise;
+
+    const el = env.getElementById('moveby_el')!;
+    expect(el.position.x).toBeCloseTo(130, 1);
+    expect(el.position.y).toBeCloseTo(30, 1);
+  });
+
+  // ── Test 17: scaleTo ──────────────────────────────────────
+  it('scaleTo — element properties.scale updated', async () => {
+    const sg = new SceneGraph();
+    const env = new EnvironmentAPI(sg);
+    env.createElement({
+      id: 'scale_el',
+      type: 'box',
+      position: { x: 0, y: 0 },
+      properties: { width: 50, height: 50 },
+    });
+
+    const promise = env.scaleTo('scale_el', 2.5);
+    tickUntilSettled(env);
+    await promise;
+
+    const el = env.getElementById('scale_el')!;
+    expect(el.properties['scale']).toBeCloseTo(2.5, 1);
+  });
+
+  // ── Test 18: rotateTo ─────────────────────────────────────
+  it('rotateTo — element properties.rotation updated', async () => {
+    const sg = new SceneGraph();
+    const env = new EnvironmentAPI(sg);
+    env.createElement({
+      id: 'rot_el',
+      type: 'box',
+      position: { x: 0, y: 0 },
+      properties: { width: 50, height: 50 },
+    });
+
+    const promise = env.rotateTo('rot_el', 90);
+    tickUntilSettled(env);
+    await promise;
+
+    const el = env.getElementById('rot_el')!;
+    expect(el.properties['rotation']).toBeCloseTo(90, 1);
+  });
+
+  // ── Test 19: fadeOut ───────────────────────────────────────
+  it('fadeOut — opacity 1→0 over duration', async () => {
+    const sg = new SceneGraph();
+    const env = new EnvironmentAPI(sg);
+    env.createElement({
+      id: 'fadeout_el',
+      type: 'box',
+      position: { x: 0, y: 0 },
+      opacity: 1,
+      properties: { width: 50, height: 50 },
+    });
+
+    const promise = env.fadeOut('fadeout_el', 300);
+    env.tick(150);
+    expect(env.getElementById('fadeout_el')!.opacity).toBeCloseTo(0.5, 1);
+    env.tick(150);
+    await promise;
+    expect(env.getElementById('fadeout_el')!.opacity).toBeCloseTo(0, 1);
+  });
+
+  // ── Test 20: panTo ─────────────────────────────────────────
+  it('panTo — viewport x,y updated', async () => {
+    const sg = new SceneGraph();
+    const env = new EnvironmentAPI(sg);
+
+    const promise = env.panTo({ x: 150, y: 200 });
+    tickUntilSettled(env);
+    await promise;
+
+    const vp = env.getViewport();
+    expect(vp.x).toBeCloseTo(150, 1);
+    expect(vp.y).toBeCloseTo(200, 1);
+  });
+
+  // ── Test 21: focusOn ───────────────────────────────────────
+  it('focusOn — centers viewport on element and sets focusElementId', async () => {
+    const sg = new SceneGraph();
+    const env = new EnvironmentAPI(sg);
+    env.createElement({
+      id: 'target',
+      type: 'box',
+      position: { x: 400, y: 300 },
+      properties: { width: 100, height: 80 },
+    });
+
+    const promise = env.focusOn('target', 20);
+    tickUntilSettled(env);
+    await promise;
+
+    const vp = env.getViewport();
+    expect(vp.focusElementId).toBe('target');
+    expect(vp.x).toBeCloseTo(400, -1);
+    expect(vp.y).toBeCloseTo(300, -1);
+  });
+
+  // ── Test 22: resetView ─────────────────────────────────────
+  it('resetView — viewport returns to 0,0,1,0', async () => {
+    const sg = new SceneGraph();
+    const env = new EnvironmentAPI(sg);
+
+    let promise = env.panTo({ x: 100, y: 200 });
+    tickUntilSettled(env);
+    await promise;
+
+    promise = env.zoomTo(2.5);
+    tickUntilSettled(env);
+    await promise;
+
+    promise = env.resetView();
+    tickUntilSettled(env);
+    await promise;
+
+    const vp = env.getViewport();
+    expect(vp.x).toBeCloseTo(0, 1);
+    expect(vp.y).toBeCloseTo(0, 1);
+    expect(vp.zoom).toBeCloseTo(1, 1);
+    expect(vp.rotation ?? 0).toBeCloseTo(0, 1);
+  });
+
+  // ── Test 23: bindElementToParameter — binding propagates, unbinding stops ─
+  it('bindElementToParameter — binding propagates, unbinding stops', () => {
+    const sg = new SceneGraph();
+    const env = new EnvironmentAPI(sg);
+    env.createElement({
+      id: 'el1',
+      type: 'box',
+      position: { x: 0, y: 0 },
+      properties: {},
+    });
+    env.defineParameter('count', {
+      type: 'integer',
+      value: 1,
+      default: 1,
+      min: 1,
+      max: 5,
+    });
+
+    const handle = env.bindElementToParameter('el1', 'count', (v) => ({
+      properties: { itemCount: v },
+    }));
+
+    env.setParameter('count', 3);
+    expect(env.getElementById('el1')!.properties['itemCount']).toBe(3);
+
+    handle.unbind();
+    env.setParameter('count', 5);
+    expect(env.getElementById('el1')!.properties['itemCount']).toBe(3);
+  });
+
+  // ── Performance tests ───────────────────────────────────────
+
+  it('createCheckpoint — single call with 50 elements completes within AGENT_COMMAND_MS', () => {
+    const sg = new SceneGraph();
+    const env = new EnvironmentAPI(sg);
+    for (let i = 0; i < 50; i++) {
+      env.createElement({
+        id: `perf_${i}`,
+        type: 'box',
+        position: { x: i * 10, y: i * 10 },
+        properties: { width: 30, height: 30 },
+      });
+    }
+
+    const start = performance.now();
+    env.createCheckpoint('perf-checkpoint');
+    const elapsed = performance.now() - start;
+
+    expect(elapsed).toBeLessThan(AGENT_COMMAND_MS);
+  });
+
+  it('restoreCheckpoint — single call completes within AGENT_COMMAND_MS', () => {
+    const sg = new SceneGraph();
+    const env = new EnvironmentAPI(sg);
+    for (let i = 0; i < 50; i++) {
+      env.createElement({
+        id: `restore_${i}`,
+        type: 'box',
+        position: { x: i * 10, y: i * 10 },
+        properties: { width: 30, height: 30 },
+      });
+    }
+    const cp = env.createCheckpoint('restore-test');
+    env.updateElement('restore_0', { position: { x: 999, y: 999 } });
+
+    const start = performance.now();
+    env.restoreCheckpoint(cp.id);
+    const elapsed = performance.now() - start;
+
+    expect(elapsed).toBeLessThan(AGENT_COMMAND_MS);
+    expect(env.getElementById('restore_0')!.position.x).toBe(0);
+  });
+
+  it('createElement batch — 25 createElement calls complete within AGENT_COMMAND_MS', () => {
+    const sg = new SceneGraph();
+    const env = new EnvironmentAPI(sg);
+
+    const start = performance.now();
+    for (let i = 0; i < 25; i++) {
+      env.createElement({
+        id: `batch_${i}`,
+        type: 'box',
+        position: { x: i * 10, y: i * 10 },
+        properties: { width: 30, height: 30 },
+      });
+    }
+    const elapsed = performance.now() - start;
+
+    expect(elapsed).toBeLessThan(AGENT_COMMAND_MS);
+    for (let i = 0; i < 25; i++) {
+      expect(env.getElementById(`batch_${i}`)).toBeDefined();
+    }
+  });
+
+  it('updateElement batch — 50 sequential updates complete within AGENT_COMMAND_MS', () => {
+    const sg = new SceneGraph();
+    const env = new EnvironmentAPI(sg);
+    env.createElement({
+      id: 'upd_el',
+      type: 'box',
+      position: { x: 0, y: 0 },
+      properties: { width: 50, height: 50 },
+    });
+
+    // Tests the synchronous state mutation cost, not animation duration.
+    // Each updateElement marks the element dirty and updates the Map —
+    // no animation, no async work.
+    const start = performance.now();
+    for (let i = 0; i < 50; i++) {
+      env.updateElement('upd_el', { opacity: i / 50 });
+    }
+    const elapsed = performance.now() - start;
+
+    expect(elapsed).toBeLessThan(AGENT_COMMAND_MS);
+    expect(env.getElementById('upd_el')!.opacity).toBeCloseTo(1, 1);
   });
 });
