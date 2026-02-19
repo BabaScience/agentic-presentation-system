@@ -314,12 +314,18 @@ export class RLService {
   }
 
   // ── Import Profile (cross-session persistence) ───────────
+  /** Accepts full export shape or BanditState.arms for cross-session restore. */
   importProfile(profile: {
-    learnerState: LearnerState;
-    strategyArms: Record<string, { alpha: number; beta: number }>;
+    learnerState?: LearnerState;
+    strategyArms?: Record<string, { alpha: number; beta: number }>;
+    arms?: Record<string, { alpha: number; beta: number }>;
   }): void {
-    this.learnerState = { ...this.learnerState, ...profile.learnerState };
-    for (const [key, arm] of Object.entries(profile.strategyArms)) {
+    const arms = profile.strategyArms ?? profile.arms;
+    if (profile.learnerState) {
+      this.learnerState = { ...this.learnerState, ...profile.learnerState };
+    }
+    if (!arms) return;
+    for (const [key, arm] of Object.entries(arms)) {
       if (this.strategyArms[key as ExplanationStrategy]) {
         this.strategyArms[key as ExplanationStrategy].arm = { ...arm };
       }

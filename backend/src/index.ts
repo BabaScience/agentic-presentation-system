@@ -21,11 +21,17 @@ app.use(cors({ origin: process.env.FRONTEND_URL || 'http://localhost:3000' }));
 app.use(express.json({ limit: '10mb' }));
 
 // ── Health Check ─────────────────────────────────────────────
-app.get('/health', (_req, res) => {
+app.get('/health', async (_req, res) => {
+  const { getRedisClient } = await import('./lib/redis');
+  const redis = getRedisClient();
+  const redisStatus = redis
+    ? await redis.ping().then(() => 'ready').catch(() => 'unavailable')
+    : 'unavailable';
   res.json({
     status: 'ok',
     version: '2.0.0',
     uptime: process.uptime(),
+    redis: redisStatus,
     services: {
       agent: 'ready',
       knowledgeGraph: 'ready',

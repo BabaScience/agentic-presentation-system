@@ -39,10 +39,10 @@
 - [x] Remove old path when new path achieves parity
 
 ## Session 7 — LearnerProfileService (Journey-Level RL)
-- [ ] loadProfile() / saveProfile() with Redis persistence
-- [ ] updateMastery() signal write-back
-- [ ] Thompson Sampling state persists across sessions
-- [ ] Mastery signals from concept completion
+- [x] loadProfile() / saveProfile() with Redis persistence
+- [x] updateMastery() signal write-back
+- [x] Thompson Sampling state persists across sessions
+- [x] Mastery signals from concept completion
 
 ## Session 8 — Integration Test
 - [ ] Topic → Storyboard → SceneGraph → Checkpoints → Parameters → RL loop

@@ -424,7 +424,17 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
   startSession: (topic: string) => {
     set({ topic, sessionState: 'LISTENING' });
-    get().sendMessage({ type: 'start_session', topic });
+    let userId: string | undefined;
+    try {
+      userId = localStorage.getItem('agentic_user_id') ?? undefined;
+      if (!userId) {
+        userId = crypto.randomUUID();
+        localStorage.setItem('agentic_user_id', userId);
+      }
+    } catch {
+      userId = undefined;
+    }
+    get().sendMessage({ type: 'start_session', topic, userId });
   },
 
   addNode: (node: KGNode) => set(produce((s: SessionStore) => { s.nodes[node.id] = node; })),

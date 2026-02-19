@@ -52,6 +52,14 @@ interface ClientSession {
   isPresenting: boolean;
   presentationAbortController: AbortController | null;
   scenePipeline: ScenePipelineOrchestrator | null;
+  /** Per-session RL (imported from profile on start). */
+  rl?: RLService;
+  /** Per-scene signals for mastery detection. */
+  recentSceneSignals: Array<{ sceneIndex: number; signals: string[] }>;
+  acknowledgmentCount: number;
+  confusionCount: number;
+  /** Node IDs presented this session (for mastery write-back). */
+  nodesPresentedInOrder: string[];
 }
 
 export class WebSocketGateway {
@@ -102,6 +110,10 @@ export class WebSocketGateway {
         isPresenting: false,
         presentationAbortController: null,
         scenePipeline: null,
+        recentSceneSignals: [],
+        acknowledgmentCount: 0,
+        confusionCount: 0,
+        nodesPresentedInOrder: [],
       };
 
       this.clients.set(sessionId, session);
@@ -114,6 +126,9 @@ export class WebSocketGateway {
         console.log(`[WS] Client disconnected: ${sessionId}`);
         session.presentationAbortController?.abort();
         session.scenePipeline?.cancelPending();
+        this.saveProfileOnDisconnect(session).catch((err) =>
+          console.error('[LearnerProfile] Save failed:', err),
+        );
         this.clients.delete(sessionId);
       });
 
@@ -141,7 +156,8 @@ export class WebSocketGateway {
 
       switch (msg.type) {
         case 'start_session':
-          console.log('[WS] Received start_session for topic:', msg.topic);
+          console.log('[WS] Received start_session for topic:', msg.topic, 'userId:', msg.userId ?? '(anonymous)');
+          session.userId = typeof msg.userId === 'string' ? msg.userId : undefined;
           await this.handleStartSession(session, msg.topic);
           break;
 
@@ -179,15 +195,29 @@ export class WebSocketGateway {
     }
   }
 
+  private getSessionRl(session: ClientSession): RLService {
+    return session.rl ?? this.rl;
+  }
+
   // ── Start Session: Full Agent Pipeline (Concurrent) ─────
   private async handleStartSession(session: ClientSession, topic: string): Promise<void> {
     console.log('[WS] handleStartSession starting for topic:', topic);
     session.topic = topic;
+    const userId = session.userId ?? session.id;
+
+    // Per-session RL: load profile, create RLService, import Thompson Sampling state
+    const learnerProfile = await this.learnerProfileService.loadProfile(userId)
+      ?? defaultLearnerProfile(userId);
+    session.rl = new RLService();
+    if (learnerProfile.thompsonSamplingState?.arms) {
+      session.rl.importProfile({ arms: learnerProfile.thompsonSamplingState.arms });
+    }
+
     this.transition(session, SessionState.LISTENING);
 
     // Phase 1: Reasoning
     this.transition(session, SessionState.REASONING);
-    const reasoning = await this.agent.reason(topic, this.rl.getCurrentPolicy());
+    const reasoning = await this.agent.reason(topic, session.rl.getCurrentPolicy());
 
     // Warn client if AI reasoning fell back to templates
     if ((reasoning as any)._fallbackReason) {
@@ -218,10 +248,8 @@ export class WebSocketGateway {
       });
     }
 
-    // Phase 3: Plan storyboard (StoryboardEngine)
-    const policy = this.rl.getCurrentPolicy();
-    const learnerProfile = await this.learnerProfileService.loadProfile(session.userId)
-      ?? defaultLearnerProfile(session.userId);
+    // Phase 3: Plan storyboard (StoryboardEngine) — learnerProfile already loaded above
+    const policy = session.rl.getCurrentPolicy();
     const storyboard = await this.storyboardEngine.plan(graph, learnerProfile);
     session.storyboard = storyboard;
     session.currentSceneIndex = 0;
@@ -265,7 +293,7 @@ export class WebSocketGateway {
     });
 
     // Phase 6: Start async graph expansion in background
-    this.kgService.expandAsync(graph, this.rl, (mutation) => {
+    this.kgService.expandAsync(graph, session.rl, (mutation) => {
       if (session.ws.readyState === WebSocket.OPEN) {
         this.send(session.ws, { type: 'graph_update', mutation });
       }
@@ -365,14 +393,15 @@ export class WebSocketGateway {
       if (signal.aborted) break;
 
       // Mark nodes as presented
-      for (const nodeId of scene.nodeIds) {
+      for (const nodeId of scene.nodeIds ?? []) {
         if (session.graph?.nodes[nodeId]) {
           session.graph.nodes[nodeId].isPresented = true;
         }
+        session.nodesPresentedInOrder.push(nodeId);
       }
 
       // RL: comprehension check
-      if (this.rl.shouldCheckComprehension(sceneIndex)) {
+      if (this.getSessionRl(session).shouldCheckComprehension(sceneIndex)) {
         this.send(session.ws, {
           type: 'narration_text',
           text: 'Does that make sense so far? Feel free to ask if anything is unclear.',
@@ -387,6 +416,7 @@ export class WebSocketGateway {
 
     if (!signal.aborted) {
       this.transition(session, SessionState.COMPLETED);
+      this.maybeUpdateMastery(session);
       this.send(session.ws, {
         type: 'narration_text',
         text: 'That covers the main concepts. Do you have any questions, or would you like to explore any topic in more depth?',
@@ -466,14 +496,16 @@ export class WebSocketGateway {
       if (signal.aborted) break;
 
       // Mark nodes as presented
-      for (const nodeId of scene.nodeIds) {
+      for (const nodeId of scene.nodeIds ?? []) {
         if (session.graph?.nodes[nodeId]) {
           session.graph.nodes[nodeId].isPresented = true;
         }
+        session.nodesPresentedInOrder.push(nodeId);
       }
 
       // RL: Check if comprehension check is needed
-      if (this.rl.shouldCheckComprehension(session.currentSceneIndex)) {
+      const sessionRl = this.getSessionRl(session);
+      if (sessionRl.shouldCheckComprehension(session.currentSceneIndex)) {
         this.send(session.ws, {
           type: 'narration_text',
           text: 'Does that make sense so far? Feel free to ask if anything is unclear.',
@@ -488,6 +520,7 @@ export class WebSocketGateway {
 
     if (!signal.aborted) {
       this.transition(session, SessionState.COMPLETED);
+      this.maybeUpdateMastery(session);
       this.send(session.ws, {
         type: 'narration_text',
         text: 'That covers the main concepts. Do you have any questions, or would you like to explore any topic in more depth?',
@@ -526,12 +559,15 @@ export class WebSocketGateway {
       // Rephrase current node
       await this.handleRephrase(session);
     } else if (intent === VoiceIntent.ACKNOWLEDGMENT) {
-      this.rl.recordReward({
+      const sessionRl = this.getSessionRl(session);
+      session.acknowledgmentCount++;
+      this.trackSceneSignal(session, 'acknowledgment');
+      sessionRl.recordReward({
         signal: 'acknowledgment',
         value: 1.0,
         nodeId: session.traversalPath[session.currentSceneIndex]?.focusNodeId || '',
         dataType: 'CONCEPT' as any,
-        explanationStrategy: this.rl.getCurrentPolicy().explanationStrategy,
+        explanationStrategy: sessionRl.getCurrentPolicy().explanationStrategy,
         timestamp: Date.now(),
       });
     } else if (session.state === SessionState.IDLE || session.state === SessionState.COMPLETED) {
@@ -561,7 +597,7 @@ export class WebSocketGateway {
       question,
       session.graph!,
       currentNodeId || '',
-      this.rl.getCurrentPolicy(),
+      this.getSessionRl(session).getCurrentPolicy(),
     );
 
     // Apply mutations to graph
@@ -630,19 +666,22 @@ export class WebSocketGateway {
     const currentScene = session.traversalPath[session.currentSceneIndex];
     if (!currentScene) return;
 
-    this.rl.recordReward({
+    const sessionRl = this.getSessionRl(session);
+    session.confusionCount++;
+    this.trackSceneSignal(session, 'confusion');
+    sessionRl.recordReward({
       signal: 'confusion',
       value: -1.0,
       nodeId: currentScene.focusNodeId,
       dataType: 'CONCEPT' as any,
-      explanationStrategy: this.rl.getCurrentPolicy().explanationStrategy,
+      explanationStrategy: sessionRl.getCurrentPolicy().explanationStrategy,
       timestamp: Date.now(),
     });
 
     const rephrase = await this.agent.rephraseNode(
       session.graph!,
       currentScene.focusNodeId,
-      this.rl.getCurrentPolicy(),
+      sessionRl.getCurrentPolicy(),
     );
 
     this.send(session.ws, {
@@ -703,6 +742,41 @@ export class WebSocketGateway {
         }
         break;
     }
+  }
+
+  private trackSceneSignal(session: ClientSession, signal: string): void {
+    const idx = session.currentSceneIndex;
+    let entry = session.recentSceneSignals.find((s) => s.sceneIndex === idx);
+    if (!entry) {
+      entry = { sceneIndex: idx, signals: [] };
+      session.recentSceneSignals.push(entry);
+    }
+    entry.signals.push(signal);
+    session.recentSceneSignals = session.recentSceneSignals.slice(-3);
+  }
+
+  private async maybeUpdateMastery(session: ClientSession): Promise<void> {
+    const netReward = session.acknowledgmentCount - session.confusionCount;
+    if (netReward <= 0 || session.nodesPresentedInOrder.length === 0) return;
+    const userId = session.userId ?? session.id;
+    await this.learnerProfileService.updateMastery(userId, [...new Set(session.nodesPresentedInOrder)]);
+  }
+
+  private async saveProfileOnDisconnect(session: ClientSession): Promise<void> {
+    if (!session.rl) return;
+    const userId = session.userId ?? session.id;
+    const exported = session.rl.exportProfile();
+    const profile = await this.learnerProfileService.loadProfile(userId) ?? defaultLearnerProfile(userId);
+    profile.thompsonSamplingState = { arms: exported.strategyArms };
+    profile.sessionHistory ??= [];
+    profile.sessionHistory.push({
+      sessionId: session.id,
+      date: Date.now(),
+      topic: session.topic ?? '',
+      nodesLearned: session.nodesPresentedInOrder,
+    });
+    profile.sessionHistory = profile.sessionHistory.slice(-50);
+    await this.learnerProfileService.saveProfile(profile);
   }
 
   // ── Helpers ──────────────────────────────────────────────
