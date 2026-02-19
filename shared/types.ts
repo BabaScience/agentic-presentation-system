@@ -449,13 +449,13 @@ export type WSClientEvent =
   | { type: 'audio_chunk'; data: ArrayBuffer }
   | { type: 'user_command'; command: 'pause' | 'resume' | 'skip' | 'go_back' | 'show_graph' | 'toggle_voice' }
   | { type: 'start_session'; topic: string }
+  | { type: 'text_input'; text: string }
   | { type: 'set_parameter'; name: string; value: unknown }
   | { type: 'restore_checkpoint'; name: string }
   | { type: 'ping' };
 
 export type WSServerEvent =
   | { type: 'agent_audio'; data: ArrayBuffer }
-  | { type: 'visual_command'; command: VisualCommand }
   | { type: 'graph_update'; mutation: GraphMutation }
   | { type: 'state_change'; from: SessionState; to: SessionState; metadata?: Record<string, any> }
   | { type: 'bookmark_created'; bookmark: PresentationBookmark }

@@ -278,11 +278,6 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
             store.setCurrentScene(msg.scene);
             break;
 
-          case 'visual_command':
-            // Legacy: visual commands are now compiled from currentScene.visualCommands
-            // by the stage engine (VisualScriptCompiler → SceneExecutor). No-op.
-            break;
-
           case 'narration_text':
             store.setNarration(msg.text);
             store.addChatMessage({ role: 'agent', text: msg.text, timestamp: Date.now() });
