@@ -1004,6 +1004,92 @@ export interface RecordedFrame {
   audioOffset: number;
 }
 
+// ── Stage Environment Types ─────────────────────────────────
+// These types define the persistent, mutable stage runtime (SceneGraph).
+// Named distinctly from existing KG/visual pipeline types to avoid collisions.
+
+export interface Vector2 {
+  x: number;
+  y: number;
+}
+
+export interface Bounds {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export type StageElementType =
+  | 'box' | 'circle' | 'arrow' | 'text' | 'code'
+  | 'diagram' | 'label' | 'connection' | 'group';
+
+export interface ViewportState {
+  x: number;
+  y: number;
+  zoom: number;
+  rotation: number;
+  focusElementId?: string;
+}
+
+export type ParameterType = 'integer' | 'float' | 'boolean' | 'string' | 'enum';
+
+export interface Parameter {
+  name: string;
+  type: ParameterType;
+  value: unknown;
+  min?: number;
+  max?: number;
+  default: unknown;
+}
+
+export interface SceneElement {
+  id: string;
+  type: StageElementType;
+  position: Vector2;
+  visible: boolean;
+  opacity: number;
+  zIndex: number;
+  properties: Record<string, unknown>;
+  boundParameters?: string[];
+}
+
+export interface ParameterBinding {
+  elementId: string;
+  paramName: string;
+  mapper: (value: unknown) => Partial<SceneElement>;
+}
+
+export interface BindingHandle {
+  elementId: string;
+  paramName: string;
+  unbind: () => void;
+}
+
+export interface ElementHandle {
+  id: string;
+  element: SceneElement;
+}
+
+export interface SpatialIndex {
+  insert(id: string, bounds: Bounds): void;
+  remove(id: string): void;
+  update(id: string, bounds: Bounds): void;
+  queryPoint(point: Vector2): string[];
+  queryRegion(rect: Bounds): string[];
+}
+
+export interface SceneSnapshot {
+  id: string;
+  checkpointName: string;
+  timestamp: number;
+  elements: Map<string, SceneElement>;
+  viewport: ViewportState;
+  parameters: Map<string, Parameter>;
+  activeAnnotations: Annotation[];
+  narrationOffset: number;
+}
+
 // ── Context-Aware Assets ──────────────────────────────────────────
 export interface AssetLibrary {
   logos: LogoAsset[];
