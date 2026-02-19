@@ -477,12 +477,13 @@ Return ONLY a JSON array (no markdown, no explanation):
 - **codeLanguage**: Language identifier for code block styling (e.g., "javascript", "python").
 
 ## Additional Requirements:
-- 3-5 frames total (balanced timing). Each frame should last AT LEAST 3 seconds.
-- Entities that persist across frames should keep the same label and type
-- Ensure smooth visual progression (entities build on each other)
+- 3-5 segments total (balanced timing). Each segment should last AT LEAST 3 seconds.
+- ACCUMULATIVE MODEL: Entities introduced in earlier segments persist in all subsequent segments — you do NOT need to repeat them. Only define NEW entities in each segment. The system automatically carries forward all previous entities.
+- If an entity needs to MOVE or CHANGE between segments, redefine it with updated position/color in the new segment.
+- Ensure smooth visual progression (entities build on each other progressively)
 - Match DataType visualization strategy from guide
 - USE ARROWS WITH from/to to show relationships between entities — this is critical for understanding
-- When showing a flow (A → B → C), use Arrow entities with from/to connecting each step
+- When showing a flow (A → B → C), use Arrow entities with from/to connecting each step. The arrow's from/to can reference entities from ANY previous segment (they persist).
 - TIMING: Keep animation delays LOW relative to frame length. A frame covering 30% of narration (~3-4s) should have max delay of ~1200ms. Every entity must be visible for at least 1.2 seconds.
 
 Generate the visual script now.
@@ -711,7 +712,6 @@ This is your self-assessment of how well your output matches the requirements (0
   private segmentsToFrames(segments: VisualSegment[], totalDuration: number): IllustrationFrame[] {
     // Validate segment count — fall back to uniform segmentation if invalid
     if (segments.length < 2 || segments.length > 6) {
-      const targetCount = Math.max(2, Math.min(segments.length, 6));
       if (segments.length > 6) {
         segments = segments.slice(0, 6);
       }
@@ -720,41 +720,64 @@ This is your self-assessment of how well your output matches the requirements (0
 
     const frames: IllustrationFrame[] = [];
     const entityRegistry = new Map<string, VisualEntity>(); // Track entities across frames
+    // Accumulative: all entities introduced in previous segments carry forward
+    const accumulatedEntities: VisualEntity[] = [];
 
     segments.forEach((segment, segmentIdx) => {
-      const frameEntities: VisualEntity[] = [];
-      let prevDelay = -1; // Track for stagger enforcement
+      // Start with deep copies of all previously accumulated entities (no re-animation)
+      const frameEntities: VisualEntity[] = accumulatedEntities.map(e => ({
+        ...e,
+        position: { ...e.position },
+        size: { ...e.size },
+        // Carried-over entities render immediately — no re-animation
+        animation: { type: 'none' as const, duration: 0, delay: 0 },
+      }));
+
+      // Track new entities added in this segment for stagger
+      const newEntities: VisualEntity[] = [];
+      let prevDelay = -1; // Track for stagger enforcement among new entities
 
       segment.entities.forEach((entityDef, entityIdx) => {
         // Use type+label as stable key for entity reuse across frames
         const entityKey = `${entityDef.type}-${entityDef.label || entityDef.type}`;
 
-        let entity = entityRegistry.get(entityKey);
+        const existingEntity = entityRegistry.get(entityKey);
 
-        if (!entity) {
-          // Resolve position: use Claude's numeric position, fall back to keyword mapper
-          const position = entityDef.position || this.getPositionCoordinates('center', segmentIdx, entityIdx);
-
-          entity = this.createEntity(
-            entityDef.type,
-            entityDef.label || entityDef.type,
-            position,
-            entityDef.color,
-            entityDef.size,
-            entityDef.animation,
-            {
-              from: entityDef.from,
-              to: entityDef.to,
-              parent: entityDef.parent,
-              textContent: entityDef.textContent,
-              codeLanguage: entityDef.codeLanguage,
-            },
+        if (existingEntity) {
+          // Entity already exists — check if it needs position/color update
+          const frameIdx = frameEntities.findIndex(
+            e => `${e.type}-${e.label}` === entityKey
           );
-          entityRegistry.set(entityKey, entity);
+          if (frameIdx >= 0 && entityDef.position) {
+            // Update position if explicitly redefined in this segment
+            const updatedPos = entityDef.position || existingEntity.position;
+            frameEntities[frameIdx].position = { ...updatedPos };
+            if (entityDef.color) frameEntities[frameIdx].color = entityDef.color;
+          }
+          return; // Skip — already in accumulated set
         }
 
-        // Deep-copy entity for this frame so layout mutations don't propagate
-        // across frames (the registry keeps the canonical version)
+        // New entity — create it with its original animation
+        const position = entityDef.position || this.getPositionCoordinates('center', segmentIdx, entityIdx);
+
+        const entity = this.createEntity(
+          entityDef.type,
+          entityDef.label || entityDef.type,
+          position,
+          entityDef.color,
+          entityDef.size,
+          entityDef.animation,
+          {
+            from: entityDef.from,
+            to: entityDef.to,
+            parent: entityDef.parent,
+            textContent: entityDef.textContent,
+            codeLanguage: entityDef.codeLanguage,
+          },
+        );
+        entityRegistry.set(entityKey, entity);
+
+        // Deep-copy for this frame
         const frameEntity: VisualEntity = {
           ...entity,
           position: { ...entity.position },
@@ -762,8 +785,8 @@ This is your self-assessment of how well your output matches the requirements (0
           animation: entity.animation ? { ...entity.animation } : undefined,
         };
 
-        // Enforce inter-entity stagger for non-first entities
-        if (frameEntity.animation && entityIdx > 0) {
+        // Enforce inter-entity stagger among new entities only
+        if (frameEntity.animation && newEntities.length > 0) {
           const minDelay = prevDelay + INTER_ENTITY_STAGGER_MIN_MS;
           if (frameEntity.animation.delay < minDelay) {
             frameEntity.animation.delay = minDelay;
@@ -771,10 +794,14 @@ This is your self-assessment of how well your output matches the requirements (0
         }
         prevDelay = frameEntity.animation?.delay || 0;
 
+        newEntities.push(frameEntity);
         frameEntities.push(frameEntity);
+
+        // Add to accumulated set for future frames
+        accumulatedEntities.push(entity);
       });
 
-      // Validate and fuzzy-correct arrow from/to references
+      // Validate and fuzzy-correct arrow from/to references across ALL entities in frame
       const labelSet = new Set(frameEntities.map(e => e.label).filter(Boolean) as string[]);
       for (const fe of frameEntities) {
         if ((fe.type === 'Arrow' || fe.type === 'DataFlow') && fe.sourceEntityId && fe.targetEntityId) {
@@ -821,10 +848,14 @@ This is your self-assessment of how well your output matches the requirements (0
       }
     }
 
-    // Enforce per-entity minimum visible time: last entity's delay + ENTITY_MIN_VISIBLE_MS <= frame duration
+    // Enforce per-entity minimum visible time: last NEW entity's delay + ENTITY_MIN_VISIBLE_MS <= frame duration
     for (let i = 0; i < frames.length; i++) {
       const frame = frames[i];
-      const maxDelay = frame.entities.reduce((mx, e) => Math.max(mx, e.animation?.delay || 0), 0);
+      // Only consider entities that have actual animations (new entities), not carried-over ones
+      const maxDelay = frame.entities.reduce((mx, e) => {
+        if (e.animation?.type === 'none') return mx;
+        return Math.max(mx, e.animation?.delay || 0);
+      }, 0);
       const needed = maxDelay + ENTITY_MIN_VISIBLE_MS;
       const frameDur = frame.endTime - frame.startTime;
       if (frameDur < needed) {

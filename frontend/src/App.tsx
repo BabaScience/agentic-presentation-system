@@ -322,6 +322,18 @@ export default function App() {
         SoundEffectEngine.getInstance().playReveal();
       } else if (cmd.type === 'connect') {
         SoundEffectEngine.getInstance().playConnect();
+      } else if (cmd.type === 'zoom') {
+        store.setTargetViewport({
+          x: cmd.params?.x ?? 800,
+          y: cmd.params?.y ?? 450,
+          zoom: cmd.params?.zoom ?? 1,
+        }, cmd.params?.duration ?? 800);
+      } else if (cmd.type === 'pan') {
+        store.setTargetViewport({
+          x: cmd.params?.x ?? 800,
+          y: cmd.params?.y ?? 450,
+          zoom: store.canvasViewport.zoom,
+        }, cmd.params?.duration ?? 600);
       }
       store.dequeueVisualCommand();
     }
@@ -333,6 +345,19 @@ export default function App() {
     setSceneTransitioning(true);
     SoundEffectEngine.getInstance().playTransition();
     const t = setTimeout(() => setSceneTransitioning(false), 450);
+
+    // Auto-zoom: apply the scene's viewport if it has a non-default zoom
+    const sceneVP = store.currentScene.viewport;
+    if (sceneVP && sceneVP.zoom !== 1) {
+      store.setTargetViewport(
+        { x: sceneVP.x, y: sceneVP.y, zoom: sceneVP.zoom },
+        800,
+      );
+    } else {
+      // Reset viewport to default for standard scenes
+      store.resetViewport();
+    }
+
     return () => clearTimeout(t);
   }, [store.currentScene?.id]);
 

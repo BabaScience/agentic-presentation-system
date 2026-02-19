@@ -543,7 +543,7 @@ describe('Analogy — panel layout', () => {
   });
 
   it('defaults left and right labels when metadata is absent', () => {
-    const metadata = undefined;
+    const metadata = undefined as { left?: { label: string; description: string }; right?: { label: string; description: string } } | undefined;
     const left = metadata?.left || { label: 'A', description: '' };
     const right = metadata?.right || { label: 'B', description: '' };
     expect(left.label).toBe('A');
@@ -746,7 +746,7 @@ describe('Pedagogical entities — edge cases', () => {
 
   it('CodeBlock with empty lines array renders empty', () => {
     const metadata = { lines: [] as string[] };
-    const label = '';
+    const label: string = '';
     const lines: string[] = metadata.lines.length > 0 ? metadata.lines : (label ? label.split('\n') : ['// code']);
     expect(lines).toEqual(['// code']);
   });

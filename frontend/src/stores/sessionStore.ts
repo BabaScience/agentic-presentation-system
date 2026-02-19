@@ -150,6 +150,11 @@ interface SessionStore {
   revealedNodeIds: string[];
   visualCommandQueue: Array<{ type: string; targetId: string; wordTrigger?: number; params?: any }>;
 
+  // Canvas viewport (zoom/pan)
+  canvasViewport: { x: number; y: number; zoom: number };
+  targetViewport: { x: number; y: number; zoom: number };
+  viewportTransitionMs: number;
+
   // UI
   sidebarTab: 'info' | 'graph' | 'chat';
   showMinimap: boolean;
@@ -180,6 +185,9 @@ interface SessionStore {
   enqueueVisualCommand: (cmd: { type: string; targetId: string; wordTrigger?: number; params?: any }) => void;
   dequeueVisualCommand: () => void;
   revealNode: (id: string) => void;
+
+  setTargetViewport: (viewport: { x: number; y: number; zoom: number }, durationMs: number) => void;
+  resetViewport: () => void;
 
   addChatMessage: (msg: ChatMessage) => void;
   sendTextInput: (text: string) => void;
@@ -219,6 +227,9 @@ const initialState = {
   revealedNodeIds: [] as string[],
   visualCommandQueue: [] as Array<{ type: string; targetId: string; params?: any }>,
   chatMessages: [] as ChatMessage[],
+  canvasViewport: { x: 800, y: 450, zoom: 1 },
+  targetViewport: { x: 800, y: 450, zoom: 1 },
+  viewportTransitionMs: 0,
   sidebarTab: 'info' as const,
   showMinimap: true,
 };
@@ -439,6 +450,20 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       s.revealedNodeIds.push(id);
     }
   })),
+
+  setTargetViewport: (viewport, durationMs) => {
+    const clampedZoom = Math.max(0.5, Math.min(2.5, viewport.zoom));
+    set({
+      targetViewport: { ...viewport, zoom: clampedZoom },
+      canvasViewport: { ...viewport, zoom: clampedZoom },
+      viewportTransitionMs: durationMs,
+    });
+  },
+  resetViewport: () => set({
+    canvasViewport: { x: 800, y: 450, zoom: 1 },
+    targetViewport: { x: 800, y: 450, zoom: 1 },
+    viewportTransitionMs: 600,
+  }),
 
   addChatMessage: (msg) => set(produce((s: SessionStore) => { s.chatMessages.push(msg); })),
 

@@ -104,13 +104,32 @@ export const FrameRenderer = React.memo<FrameRendererProps>(({
   const posMap = useMemo(() => buildEntityPositionMap(entities, canvasWidth, canvasHeight), [entities, canvasWidth, canvasHeight]);
   const childrenMap = useMemo(() => buildChildrenMap(entities), [entities]);
 
+  // Build a separate position map for exiting entities so arrows can still resolve endpoints during fadeout
+  const exitPosMap = useMemo(() => {
+    if (exitingEntities.length === 0) return posMap;
+    const combined = new Map(posMap);
+    for (const e of exitingEntities) {
+      if (e.label && !combined.has(e.label)) {
+        combined.set(e.label, {
+          x: (e.position.x / 100) * canvasWidth,
+          y: (e.position.y / 100) * canvasHeight,
+          w: e.size.width,
+          h: e.size.height,
+        });
+      }
+    }
+    return combined;
+  }, [posMap, exitingEntities, canvasWidth, canvasHeight]);
+
   // Separate: top-level entities (no parent) vs children (have parent)
   const topLevelEntities = useMemo(() => entities.filter(e => !e.parentEntityId), [entities]);
 
   // Filter entities by temporal choreography (appearTime via animation.delay as offset)
+  // Entities with animation type 'none' are carried-over and always visible
   const visibleEntities = useMemo(() => {
     if (frameElapsedMs === Infinity) return topLevelEntities;
     return topLevelEntities.filter(e => {
+      if (e.animation?.type === 'none') return true; // Carried-over entities are always visible
       const appearTime = e.animation?.delay || 0;
       return frameElapsedMs >= appearTime;
     });
@@ -118,9 +137,27 @@ export const FrameRenderer = React.memo<FrameRendererProps>(({
 
   return (
     <g className="frame-entities">
-      {/* Exiting entities: fade out */}
+      {/* Exiting entities: scale-down + fade out */}
       {exitingEntities.map(entity => (
-        <g key={`exit-${entity.type}-${entity.label}`} className="entity-exiting">
+        <g key={`exit-${entity.type}-${entity.label}`} className="entity-exit-scale">
+          <EntityRenderer
+            entity={entity}
+            canvasWidth={canvasWidth}
+            canvasHeight={canvasHeight}
+            posMap={exitPosMap}
+            childrenMap={childrenMap}
+          />
+        </g>
+      ))}
+      {/* Active entities: stable keys based on entity id for DOM reuse and CSS transitions */}
+      {visibleEntities.map(entity => (
+        <g
+          key={entity.id}
+          className="entity-position-wrapper"
+          style={{
+            transition: 'transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)',
+          }}
+        >
           <EntityRenderer
             entity={entity}
             canvasWidth={canvasWidth}
@@ -129,17 +166,6 @@ export const FrameRenderer = React.memo<FrameRendererProps>(({
             childrenMap={childrenMap}
           />
         </g>
-      ))}
-      {/* Active entities: stable keys enable reconciliation across frames */}
-      {visibleEntities.map(entity => (
-        <EntityRenderer
-          key={`${entity.type}-${entity.label || entity.id}`}
-          entity={entity}
-          canvasWidth={canvasWidth}
-          canvasHeight={canvasHeight}
-          posMap={posMap}
-          childrenMap={childrenMap}
-        />
       ))}
     </g>
   );

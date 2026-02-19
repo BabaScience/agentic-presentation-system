@@ -143,6 +143,29 @@ export class PresentationPlanner {
         });
       }
 
+      // Add zoom command to focus on the current node at start of scene
+      visualCommands.push({
+        type: 'zoom',
+        targetId: focusNode.id,
+        wordTrigger: 0,
+        params: {
+          x: focusNode.visual.x + focusNode.visual.width / 2,
+          y: focusNode.visual.y + focusNode.visual.height / 2,
+          zoom: 1.2,
+          duration: 800,
+        },
+      });
+
+      // Add zoom-out command near end of scene to show full picture
+      if (narrationWords > 10) {
+        visualCommands.push({
+          type: 'zoom',
+          targetId: focusNode.id,
+          wordTrigger: Math.max(0, narrationWords - 5),
+          params: { x: 800, y: 450, zoom: 1, duration: 600 },
+        });
+      }
+
       // Compose narration
       const narration = this.composeNarration([focusNode], relevantEdges, policy, i === 0);
 
@@ -241,6 +264,29 @@ export class PresentationPlanner {
           to: relevantEdges[j].targetId,
           label: relevantEdges[j].label,
         },
+      });
+    }
+
+    // Zoom into focus node at start
+    visualCommands.push({
+      type: 'zoom',
+      targetId: focusNode.id,
+      wordTrigger: 0,
+      params: {
+        x: focusNode.visual.x + focusNode.visual.width / 2,
+        y: focusNode.visual.y + focusNode.visual.height / 2,
+        zoom: 1.2,
+        duration: 800,
+      },
+    });
+
+    // Zoom out near end
+    if (narrationWords > 10) {
+      visualCommands.push({
+        type: 'zoom',
+        targetId: focusNode.id,
+        wordTrigger: Math.max(0, narrationWords - 5),
+        params: { x: 800, y: 450, zoom: 1, duration: 600 },
       });
     }
 

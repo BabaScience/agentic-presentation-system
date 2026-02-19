@@ -7,9 +7,10 @@
    Synchronized to audio narration timing.
    ═══════════════════════════════════════════════════════════════ */
 
-import React, { useMemo, useState, useRef, useEffect } from 'react';
+import React, { useMemo, useReducer, useRef, useEffect } from 'react';
 import type { IllustrationSpec, VisualScript, VisualEntity, IllustrationFrame } from '../../../shared/types';
 import { FrameRenderer } from './FrameRenderer';
+import { useSessionStore } from '../stores/sessionStore';
 
 interface IllustrationCanvasProps {
   illustrations?: IllustrationSpec[];
@@ -129,6 +130,54 @@ function illustrationToEntity(illus: IllustrationSpec): VisualEntity {
   };
 }
 
+// ── Scene Transition State Machine ─────────────────────────────
+type ScenePhase = 'RENDERING' | 'FADING_OUT' | 'CLEARED' | 'RENDERING_NEW';
+
+interface CanvasState {
+  phase: ScenePhase;
+  activeSceneId: string | null;
+  exitingEntities: VisualEntity[];
+  bufferedScript: VisualScript | null;
+}
+
+type CanvasAction =
+  | { type: 'SCENE_CHANGED'; newScript: VisualScript }
+  | { type: 'FADEOUT_COMPLETE' }
+  | { type: 'CLEAR_COMPLETE' }
+  | { type: 'SAME_SCENE_UPDATE'; script: VisualScript };
+
+function canvasReducer(state: CanvasState, action: CanvasAction): CanvasState {
+  switch (action.type) {
+    case 'SCENE_CHANGED':
+      if (state.phase === 'FADING_OUT') {
+        // Already fading — just update the buffered script
+        return { ...state, bufferedScript: action.newScript };
+      }
+      if (!state.activeSceneId) {
+        // First scene — go straight to rendering
+        return { phase: 'RENDERING', activeSceneId: action.newScript.sceneId, exitingEntities: [], bufferedScript: action.newScript };
+      }
+      // Start fadeout; buffer new scene
+      return { ...state, phase: 'FADING_OUT', bufferedScript: action.newScript };
+
+    case 'FADEOUT_COMPLETE':
+      // All old entities gone — clear everything
+      return { ...state, phase: 'CLEARED', exitingEntities: [] };
+
+    case 'CLEAR_COMPLETE':
+      if (state.bufferedScript) {
+        return { phase: 'RENDERING_NEW', activeSceneId: state.bufferedScript.sceneId, exitingEntities: [], bufferedScript: state.bufferedScript };
+      }
+      return { ...state, phase: 'RENDERING' };
+
+    case 'SAME_SCENE_UPDATE':
+      return { ...state, bufferedScript: action.script };
+
+    default:
+      return state;
+  }
+}
+
 export function IllustrationCanvas({ illustrations, visualScript, currentTime, width = 1600, height = 900 }: IllustrationCanvasProps) {
 
   // Unified: convert legacy illustrations to frame system if no visualScript
@@ -138,18 +187,76 @@ export function IllustrationCanvas({ illustrations, visualScript, currentTime, w
     return null;
   }, [visualScript, illustrations]);
 
-  const hasFrames = effectiveScript && effectiveScript.frames.length > 0;
+  // ── Viewport state from Zustand store ──
+  const canvasViewport = useSessionStore(s => s.canvasViewport);
+  const viewportTransitionMs = useSessionStore(s => s.viewportTransitionMs);
+
+  // ── State machine for scene transitions ──
+  const [canvasState, dispatch] = useReducer(canvasReducer, {
+    phase: 'RENDERING',
+    activeSceneId: null,
+    exitingEntities: [],
+    bufferedScript: null,
+  });
+  const prevSceneIdRef = useRef<string | null>(null);
+  const lastFrameRef = useRef<IllustrationFrame | null>(null);
+
+  // Track scene changes
+  useEffect(() => {
+    const currentSceneId = effectiveScript?.sceneId || null;
+    if (currentSceneId !== prevSceneIdRef.current) {
+      if (effectiveScript) {
+        dispatch({ type: 'SCENE_CHANGED', newScript: effectiveScript });
+      }
+    } else if (effectiveScript) {
+      dispatch({ type: 'SAME_SCENE_UPDATE', script: effectiveScript });
+    }
+    prevSceneIdRef.current = currentSceneId;
+  }, [effectiveScript?.sceneId, effectiveScript]);
+
+  // Fadeout timer
+  useEffect(() => {
+    if (canvasState.phase === 'FADING_OUT') {
+      const timer = window.setTimeout(() => dispatch({ type: 'FADEOUT_COMPLETE' }), 500);
+      return () => clearTimeout(timer);
+    }
+    if (canvasState.phase === 'CLEARED') {
+      // Instant transition to rendering new
+      const timer = window.setTimeout(() => dispatch({ type: 'CLEAR_COMPLETE' }), 16);
+      return () => clearTimeout(timer);
+    }
+  }, [canvasState.phase]);
+
+  // After RENDERING_NEW, transition back to RENDERING on next frame
+  useEffect(() => {
+    if (canvasState.phase === 'RENDERING_NEW') {
+      // Immediately treated as RENDERING
+    }
+  }, [canvasState.phase]);
+
+  // Determine what script to render
+  const renderScript = useMemo(() => {
+    if (canvasState.phase === 'FADING_OUT') {
+      // Keep showing the OLD scene during fadeout (but with exit animation)
+      return null; // We render exitingEntities instead
+    }
+    if (canvasState.phase === 'CLEARED') {
+      return null; // Nothing visible during clear
+    }
+    return canvasState.bufferedScript || effectiveScript;
+  }, [canvasState.phase, canvasState.bufferedScript, effectiveScript]);
+
+  const hasFrames = renderScript && renderScript.frames.length > 0;
 
   const currentFrame = useMemo(() => {
-    if (!effectiveScript || effectiveScript.frames.length === 0) return null;
-    const frames = effectiveScript.frames;
+    if (!renderScript || renderScript.frames.length === 0) return null;
+    const frames = renderScript.frames;
     const matched = frames.find(
       frame => currentTime >= frame.startTime && currentTime < frame.endTime
     );
     if (matched) return matched;
 
     // Between frames: find the most recent frame that has ended and keep it visible
-    // so entities don't flash away during gaps
     let best: typeof frames[0] | null = null;
     for (const frame of frames) {
       if (frame.endTime <= currentTime) {
@@ -158,61 +265,40 @@ export function IllustrationCanvas({ illustrations, visualScript, currentTime, w
     }
     if (best) return best;
 
-    // Before all frames or after all frames, show first frame
     return frames[0];
-  }, [effectiveScript, currentTime]);
+  }, [renderScript, currentTime]);
 
-  // Entity lifecycle tracking for smooth frame transitions
-  const [exitingEntities, setExitingEntities] = useState<VisualEntity[]>([]);
-  const prevFrameRef = useRef<IllustrationFrame | null>(null);
-  const prevSceneIdRef = useRef<string | null>(null);
-  const exitTimeoutRef = useRef<number | null>(null);
-
-  // Cross-scene fadeout: when sceneId changes, fade out ALL previous entities
+  // Track last frame for cross-scene exit entities
   useEffect(() => {
-    const currentSceneId = effectiveScript?.sceneId || null;
-    if (prevSceneIdRef.current && currentSceneId !== prevSceneIdRef.current) {
-      // Scene changed — fade out all entities from previous scene's last frame
-      const prevEntities = prevFrameRef.current?.entities || [];
-      if (prevEntities.length > 0) {
-        setExitingEntities(prevEntities);
-        if (exitTimeoutRef.current) clearTimeout(exitTimeoutRef.current);
-        exitTimeoutRef.current = window.setTimeout(() => setExitingEntities([]), 400);
-      }
-      prevFrameRef.current = null;
+    if (currentFrame) {
+      lastFrameRef.current = currentFrame;
     }
-    prevSceneIdRef.current = currentSceneId;
-  }, [effectiveScript?.sceneId]);
-
-  // Within-scene frame transitions
-  useEffect(() => {
-    if (!currentFrame || currentFrame === prevFrameRef.current) return;
-
-    const prevEntities = prevFrameRef.current?.entities || [];
-    const nextKeys = new Set(currentFrame.entities.map(e => `${e.type}-${e.label}`));
-
-    // Entities in previous frame but not in current → exiting
-    const exiting = prevEntities.filter(e => !nextKeys.has(`${e.type}-${e.label}`));
-
-    if (exiting.length > 0) {
-      setExitingEntities(exiting);
-      if (exitTimeoutRef.current) clearTimeout(exitTimeoutRef.current);
-      exitTimeoutRef.current = window.setTimeout(() => setExitingEntities([]), 400);
-    } else {
-      setExitingEntities([]);
-    }
-
-    prevFrameRef.current = currentFrame;
   }, [currentFrame]);
 
-  // Cleanup timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (exitTimeoutRef.current) clearTimeout(exitTimeoutRef.current);
-    };
-  }, []);
+  // Build exiting entities for fadeout phase
+  const exitingEntities = useMemo(() => {
+    if (canvasState.phase === 'FADING_OUT') {
+      return lastFrameRef.current?.entities || [];
+    }
+    return [];
+  }, [canvasState.phase]);
 
-  if (!hasFrames) {
+  // Is fading out?
+  const isFadingOut = canvasState.phase === 'FADING_OUT' || canvasState.phase === 'CLEARED';
+
+  // ── Viewport transform computation ──
+  const viewportTransform = useMemo(() => {
+    const vp = canvasViewport;
+    if (vp.zoom === 1 && vp.x === width / 2 && vp.y === height / 2) {
+      return ''; // No transform needed
+    }
+    // Transform: translate to center the viewport target, then scale
+    const tx = width / 2 - vp.x * vp.zoom;
+    const ty = height / 2 - vp.y * vp.zoom;
+    return `translate(${tx}, ${ty}) scale(${vp.zoom})`;
+  }, [canvasViewport, width, height]);
+
+  if (!hasFrames && !isFadingOut) {
     return (
       <div className="illustration-canvas-empty">
         <div className="canvas-placeholder">
@@ -236,7 +322,7 @@ export function IllustrationCanvas({ illustrations, visualScript, currentTime, w
         {/* ── Shared Defs: grid, glow filters, gradients ── */}
         <defs>
           <pattern id="grid" width="50" height="50" patternUnits="userSpaceOnUse">
-            <path d="M 50 0 L 0 0 0 50" fill="none" stroke="rgba(255,255,255,0.015)" strokeWidth="0.5"/>
+            <path d="M 50 0 L 0 0 0 50" fill="none" stroke="rgba(255,255,255,0.012)" strokeWidth="0.5"/>
           </pattern>
 
           {/* Soft glow used on shapes */}
@@ -297,17 +383,42 @@ export function IllustrationCanvas({ illustrations, visualScript, currentTime, w
           </filter>
         </defs>
 
-        <rect width={width} height={height} fill="url(#grid)" />
+        {/* Viewport transform wrapper for zoom/pan */}
+        <g
+          className="canvas-viewport-group"
+          style={{
+            transform: viewportTransform || undefined,
+            transition: viewportTransitionMs > 0
+              ? `transform ${viewportTransitionMs}ms cubic-bezier(0.34, 1.56, 0.64, 1)`
+              : undefined,
+          }}
+        >
+          <rect width={width} height={height} fill="url(#grid)" />
 
-        {currentFrame && (
-          <FrameRenderer
-            entities={currentFrame.entities}
-            exitingEntities={exitingEntities}
-            canvasWidth={width}
-            canvasHeight={height}
-            frameElapsedMs={currentTime - currentFrame.startTime}
-          />
-        )}
+          {/* Scene exit animation */}
+          {isFadingOut && exitingEntities.length > 0 && (
+            <g className="scene-exit-group">
+              <FrameRenderer
+                entities={[]}
+                exitingEntities={exitingEntities}
+                canvasWidth={width}
+                canvasHeight={height}
+                frameElapsedMs={Infinity}
+              />
+            </g>
+          )}
+
+          {/* Current frame — with accumulative entities, no within-scene exits */}
+          {!isFadingOut && currentFrame && (
+            <FrameRenderer
+              entities={currentFrame.entities}
+              exitingEntities={[]}
+              canvasWidth={width}
+              canvasHeight={height}
+              frameElapsedMs={currentTime - currentFrame.startTime}
+            />
+          )}
+        </g>
       </svg>
     </div>
   );
