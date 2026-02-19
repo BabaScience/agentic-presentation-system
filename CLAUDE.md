@@ -1,16 +1,67 @@
-# CLAUDE.md
+# CLAUDE.md — Developer Contract
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file is read by Claude Code at the start of every session. It defines the rules of engagement for all implementation work on this repository.
 
-## Project Overview
+---
 
-This is an **Agentic Presentation System** that transforms passive AI text generation into active, voice-driven teaching. The system constructs live knowledge graphs from classified response data, presents through voice-driven visual narratives, and adapts its pedagogical strategy via reinforcement learning.
+## 1. Project Identity
 
-**Core Innovation:** Passive Responder (text dump) → Active Presenter (knowledge graph + voice)
+This is the **Agentic Presentation System** — a stateful, explorable learning simulation directed by an AI agent and inhabited by a human learner. It is NOT a chatbot wrapper. It is NOT a presentation player. It is NOT a pipeline that generates and discards content.
 
-## Development Commands
+The mental model is a **live stage** — think Scratch, not PowerPoint. The agent places elements, binds parameters, composes scenes. The user navigates, explores, tweaks parameters. The stage persists. Elements react. Checkpoints restore instantly.
 
-### Local Development (Recommended)
+The mission: making self-learning easier, accessible, and gamified for the passionate minority — people who choose to deeply understand subjects, not just skim them. Read `MISSION.md` for the full product context. Read `TECHNICAL_ARCHITECTURE.md` for the technical contract.
+
+---
+
+## 2. The Three Laws
+
+These are inviolable. If a proposed change conflicts with a Law, the change is wrong.
+
+### LAW 1 — THE STAGE PERSISTS
+
+The SceneGraph is a persistent, mutable runtime environment. It is never destroyed between scenes — only mutated. Code that tears down and rebuilds the stage between scenes violates this law.
+
+**What this means in practice:**
+
+- Scene transitions are checkpoint restores (state replacement), never full re-renders
+- Elements placed by the agent remain on the stage until explicitly removed
+- The user can scrub backward to any checkpoint because every checkpoint is a frozen snapshot
+- No `innerHTML = ''` or equivalent nuclear resets except on initial load
+
+**Test:** If removing the "clear stage" step between scenes does not break anything, Law 1 is satisfied. If it does break, the architecture is wrong.
+
+### LAW 2 — PARAMETERS OVER REGENERATION
+
+When a user or agent changes a parameter, the stage updates reactively in one render frame (<16ms). No API calls. No regeneration. No loading spinners.
+
+**What this means in practice:**
+
+- `setParameter('pod_count', 5)` propagates through bindings and marks affected elements dirty
+- The dirty render cycle updates ONLY changed elements on the next animation frame
+- If you are calling Claude to answer "what if X were different?", you are violating Law 2
+- Every element the agent places should be bound to parameters wherever possible
+
+**Test:** Change a parameter. If the stage updates in <16ms with zero network requests, Law 2 is satisfied.
+
+### LAW 3 — DIRTY RENDER ONLY
+
+Full scene re-renders are PROHIBITED except on initial load and explicit scene transitions. Every frame cycle touches ONLY elements in the dirty set.
+
+**What this means in practice:**
+
+- Parameter changes mark affected elements dirty — nothing else
+- The render function is a no-op when `dirtyElements.size === 0`
+- Adding a `console.error` that fires when `dirtyElements.size > 20` is encouraged as a heuristic guard
+- React re-renders that touch the full SVG tree violate this law
+
+**Test:** With 100 elements on stage, changing one parameter should touch exactly the bound elements. If a performance profile shows all 100 elements re-rendering, Law 3 is violated.
+
+---
+
+## 3. Development Commands
+
+### Local Development
 
 ```bash
 # Backend
@@ -18,7 +69,7 @@ cd backend
 npm install
 npm run dev        # Hot-reload development server (tsx watch)
 npm run build      # TypeScript compilation to dist/
-npm start          # Production server (runs compiled JS)
+npm start          # Production server
 
 # Frontend
 cd frontend
@@ -31,235 +82,185 @@ npm run preview    # Preview production build
 ### Docker Deployment
 
 ```bash
-# Configure environment first
 cp .env.example .env
-# Edit .env with ANTHROPIC_API_KEY and other credentials
+# Edit .env with ANTHROPIC_API_KEY and credentials
 
-# Start all services (backend, frontend, redis)
-docker compose up --build -d
-
-# Stop services
-docker compose down
+docker compose up --build -d    # Start all services
+docker compose down             # Stop services
 
 # Services:
-# - Frontend: http://localhost:3000 (nginx + React)
-# - Backend API: http://localhost:4000
-# - Redis: localhost:6379
-# - Health check: http://localhost:4000/health
+# Frontend: http://localhost:3000 (nginx)
+# Backend:  http://localhost:4000
+# Redis:    localhost:6379
+# Health:   http://localhost:4000/health
 ```
 
-### Demo Mode
-
-The frontend has a standalone demo mode with an embedded knowledge graph (no backend required):
+### Demo Mode (No Backend Required)
 
 ```bash
-cd frontend
-npm run dev
+cd frontend && npm run dev
 # Navigate to http://localhost:3000 and click "Launch Demo"
 ```
 
-## Architecture Overview
+---
 
-### Service Structure
+## 4. Architecture Quick Reference
 
-```
-┌─────────────────────────────────────────────────────────┐
-│  Client (React + SVG + Web Audio)                       │
-│  - KG Canvas (D3 Force-directed graph)                  │
-│  - Voice UI (Mic/TTS)                                   │
-│  - Sidebar (Info/Chat + RL Policy Display)             │
-└────────────────┬────────────────────────────────────────┘
-                 │ WebSocket (audio + commands + graph mutations)
-┌────────────────▼────────────────────────────────────────┐
-│  Backend Services                                        │
-│  - Agent Core (Claude)                                   │
-│  - KG Engine (Async Build)                              │
-│  - Voice Pipeline (STT/TTS/VAD)                         │
-│  - Planner (KG→Scenes)                                   │
-│  - Interrupt Handler                                     │
-│  - RL Service (Thompson Sampling)                       │
-└─────────────────────────────────────────────────────────┘
-```
-
-### Core Pipeline Flow
-
-1. **User Voice** → Speech-to-Text → Transcript
-2. **Agent Reasoning** (Claude) → Conceptual decomposition
-3. **Fetch & Classify** → 8 data types: CONCEPT, RELATIONSHIP, EXAMPLE, ANALOGY, DEFINITION, PROCESS, RESOURCE, COUNTERPOINT
-4. **User Preferences + RL Engine** → Influence classification and traversal
-5. **Knowledge Graph Construction** → Core graph (sync) + depth 2+ (async, bounded to 50 nodes)
-6. **Presentation Planning** → KG traversal → scene sequence
-7. **Voice + Visual Output** → TTS narration + SVG canvas + graph visualization
-8. **Interrupt Handling** → Bookmark → Mutate graph → Present answer → Resume
+Full details in `TECHNICAL_ARCHITECTURE.md`. Here is the structural summary:
 
 ### Directory Structure
 
 ```
-agentic-presentation-system/
-├── shared/types.ts              # ALL TypeScript types (shared by frontend & backend)
-├── backend/src/
-│   ├── index.ts                 # Express + WebSocket server entry point
-│   ├── websocket/gateway.ts     # Full-duplex WebSocket gateway
-│   ├── services/                # Core business logic
-│   │   ├── AgentService.ts      # Claude reasoning + classification + interrupts
-│   │   ├── KnowledgeGraphService.ts  # Graph CRUD, async expansion, mutation
-│   │   ├── VoiceService.ts      # STT/TTS integration, intent classification
-│   │   ├── PresentationPlanner.ts    # KG traversal → scene sequence
-│   │   ├── InterruptHandler.ts  # Bookmark, state snapshot, resume
-│   │   └── RLService.ts         # Contextual Bandit + Thompson Sampling
-│   ├── routes/sessions.ts       # REST: session CRUD, user profiles
-│   └── prompts/systemPrompts.ts # Agent reasoning/classifier/interrupt prompts
-└── frontend/src/
-    ├── App.tsx                  # Main app: KG canvas, sidebar, timeline
-    ├── stores/sessionStore.ts   # Zustand: session, KG, voice, RL state
-    └── demo/demoGraph.ts        # Embedded K8s knowledge graph (offline demo)
+shared/types.ts              ← ALL types (single source of truth)
+shared/constants.ts          ← ALL performance constants (single source of truth)
+
+backend/src/
+  index.ts                   ← Express + WebSocket server
+  websocket/gateway.ts       ← Session orchestrator
+  services/
+    AgentService.ts          ← Claude reasoning + classification
+    AgentOrchestrator.ts     ← Multi-agent scene coordination
+    KnowledgeGraphService.ts ← Graph CRUD + async expansion
+    VoiceService.ts          ← STT/TTS + intent classification
+    PresentationPlanner.ts   ← KG → scene sequence
+    InterruptHandler.ts      ← Bookmark + resume
+    RLService.ts             ← Thompson Sampling bandit
+    VisualScriptGenerator.ts ← Frame-by-frame visual narratives
+    ScenePipelineOrchestrator.ts ← Concurrent scene prep
+    SceneReadyQueue.ts       ← Async scene queue
+    ConcurrencyPool.ts       ← API rate limiting
+    + 15 auxiliary services
+
+frontend/src/
+  App.tsx                    ← Main app shell
+  stores/sessionStore.ts     ← Zustand state management
+  components/
+    ScenePresenter.tsx       ← Canvas container
+    IllustrationCanvas.tsx   ← SVG frame manager
+    FrameRenderer.tsx        ← Entity dispatch
+    svg/SVGLibrary.tsx       ← 40+ SVG entity components
+    SubtitleDisplay.tsx      ← Word-synced subtitles
+  audio/
+    AudioPlaybackManager.ts  ← TTS playback
+    SoundEffectEngine.ts     ← Procedural audio FX
+  demo/demoGraph.ts          ← Offline K8s demo
 ```
 
-## Key Architectural Patterns
+### Core Pipeline
 
-### 1. Shared Type System
-
-**ALL types are defined in `shared/types.ts`** and imported by both frontend and backend. This is the single source of truth for:
-- Knowledge graph structures (KGNode, KGEdge, KnowledgeGraph)
-- Data classification enums (DataType, EdgeType)
-- WebSocket event types (WSClientEvent, WSServerEvent)
-- RL types (LearnerState, RLPolicy, RLReward)
-- Session state machine (SessionState)
-- Voice events (VoiceIntent, VoiceEvent)
-
-When modifying data structures, update `shared/types.ts` first, then update consuming code in both frontend and backend.
-
-### 2. Knowledge Graph Engine
-
-**Two-phase construction:**
-- **Sync build (depth 0-1):** Built synchronously before presentation starts, ensures core concepts are ready
-- **Async expansion (depth 2+):** Expanded in background, bounded by 50 nodes (KG_NODE_LIMIT) and max depth 4 (KG_MAX_DEPTH)
-- **RL-prioritized:** Only expands nodes the RL agent predicts user will explore
-- **Live mutation:** Interrupt questions add new nodes/edges in real-time
-
-**Graph mutation protocol:** All graph changes flow through GraphMutation objects with type-safe operations: `add_node`, `add_edge`, `update_node`, `remove_node`, `remove_edge`.
-
-### 3. Interrupt Protocol (5-step)
-
-The system handles user interruptions with a stateful protocol:
-
-1. **Pause & Bookmark** — Save scene ID, word offset, visual state snapshot (PresentationBookmark)
-2. **Reason & Mutate** — Agent processes question, adds new KG connections via GraphMutation[]
-3. **Present Answer** — Show new nodes as visual branch with narration
-4. **Comprehension Check** — "Does that clarify? Any other questions?"
-5. **Resume** — Restore bookmark, bridging phrase, continue from word offset
-
-Implementation: `backend/src/services/InterruptHandler.ts` + `AgentService.handleInterrupt()`
-
-### 4. RL Cognitive Scaffolding
-
-**Algorithm:** Contextual Bandit with Thompson Sampling
-**State space:** Real-time session signals (confusion rate, interrupt rate, pace, etc.) in LearnerState
-**Action space:** Explanation strategy, pacing, visual density, expansion priority in RLPolicy
-**Rewards:** +1.0 acknowledgment, +1.5 deep question, -1.0 confusion, -0.5 silence
-
-The RL system is cross-session aware: learner profiles persist in UserPreferences and influence future sessions.
-
-### 5. WebSocket Communication
-
-All real-time communication flows through WebSocket (`backend/src/websocket/gateway.ts`):
-- **Client → Server:** audio_chunk, user_command, start_session, ping
-- **Server → Client:** agent_audio, visual_command, graph_update, state_change, scene_change, rl_update, error
-
-Use the type-safe event types from `shared/types.ts` (WSClientEvent, WSServerEvent).
-
-### 6. Agent Service (Claude Integration)
-
-`backend/src/services/AgentService.ts` is the core AI orchestrator with three main operations:
-
-- **reason(topic, rlPolicy):** Initial conceptual decomposition → ReasoningOutput
-- **handleInterrupt(question, graph, currentNodeId, rlPolicy):** Real-time question handling → GraphMutation[] + PresentationScene[]
-- **rephraseNode(graph, nodeId, rlPolicy):** Alternate explanation strategy
-
-All Claude interactions use streaming disabled (max_tokens configuration), JSON output format, and fallback mechanisms for error handling.
-
-### 7. Data Type Classification
-
-8 semantic types (DataType enum) drive both AI classification and visual presentation:
-- CONCEPT → blue box (💡)
-- RELATIONSHIP → pink arrow (🔗)
-- EXAMPLE → green code (📋)
-- ANALOGY → orange split panel (🔄)
-- DEFINITION → purple text (📖)
-- PROCESS → teal flow sequence (⚡)
-- RESOURCE → green callout (🔗)
-- COUNTERPOINT → pink callout (⚠️)
-
-Visual mappings are defined in `DATA_TYPE_VISUALS` constant in `shared/types.ts`.
-
-## Environment Configuration
-
-Required variables in `.env`:
-- **ANTHROPIC_API_KEY:** Claude API access (required for live mode)
-- **AGENT_MODEL_REASONING:** Default is `claude-sonnet-4-5-20250929`
-- **AGENT_MODEL_FAST:** Default is `claude-sonnet-4-5-20250929`
-- **REDIS_URL:** Session state persistence (default: `redis://localhost:6379`)
-- **PORT:** Backend server port (default: 4000)
-
-Optional (voice features):
-- **ELEVENLABS_API_KEY:** Premium TTS
-- **DEEPGRAM_API_KEY:** Enterprise STT
-- **OPENAI_API_KEY:** Alternative TTS/STT
-
-## Performance Targets
-
-| Metric | Target |
-|--------|--------|
-| Voice → First word spoken | < 2s |
-| Interrupt detection | < 300ms |
-| Graph mutation (interrupt) | < 1s |
-| Resume from bookmark | < 500ms |
-| Visual sync accuracy | < 100ms drift |
-| RL policy update | < 50ms |
-
-These constants are defined in `shared/types.ts`:
-- `INTERRUPT_DETECTION_MS = 300`
-- `BOOKMARK_RESUME_MS = 500`
-- `RL_UPDATE_INTERVAL_MS = 50`
-
-## Important Implementation Notes
+```
+User input → AgentService.reason() → KnowledgeGraph → Storyboard
+  → ScenePipelineOrchestrator (concurrent visual scripts + TTS)
+  → SceneReadyQueue → progressivePresentLoop → Client
+```
 
 ### State Machine
 
-The session follows a strict state machine (SessionState enum):
 ```
-IDLE → LISTENING → REASONING → BUILDING_GRAPH → PRESENTING → INTERRUPTED → PRESENTING → COMPLETED
+IDLE → LISTENING → REASONING → BUILDING_GRAPH → PRESENTING → COMPLETED
+                                                    ↕
+                                               INTERRUPTED
 ```
 
-State transitions emit `state_change` WebSocket events. The system can only be interrupted during PRESENTING state.
+---
 
-### Graph Constraints
+## 5. Coding Conventions
 
-- Max nodes: 50 (KG_NODE_LIMIT)
-- Max depth: 4 (KG_MAX_DEPTH)
-- Async expansion starts after depth 1
-- New interrupt nodes always added at depth 3
+### Type System
 
-### Zustand Store Pattern
+- **ALL types** live in `shared/types.ts`. Both frontend and backend import from here.
+- **ALL constants** live in `shared/constants.ts`. Never hardcode performance numbers.
+- When adding a new data structure: add the type to `shared/types.ts` first, then implement.
 
-Frontend uses a single Zustand store (`frontend/src/stores/sessionStore.ts`) with Immer for immutable updates. All graph mutations, scene transitions, and RL updates flow through this store.
+### Shared Types Rule
 
-### Voice Pipeline
+When modifying data structures, update `shared/types.ts` first, then update consuming code in both frontend and backend. Never define the same type in two places.
 
-Voice processing uses:
-- **Input:** WebRTC microphone → Silero VAD → Whisper/Deepgram STT
-- **Output:** ElevenLabs/OpenAI TTS → word-level timestamps → visual sync
-- **Intent classification:** QUESTION, ACKNOWLEDGMENT, CONFUSION, COMMAND
-- Sample rate: 16000 Hz (VOICE_SAMPLE_RATE)
-- Chunk size: 4096 bytes (VOICE_CHUNK_SIZE)
+### Performance Constants Rule
 
-## Testing
+All performance contracts are exported as named constants from `shared/constants.ts`:
 
-The system has a demo mode for testing UI/UX without backend dependencies. Use `frontend/src/demo/demoGraph.ts` as a reference for creating test knowledge graphs.
+```typescript
+export const CHECKPOINT_RESTORE_MS = 100;
+export const PARAMETER_PROPAGATION_MS = 16;
+export const SCENE_DIRTY_RENDER_MS = 8;
+export const AGENT_COMMAND_MS = 100;
+export const STORYBOARD_GENERATION_MS = 5000;
+// ... etc
+```
 
-To test the full system:
-1. Start backend with valid ANTHROPIC_API_KEY
-2. Test with a simple topic like "Kubernetes pods"
-3. Verify knowledge graph construction
-4. Test interrupt handling by asking follow-up questions during presentation
-5. Check RL policy updates in the sidebar
+Import and reference these constants in assertions, tests, and implementations. Never use magic numbers.
+
+### WebSocket Events
+
+Use type-safe event types from `shared/types.ts` (`WSClientEvent`, `WSServerEvent`). All new real-time events must be added to these unions.
+
+### Graph Mutations
+
+All graph changes flow through `GraphMutation` objects. Never mutate `KnowledgeGraph.nodes` or `.edges` directly. Use `KnowledgeGraphService.applyMutation()`.
+
+### Spring Physics Default
+
+All motion animations use spring physics by default. Default config: `{ stiffness: 170, damping: 26, mass: 1, velocity: 0 }`. Linear easing is only for fade operations.
+
+---
+
+## 6. Testing
+
+### Demo Mode
+
+Frontend has standalone demo mode with embedded K8s knowledge graph. No backend required. Use `frontend/src/demo/demoGraph.ts` as reference for test data.
+
+### Full System Test
+
+1. Start backend with valid `ANTHROPIC_API_KEY`
+2. Start frontend: `cd frontend && npm run dev`
+3. Test with a simple topic like "Kubernetes pods"
+4. Verify: knowledge graph construction, scene rendering, audio sync
+5. Test interrupt: ask follow-up question during presentation
+6. Verify: bookmark creation, answer scenes, seamless resume
+7. Check RL policy updates in sidebar
+
+### Unit Tests
+
+```bash
+cd backend && npm test
+```
+
+Existing test coverage: ConcurrencyPool, LayoutEngine, ScenePipelineOrchestrator, SceneReadyQueue, VisualScriptGenerator, subtitle chunking.
+
+---
+
+## 7. Environment Configuration
+
+Required in `.env`:
+
+```
+ANTHROPIC_API_KEY=          # Required for live mode
+```
+
+Optional:
+
+```
+AGENT_MODEL_REASONING=claude-sonnet-4-5-20250929
+AGENT_MODEL_FAST=claude-sonnet-4-5-20250929
+ELEVENLABS_API_KEY=         # Premium TTS
+DEEPGRAM_API_KEY=           # Enterprise STT
+OPENAI_API_KEY=             # Alternative TTS/STT
+REDIS_URL=redis://localhost:6379
+PORT=4000
+```
+
+---
+
+## 8. Decision Framework
+
+When making implementation decisions, apply these checks in order:
+
+1. **Does it violate a Law?** → Do not proceed. Find an alternative.
+2. **Does it respect the Stage metaphor?** → Elements persist, parameters bind, checkpoints restore.
+3. **Does it serve the passionate minority?** → Optimize for depth and exploration, not quick answers.
+4. **Does it meet the performance contract?** → Check the constant in `shared/constants.ts`. If your implementation cannot meet the target, raise an issue — do not silently degrade.
+5. **Is the type defined in `shared/types.ts`?** → If not, add it there first.
+
+When in doubt, read `MISSION.md` for product context and `TECHNICAL_ARCHITECTURE.md` for technical contracts.
