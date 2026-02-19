@@ -25,7 +25,9 @@ import {
   type PresentationScene,
   type PresentationBookmark,
   type KnowledgeGraph,
+  type StoryboardScene,
 } from '../../shared/types';
+import { compilePresentationScene } from '../../shared/VisualScriptCompiler';
 import {
   ANIMATION_DELAY_MIN_MS,
   FRAME_DURATION_MIN_MS,
@@ -269,6 +271,7 @@ export class WebSocketGateway {
       if (!prepared || signal.aborted) break;
 
       const scene = prepared.scene;
+      const storyboard = prepared.storyboard ?? compilePresentationScene(scene);
 
       // Store in traversalPath for interrupt/resume compatibility
       session.traversalPath[sceneIndex] = scene;
@@ -280,8 +283,8 @@ export class WebSocketGateway {
         if (signal.aborted) break;
       }
 
-      // Send scene to client
-      this.send(session.ws, { type: 'scene_change', scene });
+      // Send compiled StoryboardScene to client — ready for SceneExecutor
+      this.send(session.ws, { type: 'scene_change', scene: storyboard });
 
       // Small delay for scene transition animation to settle
       await this.delay(200, signal);
@@ -293,11 +296,6 @@ export class WebSocketGateway {
         text: scene.narration,
         sceneId: scene.id,
       });
-
-      // Visual commands are compiled client-side by VisualScriptCompiler
-      // and executed by the stage engine (SceneExecutor). No need to send
-      // individual visual_command events — the scene_change payload carries
-      // all visual data the client needs.
 
       // Use pre-generated audio if available, otherwise fall back to delay
       if (prepared.audioData && prepared.audioData.byteLength > 0) {
@@ -381,8 +379,9 @@ export class WebSocketGateway {
         if (signal.aborted) break;
       }
 
-      // Send scene to client
-      this.send(session.ws, { type: 'scene_change', scene });
+      // Compile and send StoryboardScene to client
+      const storyboard = compilePresentationScene(scene);
+      this.send(session.ws, { type: 'scene_change', scene: storyboard });
 
       // Small delay for scene transition animation to settle
       await this.delay(200, signal);
@@ -394,9 +393,6 @@ export class WebSocketGateway {
         text: scene.narration,
         sceneId: scene.id,
       });
-
-      // Visual commands are compiled client-side by the stage engine.
-      // No individual visual_command events needed.
 
       // Generate and stream TTS audio (or fall back to delay)
       if (process.env.ELEVENLABS_API_KEY) {
@@ -541,14 +537,13 @@ export class WebSocketGateway {
 
     // Phase C: Present the answer as new scenes
     for (const scene of interruptResult.answerScenes) {
-      this.send(session.ws, { type: 'scene_change', scene });
+      const storyboard = compilePresentationScene(scene);
+      this.send(session.ws, { type: 'scene_change', scene: storyboard });
       this.send(session.ws, {
         type: 'narration_text',
         text: scene.narration,
         sceneId: scene.id,
       });
-
-      // Visual commands are compiled client-side by the stage engine.
 
       // TTS with real timestamps for interrupt scenes
       if (process.env.ELEVENLABS_API_KEY) {

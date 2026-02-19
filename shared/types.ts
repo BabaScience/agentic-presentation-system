@@ -249,6 +249,7 @@ export type ScenePreparationStatus = 'pending' | 'preparing' | 'ready' | 'failed
 
 export interface PreparedScene {
   scene: PresentationScene;
+  storyboard?: StoryboardScene;
   audioData?: Uint8Array;
   wordTimestamps?: WordTimestamp[];
   audioDurationMs?: number;
@@ -460,7 +461,7 @@ export type WSServerEvent =
   | { type: 'state_change'; from: SessionState; to: SessionState; metadata?: Record<string, any> }
   | { type: 'bookmark_created'; bookmark: PresentationBookmark }
   | { type: 'bookmark_resumed'; bookmark: PresentationBookmark }
-  | { type: 'scene_change'; scene: PresentationScene }
+  | { type: 'scene_change'; scene: StoryboardScene }
   | { type: 'narration_text'; text: string; sceneId: string }
   | { type: 'agent_audio_meta'; durationMs: number; sceneId: string; wordTimestamps?: WordTimestamp[]; visualScript?: VisualScript; illustrations?: IllustrationSpec[] }
   | { type: 'rl_update'; policy: RLPolicy; learnerState: Partial<LearnerState> }

@@ -21,6 +21,7 @@ import {
   INTER_ENTITY_STAGGER_MIN_MS,
   ENTITY_MIN_VISIBLE_MS,
 } from '../../shared/constants';
+import { compilePresentationScene } from '../../shared/VisualScriptCompiler';
 import { PresentationPlanner } from './PresentationPlanner';
 import { VisualScriptGenerator } from './VisualScriptGenerator';
 import { VoiceService } from './VoiceService';
@@ -79,9 +80,13 @@ export class ScenePipelineOrchestrator {
           }
         })
         .catch(() => {
-          // Even on error, mark as ready with degraded scene
+          // Even on error, mark as ready with degraded scene (still compile it)
           if (!this.cancelled) {
-            const fallback: PreparedScene = { scene: locals.scene, status: 'failed' };
+            const fallback: PreparedScene = {
+              scene: locals.scene,
+              storyboard: compilePresentationScene(locals.scene),
+              status: 'failed',
+            };
             this.queue.markReady(nodeIndex, fallback);
             onStatusChange?.(nodeIndex, 'failed', this.totalScenes);
           }
@@ -136,6 +141,10 @@ export class ScenePipelineOrchestrator {
       // Rescale visual script to match real audio duration
       this.rescaleVisualScript(scene, ttsResult.durationMs);
     }
+
+    // Compile PresentationScene → StoryboardScene (AgentCommand[] + SyncMarkers).
+    // This runs after rescaling so timed commands match real audio duration.
+    prepared.storyboard = compilePresentationScene(scene, ttsResult?.wordTimestamps);
 
     return prepared;
   }

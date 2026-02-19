@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Data Flow Transformation — Agentic Presentation System</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.6.1/mermaid.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist+Mono:wght@300;400;500;600;700&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap');
+
+  :root {
+    --bg-void: #05060a;
+    --bg-surface: #0b0d14;
+    --bg-elevated: #10131c;
+    --bg-card: #151924;
+    --bg-hover: #1a1f2e;
+    --cyan: #00e5ff;
+    --cyan-dim: rgba(0,229,255,0.15);
+    --cyan-glow: rgba(0,229,255,0.08);
+    --magenta: #ff2d7b;
+    --magenta-dim: rgba(255,45,123,0.15);
+    --amber: #ffab00;
+    --amber-dim: rgba(255,171,0,0.12);
+    --emerald: #00e676;
+    --emerald-dim: rgba(0,230,118,0.12);
+    --violet: #b388ff;
+    --violet-dim: rgba(179,136,255,0.12);
+    --rose: #ff6b9d;
+    --text-1: #e8eaed;
+    --text-2: #9aa0a6;
+    --text-3: #5f6368;
+    --border: rgba(255,255,255,0.06);
+    --border-accent: rgba(0,229,255,0.15);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; scrollbar-width: thin; scrollbar-color: var(--text-3) transparent; }
+
+  body {
+    font-family: 'DM Sans', system-ui, sans-serif;
+    background: var(--bg-void);
+    color: var(--text-1);
+    line-height: 1.7;
+    font-size: 15.5px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .hero {
+    min-height: 50vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 60px 24px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 800px 500px at 35% 30%, rgba(0,229,255,0.04), transparent),
+      radial-gradient(ellipse 600px 700px at 65% 70%, rgba(255,45,123,0.03), transparent);
+    pointer-events: none;
+  }
+
+  .hero-version {
+    font-family: 'Geist Mono', monospace;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--cyan);
+    background: var(--cyan-dim);
+    border: 1px solid rgba(0,229,255,0.2);
+    padding: 6px 18px;
+    border-radius: 100px;
+    margin-bottom: 32px;
+  }
+
+  .hero h1 {
+    font-family: 'Instrument Serif', serif;
+    font-size: clamp(2.2rem, 5vw, 4rem);
+    font-weight: 400;
+    line-height: 1.08;
+    max-width: 900px;
+    margin-bottom: 16px;
+  }
+
+  .hero h1 em { font-style: italic; color: var(--cyan); }
+
+  .hero-sub {
+    font-size: 1.05rem;
+    color: var(--text-2);
+    max-width: 680px;
+    line-height: 1.7;
+  }
+
+  .container { max-width: 1000px; margin: 0 auto; padding: 0 24px; }
+  section { margin-bottom: 80px; }
+
+  .section-header {
+    margin-bottom: 32px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .section-tag {
+    font-family: 'Geist Mono', monospace;
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--cyan);
+    margin-bottom: 8px;
+  }
+
+  .section-header h2 {
+    font-family: 'Instrument Serif', serif;
+    font-size: clamp(1.6rem, 3vw, 2.2rem);
+    font-weight: 400;
+    line-height: 1.15;
+  }
+
+  .section-header h2 em { font-style: italic; color: var(--magenta); }
+
+  h3 {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 1.15rem;
+    font-weight: 600;
+    margin-top: 36px;
+    margin-bottom: 12px;
+    color: var(--text-1);
+  }
+
+  h3 .accent { color: var(--amber); }
+
+  h4 {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin-top: 24px;
+    margin-bottom: 8px;
+    color: var(--text-2);
+  }
+
+  p { margin-bottom: 12px; color: var(--text-2); }
+  p strong { color: var(--text-1); font-weight: 600; }
+
+  ul, ol { margin: 10px 0 16px 24px; color: var(--text-2); }
+  li { margin-bottom: 6px; line-height: 1.6; }
+
+  .diagram {
+    margin: 24px 0;
+    padding: 24px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow-x: auto;
+  }
+
+  .diagram-label {
+    font-family: 'Geist Mono', monospace;
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-3);
+    margin-bottom: 12px;
+  }
+
+  .mermaid { display: flex; justify-content: center; }
+  .mermaid svg { max-width: 100%; height: auto; }
+
+  code {
+    font-family: 'Geist Mono', monospace;
+    font-size: 0.82em;
+    background: var(--bg-elevated);
+    color: var(--cyan);
+    padding: 2px 6px;
+    border-radius: 6px;
+  }
+
+  pre {
+    font-family: 'Geist Mono', monospace;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    overflow-x: auto;
+    margin: 16px 0;
+  }
+
+  pre code {
+    background: none;
+    padding: 0;
+    color: var(--text-2);
+  }
+
+  .type-block {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin: 12px 0;
+    font-family: 'Geist Mono', monospace;
+    font-size: 0.8rem;
+    line-height: 1.6;
+    color: var(--text-2);
+  }
+
+  .type-block .keyword { color: var(--magenta); }
+  .type-block .type { color: var(--cyan); }
+  .type-block .prop { color: var(--amber); }
+  .type-block .string { color: var(--emerald); }
+
+  .stage-card {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin: 16px 0;
+    border-left: 4px solid var(--cyan);
+  }
+
+  .stage-card .stage-num {
+    font-family: 'Geist Mono', monospace;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--cyan);
+    margin-bottom: 8px;
+  }
+
+  .stage-card .stage-service {
+    font-weight: 600;
+    color: var(--text-1);
+    margin-bottom: 4px;
+  }
+
+  .flow-arrow {
+    text-align: center;
+    color: var(--text-3);
+    font-size: 1.2rem;
+    margin: 8px 0;
+  }
+
+  footer {
+    text-align: center;
+    padding: 48px 24px;
+    color: var(--text-3);
+    font-size: 0.85rem;
+    border-top: 1px solid var(--border);
+    margin-top: 80px;
+  }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <div class="hero-version">Data Flow Reference</div>
+  <h1>User Prompt → <em>Illustrations</em></h1>
+  <p class="hero-sub">Complete data structure transformation pipeline from user input to rendered SVG illustrations.</p>
+</div>
+
+<div class="container">
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- OVERVIEW DIAGRAM -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section>
+  <div class="section-header">
+    <div class="section-tag">Pipeline Overview</div>
+    <h2>End-to-End Data Flow</h2>
+  </div>
+
+  <div class="diagram">
+    <div class="diagram-label">Mermaid — Data Structure Pipeline</div>
+    <div class="mermaid">
+flowchart TB
+    subgraph input [1. User Input]
+        A["string topic"]
+    end
+
+    subgraph agent [2. AgentService]
+        B["ReasoningOutput"]
+    end
+
+    subgraph kg [3. KnowledgeGraphService]
+        C["KnowledgeGraph"]
+    end
+
+    subgraph planner [4. PresentationPlanner]
+        D["PresentationScene[]"]
+    end
+
+    subgraph pipeline [5. ScenePipelineOrchestrator]
+        E["PreparedScene"]
+    end
+
+    subgraph compiler [6. VisualScriptCompiler]
+        F["StoryboardScene"]
+    end
+
+    subgraph frontend [7. Frontend]
+        G["SceneElement[]"]
+        H["VisualEntity[]"]
+        I["SVG DOM"]
+    end
+
+    A --> B --> C --> D --> E --> F --> G --> H --> I
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- STAGE 1: User Input -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section>
+  <div class="section-header">
+    <div class="section-tag">Stage 1</div>
+    <h2>User Prompt</h2>
+  </div>
+
+  <div class="stage-card">
+    <div class="stage-num">INPUT</div>
+    <div class="stage-service">WebSocket Gateway — <code>start_session</code> / <code>text_input</code></div>
+    <p>Raw user input: a topic string or question.</p>
+  </div>
+
+  <h3>Data Structure</h3>
+  <div class="type-block">
+<span class="keyword">// WebSocket event from client</span>
+{ <span class="prop">type</span>: <span class="string">'start_session'</span>, <span class="prop">topic</span>: <span class="string">string</span> }
+<span class="keyword">// or</span>
+{ <span class="prop">type</span>: <span class="string">'text_input'</span>, <span class="prop">text</span>: <span class="string">string</span> }
+  </div>
+
+  <h3>Transformation</h3>
+  <p><strong>Gateway</strong> extracts <code>topic</code> or <code>text</code>, fetches <code>RLPolicy</code> from RLService, and invokes <code>AgentService.reason(topic, policy)</code>.</p>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- STAGE 2: ReasoningOutput -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section>
+  <div class="section-header">
+    <div class="section-tag">Stage 2</div>
+    <h2>ReasoningOutput</h2>
+  </div>
+
+  <div class="stage-card">
+    <div class="stage-num">OUTPUT OF AgentService.reason()</div>
+    <div class="stage-service">AgentService — Claude decomposition</div>
+    <p>Structured knowledge decomposition: conceptual primitives, relationships, visual hints, scene contracts.</p>
+  </div>
+
+  <h3>Data Structure</h3>
+  <div class="type-block">
+<span class="keyword">interface</span> <span class="type">ReasoningOutput</span> {
+  <span class="prop">topic</span>: <span class="type">string</span>;
+  <span class="prop">conceptualPrimitives</span>: <span class="type">Array</span>&lt;{
+    <span class="prop">label</span>: <span class="type">string</span>;
+    <span class="prop">type</span>: <span class="type">DataType</span>;  <span class="keyword">// CONCEPT | DEFINITION | EXAMPLE | ANALOGY | PROCESS | RESOURCE | COUNTERPOINT</span>
+    <span class="prop">content</span>: <span class="type">string</span>;
+    <span class="prop">narration</span>: <span class="type">string</span>;
+    <span class="prop">visualHint</span>?: { <span class="prop">suggestedEntities</span>, <span class="prop">layoutPattern</span>, <span class="prop">visualMetaphor</span>, <span class="prop">colorScheme</span> };
+    <span class="prop">domain</span>?: <span class="type">AcademicDomain</span>;
+    <span class="prop">sceneContract</span>?: <span class="type">SceneContract</span>;
+  }&gt;;
+  <span class="prop">relationships</span>: <span class="type">Array</span>&lt;{ <span class="prop">from</span>, <span class="prop">to</span>, <span class="prop">type</span>: <span class="type">EdgeType</span>, <span class="prop">label</span> }&gt;;
+  <span class="prop">prerequisiteDependencies</span>: <span class="type">string</span>[];
+  <span class="prop">complexityGradient</span>: <span class="type">string</span>[];
+  <span class="prop">anticipatedFollowUps</span>: <span class="type">string</span>[];
+}
+  </div>
+
+  <div class="flow-arrow">↓</div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- STAGE 3: KnowledgeGraph -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section>
+  <div class="section-header">
+    <div class="section-tag">Stage 3</div>
+    <h2>KnowledgeGraph</h2>
+  </div>
+
+  <div class="stage-card">
+    <div class="stage-num">OUTPUT OF KnowledgeGraphService.buildFromReasoning()</div>
+    <div class="stage-service">KnowledgeGraphService — Graph construction</div>
+    <p>Nodes from conceptual primitives, edges from relationships. Layout positions computed. Visual specs assigned per node.</p>
+  </div>
+
+  <h3>Data Structure</h3>
+  <div class="type-block">
+<span class="keyword">interface</span> <span class="type">KnowledgeGraph</span> {
+  <span class="prop">sessionId</span>: <span class="type">string</span>;
+  <span class="prop">rootNodeId</span>: <span class="type">string</span>;
+  <span class="prop">nodes</span>: <span class="type">Record</span>&lt;<span class="type">string</span>, <span class="type">KGNode</span>&gt;;
+  <span class="prop">edges</span>: <span class="type">Record</span>&lt;<span class="type">string</span>, <span class="type">KGEdge</span>&gt;;
+  <span class="prop">maxDepth</span>: <span class="type">number</span>;
+  <span class="prop">nodeLimit</span>: <span class="type">number</span>;
+  <span class="prop">createdAt</span>, <span class="prop">updatedAt</span>: <span class="type">number</span>;
+}
+
+<span class="keyword">interface</span> <span class="type">KGNode</span> {
+  <span class="prop">id</span>, <span class="prop">label</span>, <span class="prop">content</span>, <span class="prop">narration</span>: <span class="type">string</span>;
+  <span class="prop">type</span>: <span class="type">DataType</span>;
+  <span class="prop">domain</span>?: <span class="type">AcademicDomain</span>;
+  <span class="prop">depth</span>: <span class="type">number</span>;
+  <span class="prop">visual</span>: <span class="type">VisualSpec</span>;  <span class="keyword">// elementType, x, y, width, height, style, animation</span>
+  <span class="prop">visualHint</span>?: <span class="type">VisualHint</span>;
+  <span class="prop">rlRelevanceScore</span>: <span class="type">number</span>;
+  <span class="prop">metadata</span>: { <span class="prop">sceneContract</span>? };
+}
+
+<span class="keyword">interface</span> <span class="type">KGEdge</span> {
+  <span class="prop">id</span>, <span class="prop">sourceId</span>, <span class="prop">targetId</span>, <span class="prop">label</span>: <span class="type">string</span>;
+  <span class="prop">type</span>: <span class="type">EdgeType</span>;
+  <span class="prop">weight</span>: <span class="type">number</span>;
+}
+  </div>
+
+  <div class="flow-arrow">↓</div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- STAGE 4: PresentationScene[] -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section>
+  <div class="section-header">
+    <div class="section-tag">Stage 4</div>
+    <h2>PresentationScene[]</h2>
+  </div>
+
+  <div class="stage-card">
+    <div class="stage-num">OUTPUT OF PresentationPlanner.computeTraversalOrder() + composeSceneLocals()</div>
+    <div class="stage-service">PresentationPlanner — BFS traversal, 1 node per scene</div>
+    <p>Ordered scenes with narration, viewport, visual commands, duration estimate. Visual script generated later per scene.</p>
+  </div>
+
+  <h3>Data Structure</h3>
+  <div class="type-block">
+<span class="keyword">interface</span> <span class="type">PresentationScene</span> {
+  <span class="prop">id</span>: <span class="type">string</span>;
+  <span class="prop">nodeIds</span>, <span class="prop">edgeIds</span>: <span class="type">string</span>[];
+  <span class="prop">narration</span>: <span class="type">string</span>;
+  <span class="prop">focusNodeId</span>: <span class="type">string</span>;
+  <span class="prop">viewport</span>: { <span class="prop">x</span>, <span class="prop">y</span>, <span class="prop">zoom</span> };
+  <span class="prop">visualCommands</span>: <span class="type">VisualCommand</span>[];
+  <span class="prop">durationEstimate</span>: <span class="type">number</span>;
+  <span class="prop">visualScript</span>?: <span class="type">VisualScript</span>;  <span class="keyword">// Populated by pipeline</span>
+  <span class="prop">illustrations</span>?: <span class="type">IllustrationSpec</span>[];  <span class="keyword">// Legacy</span>
+}
+  </div>
+
+  <div class="flow-arrow">↓</div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- STAGE 5: VisualScript (per scene) -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section>
+  <div class="section-header">
+    <div class="section-tag">Stage 5a</div>
+    <h2>VisualScript — Frame-Based Visual Narrative</h2>
+  </div>
+
+  <div class="stage-card">
+    <div class="stage-num">OUTPUT OF AgentOrchestrator → VisualScriptGenerator</div>
+    <div class="stage-service">VisualScriptGenerator — Claude analyzeNarration → segmentsToFrames</div>
+    <p>Claude produces VisualSegment[] (JSON). Segments convert to IllustrationFrame[] with accumulative entity model. LayoutEngine + SceneCompositionService post-process.</p>
+  </div>
+
+  <h3>Intermediate: VisualSegment (Claude JSON output)</h3>
+  <div class="type-block">
+<span class="keyword">// Per-segment from Claude</span>
+{ <span class="prop">text</span>, <span class="prop">timeRangePercent</span>: [start, end], <span class="prop">entities</span>: [...], <span class="prop">description</span> }
+<span class="keyword">// Entity in segment</span>
+{ <span class="prop">type</span>, <span class="prop">label</span>, <span class="prop">position</span>, <span class="prop">color</span>, <span class="prop">size</span>, <span class="prop">animation</span>, <span class="prop">from</span>, <span class="prop">to</span>, <span class="prop">parent</span> }
+  </div>
+
+  <h3>Data Structure: VisualScript</h3>
+  <div class="type-block">
+<span class="keyword">interface</span> <span class="type">VisualScript</span> {
+  <span class="prop">sceneId</span>: <span class="type">string</span>;
+  <span class="prop">frames</span>: <span class="type">IllustrationFrame</span>[];
+  <span class="prop">totalDuration</span>: <span class="type">number</span>;
+  <span class="prop">entities</span>: <span class="type">Record</span>&lt;<span class="type">string</span>, <span class="type">VisualEntity</span>&gt;;
+}
+
+<span class="keyword">interface</span> <span class="type">IllustrationFrame</span> {
+  <span class="prop">id</span>: <span class="type">string</span>;
+  <span class="prop">startTime</span>, <span class="prop">endTime</span>: <span class="type">number</span>;
+  <span class="prop">entities</span>: <span class="type">VisualEntity</span>[];
+  <span class="prop">transitions</span>?: <span class="type">EntityTransition</span>[];
+  <span class="prop">narrationSegment</span>, <span class="prop">description</span>: <span class="type">string</span>;
+}
+
+<span class="keyword">interface</span> <span class="type">VisualEntity</span> {
+  <span class="prop">id</span>: <span class="type">string</span>;
+  <span class="prop">type</span>: <span class="type">VisualEntityType</span>;  <span class="keyword">// Server, Pod, Arrow, Equation, Graph2D, etc.</span>
+  <span class="prop">position</span>: { <span class="prop">x</span>, <span class="prop">y</span> };  <span class="keyword">// 0-100%</span>
+  <span class="prop">size</span>: { <span class="prop">width</span>, <span class="prop">height</span> };
+  <span class="prop">label</span>?, <span class="prop">color</span>?, <span class="prop">highlight</span>?;
+  <span class="prop">animation</span>?: { <span class="prop">type</span>, <span class="prop">duration</span>, <span class="prop">delay</span> };
+  <span class="prop">sourceEntityId</span>?, <span class="prop">targetEntityId</span>?;  <span class="keyword">// For Arrow/DataFlow</span>
+  <span class="prop">textContent</span>?, <span class="prop">codeLanguage</span>?;
+  <span class="prop">metadata</span>?: <span class="type">Record</span>&lt;<span class="type">string</span>, <span class="type">any</span>&gt;;
+}
+  </div>
+
+  <h3>Stage 5b: PreparedScene</h3>
+  <p>ScenePipelineOrchestrator runs <strong>VisualScript + TTS in parallel</strong>. Rescales VisualScript timings to match real audio duration. Compiles to StoryboardScene.</p>
+  <div class="type-block">
+<span class="keyword">interface</span> <span class="type">PreparedScene</span> {
+  <span class="prop">scene</span>: <span class="type">PresentationScene</span>;  <span class="keyword">// With visualScript attached</span>
+  <span class="prop">storyboard</span>?: <span class="type">StoryboardScene</span>;
+  <span class="prop">audioData</span>?: <span class="type">Uint8Array</span>;
+  <span class="prop">wordTimestamps</span>?: <span class="type">WordTimestamp</span>[];
+  <span class="prop">audioDurationMs</span>?: <span class="type">number</span>;
+  <span class="prop">status</span>: <span class="type">ScenePreparationStatus</span>;
+}
+  </div>
+
+  <div class="flow-arrow">↓</div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- STAGE 6: StoryboardScene -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section>
+  <div class="section-header">
+    <div class="section-tag">Stage 6</div>
+    <h2>StoryboardScene — Executable Agent Commands</h2>
+  </div>
+
+  <div class="stage-card">
+    <div class="stage-num">OUTPUT OF compilePresentationScene() — VisualScriptCompiler</div>
+    <div class="stage-service">VisualScriptCompiler — VisualScript → AgentCommand[]</div>
+    <p>VisualScript frames become createElement, fadeIn, moveTo, fadeOut, destroyElement. VisualCommand[] (legacy) become showElement, highlight, etc. SyncMarkers bind commands to word indices.</p>
+  </div>
+
+  <h3>Transformation: VisualScript → AgentCommand[]</h3>
+  <p>Each frame entity: <code>createElement</code> (timing: frame.startTime + delay) → <code>fadeIn</code> (await-previous). Position changes → <code>moveTo</code>. Removed entities → <code>fadeOut</code> → <code>destroyElement</code>.</p>
+
+  <h3>Data Structure</h3>
+  <div class="type-block">
+<span class="keyword">interface</span> <span class="type">StoryboardScene</span> {
+  <span class="prop">id</span>, <span class="prop">name</span>, <span class="prop">narration</span>: <span class="type">string</span>;
+  <span class="prop">agentCommands</span>: <span class="type">AgentCommand</span>[];
+  <span class="prop">syncMarkers</span>?: <span class="type">SyncMarker</span>[];
+  <span class="prop">viewport</span>: <span class="type">ViewportState</span>;
+  <span class="prop">interactiveParameters</span>: <span class="type">string</span>[];
+  <span class="prop">estimatedDurationSeconds</span>: <span class="type">number</span>;
+}
+
+<span class="keyword">interface</span> <span class="type">AgentCommand</span> {
+  <span class="prop">method</span>: <span class="type">string</span>;  <span class="keyword">// createElement, fadeIn, moveTo, zoomTo, panTo, etc.</span>
+  <span class="prop">args</span>: <span class="type">Record</span>&lt;<span class="type">string</span>, <span class="type">unknown</span>&gt;;
+  <span class="prop">timing</span>: <span class="type">'immediate'</span> | <span class="type">'await-previous'</span> | <span class="type">number</span>;
+}
+
+<span class="keyword">interface</span> <span class="type">SyncMarker</span> {
+  <span class="prop">wordIndex</span>: <span class="type">number</span>;
+  <span class="prop">command</span>: <span class="type">AgentCommand</span>;
+}
+  </div>
+
+  <h3>WebSocket Delivery</h3>
+  <p>Gateway sends <code>scene_change</code> with StoryboardScene, then <code>agent_audio_meta</code> (durationMs, wordTimestamps, visualScript), then binary audio.</p>
+
+  <div class="flow-arrow">↓</div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- STAGE 7: Frontend — SceneElement → VisualEntity → SVG -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section>
+  <div class="section-header">
+    <div class="section-tag">Stage 7</div>
+    <h2>Frontend — Rendered Illustrations</h2>
+  </div>
+
+  <div class="stage-card">
+    <div class="stage-num">sessionStore → SceneGraphPresenter → useSceneEngine → FrameRenderer</div>
+    <div class="stage-service">SceneExecutor executes AgentCommand[] against EnvironmentAPI</div>
+    <p>Each createElement adds SceneElement to engine. fadeIn/moveTo update element state. Dirty render cycle updates only changed elements.</p>
+  </div>
+
+  <h3>Data Structure: SceneElement (Engine State)</h3>
+  <div class="type-block">
+<span class="keyword">interface</span> <span class="type">SceneElement</span> {
+  <span class="prop">id</span>: <span class="type">string</span>;  <span class="keyword">// "sceneId:entityId"</span>
+  <span class="prop">type</span>: <span class="type">StageElementType</span>;  <span class="keyword">// box | circle | arrow | text | code | diagram | label | group</span>
+  <span class="prop">position</span>: <span class="type">Vector2</span>;
+  <span class="prop">visible</span>, <span class="prop">opacity</span>, <span class="prop">zIndex</span>;
+  <span class="prop">properties</span>: { <span class="prop">visualEntityType</span>, <span class="prop">label</span>, <span class="prop">color</span>, <span class="prop">width</span>, <span class="prop">height</span>, ... };
+}
+  </div>
+
+  <h3>Transformation: elementToVisualEntity</h3>
+  <p>SceneElement → VisualEntity: pixel position → percentage, extract visualEntityType, label, color, size from properties.</p>
+
+  <h3>Final: FrameRenderer → SVGLibrary</h3>
+  <p>VisualEntity[] dispatched by type to 40+ SVG components (Server, Pod, Arrow, Equation, Graph2D, etc.). Each component renders SVG elements. Canvas is 1600×900.</p>
+
+  <div class="diagram">
+    <div class="diagram-label">Frontend Rendering Chain</div>
+    <div class="mermaid">
+flowchart LR
+    A["StoryboardScene"] --> B["SceneExecutor"]
+    B --> C["EnvironmentAPI"]
+    C --> D["SceneElement Map"]
+    D --> E["elementToVisualEntity"]
+    E --> F["VisualEntity[]"]
+    F --> G["FrameRenderer"]
+    G --> H["SVGLibrary"]
+    H --> I["SVG DOM"]
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- SUMMARY TABLE -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section>
+  <div class="section-header">
+    <div class="section-tag">Reference</div>
+    <h2>Stage Summary</h2>
+  </div>
+
+  <div class="diagram">
+    <div class="diagram-label">Complete Transformation Table</div>
+    <table style="width:100%; border-collapse: collapse; font-size: 0.9rem;">
+      <thead>
+        <tr style="border-bottom: 1px solid var(--border);">
+          <th style="text-align:left; padding:12px; color:var(--cyan);">Stage</th>
+          <th style="text-align:left; padding:12px; color:var(--cyan);">Input</th>
+          <th style="text-align:left; padding:12px; color:var(--cyan);">Output</th>
+          <th style="text-align:left; padding:12px; color:var(--cyan);">Service</th>
+        </tr>
+      </thead>
+      <tbody style="color: var(--text-2);">
+        <tr style="border-bottom: 1px solid var(--border);">
+          <td style="padding:12px;">1</td>
+          <td style="padding:12px;">—</td>
+          <td style="padding:12px;">string topic</td>
+          <td style="padding:12px;">WebSocket Gateway</td>
+        </tr>
+        <tr style="border-bottom: 1px solid var(--border);">
+          <td style="padding:12px;">2</td>
+          <td style="padding:12px;">topic, RLPolicy</td>
+          <td style="padding:12px;">ReasoningOutput</td>
+          <td style="padding:12px;">AgentService.reason()</td>
+        </tr>
+        <tr style="border-bottom: 1px solid var(--border);">
+          <td style="padding:12px;">3</td>
+          <td style="padding:12px;">ReasoningOutput</td>
+          <td style="padding:12px;">KnowledgeGraph</td>
+          <td style="padding:12px;">KnowledgeGraphService.buildFromReasoning()</td>
+        </tr>
+        <tr style="border-bottom: 1px solid var(--border);">
+          <td style="padding:12px;">4</td>
+          <td style="padding:12px;">KnowledgeGraph, RLPolicy</td>
+          <td style="padding:12px;">PresentationScene[]</td>
+          <td style="padding:12px;">PresentationPlanner.computeTraversalOrder(), composeSceneLocals()</td>
+        </tr>
+        <tr style="border-bottom: 1px solid var(--border);">
+          <td style="padding:12px;">5</td>
+          <td style="padding:12px;">PresentationScene, focusNode, wordTimestamps</td>
+          <td style="padding:12px;">VisualScript (in scene.visualScript)</td>
+          <td style="padding:12px;">AgentOrchestrator → VisualScriptGenerator.generateScript()</td>
+        </tr>
+        <tr style="border-bottom: 1px solid var(--border);">
+          <td style="padding:12px;">5b</td>
+          <td style="padding:12px;">PresentationScene + VisualScript + TTS</td>
+          <td style="padding:12px;">PreparedScene</td>
+          <td style="padding:12px;">ScenePipelineOrchestrator.prepareScene()</td>
+        </tr>
+        <tr style="border-bottom: 1px solid var(--border);">
+          <td style="padding:12px;">6</td>
+          <td style="padding:12px;">PresentationScene (with visualScript)</td>
+          <td style="padding:12px;">StoryboardScene</td>
+          <td style="padding:12px;">compilePresentationScene() — VisualScriptCompiler</td>
+        </tr>
+        <tr style="border-bottom: 1px solid var(--border);">
+          <td style="padding:12px;">7</td>
+          <td style="padding:12px;">StoryboardScene</td>
+          <td style="padding:12px;">SceneElement[] → VisualEntity[] → SVG DOM</td>
+          <td style="padding:12px;">SceneExecutor, elementToVisualEntity, FrameRenderer, SVGLibrary</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+</div>
+
+<footer>
+  Agentic Presentation System — Data Flow Reference. See <code>shared/types.ts</code>, <code>TECHNICAL_ARCHITECTURE.md</code>.
+</footer>
+
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'dark',
+    themeVariables: {
+      primaryColor: '#00e5ff',
+      primaryTextColor: '#e8eaed',
+      primaryBorderColor: 'rgba(0,229,255,0.3)',
+      lineColor: '#5f6368',
+      secondaryColor: '#151924',
+      tertiaryColor: '#0b0d14'
+    }
+  });
+</script>
+</body>
+</html>

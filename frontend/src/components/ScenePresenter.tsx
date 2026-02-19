@@ -7,13 +7,13 @@
    ═══════════════════════════════════════════════════════════════ */
 
 import React from 'react';
-import type { PresentationScene } from '../stores/sessionStore';
+import type { StoryboardScene } from '../stores/sessionStore';
 import { useSessionStore } from '../stores/sessionStore';
 import { SubtitleDisplay } from './SubtitleDisplay';
 import { SceneGraphPresenter } from './SceneGraphPresenter';
 
 interface ScenePresenterProps {
-  currentScene: PresentationScene | null;
+  currentScene: StoryboardScene | null;
 }
 
 export function ScenePresenter({ currentScene }: ScenePresenterProps) {

@@ -84,6 +84,18 @@ export interface PresentationScene {
   visualScript?: VisualScript;
 }
 
+/** StoryboardScene — compiled by the backend, ready for SceneExecutor. */
+export interface StoryboardScene {
+  id: string;
+  name: string;
+  narration: string;
+  agentCommands: { method: string; args: Record<string, any>; timing: number | 'immediate' | 'await-previous' }[];
+  syncMarkers?: { wordIndex: number; command: { method: string; args: Record<string, any>; timing: number | 'immediate' | 'await-previous' } }[];
+  viewport: { x: number; y: number; zoom: number; rotation: number };
+  interactiveParameters: string[];
+  estimatedDurationSeconds: number;
+}
+
 export interface PresentationBookmark {
   sceneId: string;
   nodeId: string;
@@ -124,9 +136,9 @@ interface SessionStore {
   edges: Record<string, KGEdge>;
 
   // Presentation
-  currentScene: PresentationScene | null;
+  currentScene: StoryboardScene | null;
   narrationText: string;
-  sceneHistory: PresentationScene[];
+  sceneHistory: StoryboardScene[];
   bookmark: PresentationBookmark | null;
 
   // Voice
@@ -160,7 +172,7 @@ interface SessionStore {
   addEdge: (edge: KGEdge) => void;
   updateNode: (id: string, updates: Partial<KGNode>) => void;
 
-  setCurrentScene: (scene: PresentationScene) => void;
+  setCurrentScene: (scene: StoryboardScene) => void;
   setNarration: (text: string) => void;
   setBookmark: (bookmark: PresentationBookmark | null) => void;
 
@@ -199,9 +211,9 @@ const initialState = {
   reconnectAttempts: 0,
   nodes: {} as Record<string, KGNode>,
   edges: {} as Record<string, KGEdge>,
-  currentScene: null as PresentationScene | null,
+  currentScene: null as StoryboardScene | null,
   narrationText: '',
-  sceneHistory: [] as PresentationScene[],
+  sceneHistory: [] as StoryboardScene[],
   bookmark: null as PresentationBookmark | null,
   voiceEnabled: true,
   isListening: false,

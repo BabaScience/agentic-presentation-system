@@ -1,8 +1,13 @@
 /* ═══════════════════════════════════════════════════════════════
    SceneGraphPresenter — Engine-driven SVG stage renderer.
 
-   Replaces IllustrationCanvas. Connects the stage engine to React:
+   Connects the stage engine to React:
      useSceneEngine → dirty elements → elementsToVisualEntities → FrameRenderer
+
+   The backend compiles PresentationScene → StoryboardScene (with
+   AgentCommand[] + SyncMarkers) during scene preparation. This
+   component receives the ready-to-execute StoryboardScene and passes
+   it directly to the SceneExecutor — no client-side compilation.
 
    Law compliance:
      Law 1: Stage persists — engine retains elements across scenes.
@@ -12,59 +17,17 @@
    ═══════════════════════════════════════════════════════════════ */
 
 import React, { useEffect, useMemo } from 'react';
-import type {
-  PresentationScene,
-  WordTimestamp,
-  StoryboardScene,
-  AgentCommand,
-} from '@shared/types';
+import type { WordTimestamp, StoryboardScene } from '@shared/types';
 import { useSceneEngine } from '../engine/useSceneEngine';
-import { compilePresentationScene } from '../engine/VisualScriptCompiler';
 import { elementsToVisualEntities } from '../engine/elementToVisualEntity';
 import { FrameRenderer } from './FrameRenderer';
 
 interface SceneGraphPresenterProps {
-  currentScene: PresentationScene | null;
+  currentScene: StoryboardScene | null;
   currentAudioTime: number;
   wordTimestamps: WordTimestamp[];
   width: number;
   height: number;
-}
-
-/**
- * Fix the timed/sequential queue ordering mismatch from VisualScriptCompiler.
- *
- * compileVisualScript generates paired commands:
- *   createElement  timing=<number>       → timed queue
- *   fadeIn         timing='await-previous' → sequential queue
- *
- * SceneExecutor processes these queues independently. The sequential queue
- * starts immediately on execute(), so fadeIn fires BEFORE createElement runs,
- * hitting "element not found" and staying invisible forever.
- *
- * Fix: convert every 'await-previous' command to timing = prevOffset + 1.
- * Both commands land in the timed queue in the correct order. Because
- * env.createElement() is synchronous, the element exists by the time the
- * loop reaches fadeIn one iteration later.
- */
-function fixCommandOrdering(scene: StoryboardScene): StoryboardScene {
-  const fixed: AgentCommand[] = [];
-  let lastTimedOffset = 0;
-
-  for (const cmd of scene.agentCommands) {
-    if (cmd.timing === 'await-previous') {
-      // Place this command 1ms after its timed predecessor so both
-      // end up in the timed queue with guaranteed createElement-first order.
-      fixed.push({ ...cmd, timing: lastTimedOffset + 1 });
-    } else {
-      if (typeof cmd.timing === 'number') {
-        lastTimedOffset = cmd.timing;
-      }
-      fixed.push(cmd);
-    }
-  }
-
-  return { ...scene, agentCommands: fixed };
 }
 
 export function SceneGraphPresenter({
@@ -77,18 +40,16 @@ export function SceneGraphPresenter({
   // executor is created inside useSceneEngine and ticked every rAF frame.
   const { executor, elementStates, viewport } = useSceneEngine();
 
-  // When scene changes: compile and execute against the live engine.
+  // When scene changes: execute the pre-compiled StoryboardScene.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!currentScene) return;
 
     executor.abort();
 
-    const storyboard = compilePresentationScene(currentScene, wordTimestamps);
-    // Fix the ordering mismatch before handing off to the executor.
-    const fixed = fixCommandOrdering(storyboard);
-
-    executor.execute(fixed, fixed.syncMarkers ?? [], wordTimestamps);
+    // Scene arrives pre-compiled from the backend with AgentCommand[]
+    // and fixCommandOrdering already applied. Execute directly.
+    executor.execute(currentScene, currentScene.syncMarkers ?? [], wordTimestamps);
   }, [currentScene?.id]); // re-run only on scene identity change
 
   // Drive sync-marker commands with the narration clock.
