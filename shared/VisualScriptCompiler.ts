@@ -113,6 +113,34 @@ function pctToPixel(pctX: number, pctY: number): { x: number; y: number } {
   };
 }
 
+// ── Viewport Auto-Center ─────────────────────────────────────
+
+/** Compute area-weighted centroid of all entities in pixel space.
+ *  Larger entities pull the viewport center toward them. */
+function computeVisualScriptCenter(script: VisualScript): { x: number; y: number } {
+  const seen = new Map<string, VisualEntity>();
+  for (const frame of script.frames) {
+    for (const entity of frame.entities) {
+      if (!seen.has(entity.id)) seen.set(entity.id, entity);
+    }
+  }
+  if (seen.size === 0) return { x: CANVAS_WIDTH / 2, y: CANVAS_HEIGHT / 2 };
+
+  let sumX = 0;
+  let sumY = 0;
+  let totalWeight = 0;
+  for (const entity of seen.values()) {
+    const pos = pctToPixel(entity.position.x, entity.position.y);
+    const area = entity.size.width * entity.size.height; // percentage area as weight
+    sumX += pos.x * area;
+    sumY += pos.y * area;
+    totalWeight += area;
+  }
+  return totalWeight > 0
+    ? { x: sumX / totalWeight, y: sumY / totalWeight }
+    : { x: CANVAS_WIDTH / 2, y: CANVAS_HEIGHT / 2 };
+}
+
 // ── compileVisualScript ──────────────────────────────────────
 
 export function compileVisualScript(
@@ -347,19 +375,16 @@ export function compilePresentationScene(
   let commands: AgentCommand[] = [];
   const allSyncMarkers: SyncMarker[] = [];
 
-  // Viewport setup at t=0
-  if (scene.viewport) {
-    commands.push({
-      method: 'panTo',
-      args: { position: { x: scene.viewport.x, y: scene.viewport.y } },
-      timing: 0,
-    });
-    commands.push({
-      method: 'zoomTo',
-      args: { level: scene.viewport.zoom },
-      timing: 0,
-    });
-  }
+  // Viewport setup at t=0 — auto-center on entity centroid, instant snap
+  const center = scene.visualScript
+    ? computeVisualScriptCenter(scene.visualScript)
+    : { x: CANVAS_WIDTH / 2, y: CANVAS_HEIGHT / 2 };
+  const zoom = scene.viewport?.zoom ?? 1;
+  commands.push({
+    method: 'setViewport',
+    args: { viewport: { x: center.x, y: center.y, zoom, rotation: 0 } },
+    timing: 0,
+  });
 
   // Compile visual script if present
   if (scene.visualScript) {
@@ -414,9 +439,8 @@ export function compilePresentationScene(
     commands.push(...bindingCommands);
   }
 
-  const viewport: ViewportState = scene.viewport
-    ? { x: scene.viewport.x, y: scene.viewport.y, zoom: scene.viewport.zoom, rotation: 0 }
-    : { x: 0, y: 0, zoom: 1, rotation: 0 };
+  // Viewport state for the compiled scene — uses auto-computed center
+  const viewport: ViewportState = { x: center.x, y: center.y, zoom, rotation: 0 };
 
   return {
     id: scene.id,
@@ -550,19 +574,21 @@ export function compileStoryboardScene(
     timing: 0,
   });
 
-  // 2. Viewport
-  const viewport =
+  // 2. Viewport — auto-center on entity centroid, instant snap
+  const baseViewport =
     scene.viewport && 'center' in scene.viewport
       ? plannerViewportToViewportState(scene.viewport as PlannerViewport)
       : (scene.viewport as ViewportState);
+  const center = computeVisualScriptCenter(rescaledScript);
+  const viewport: ViewportState = {
+    x: center.x,
+    y: center.y,
+    zoom: baseViewport.zoom,
+    rotation: baseViewport.rotation ?? 0,
+  };
   commands.push({
-    method: 'panTo',
-    args: { position: { x: viewport.x, y: viewport.y } },
-    timing: 0,
-  });
-  commands.push({
-    method: 'zoomTo',
-    args: { level: viewport.zoom },
+    method: 'setViewport',
+    args: { viewport },
     timing: 0,
   });
 

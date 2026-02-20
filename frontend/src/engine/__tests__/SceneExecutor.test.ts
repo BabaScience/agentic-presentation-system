@@ -548,6 +548,31 @@ describe('SceneExecutor', () => {
     expect(env.getElementById('retro-el')).not.toBeNull();
   });
 
+  // ── Test: setViewport command snaps viewport instantly ──
+  it('setViewport command snaps viewport instantly', async () => {
+    const { env } = makeEnv();
+    const executor = new SceneExecutor(env);
+
+    const scene = makeScene({
+      id: 'viewport-test',
+      agentCommands: [
+        {
+          method: 'setViewport',
+          args: { viewport: { x: 800, y: 450, zoom: 1.5, rotation: 0 } },
+          timing: 0,
+        },
+      ],
+    });
+
+    executor.execute(scene);
+    executor.tick(0);
+
+    const vp = env.getViewport();
+    expect(vp.x).toBe(800);
+    expect(vp.y).toBe(450);
+    expect(vp.zoom).toBe(1.5);
+  });
+
   // ── Test 11: 50 immediate createElement commands within perf budget ──
   it(`50 immediate createElement commands execute within ${AGENT_COMMAND_MS}ms`, async () => {
     const { env } = makeEnv();

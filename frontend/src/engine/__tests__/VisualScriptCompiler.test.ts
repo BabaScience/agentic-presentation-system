@@ -286,19 +286,16 @@ describe('VisualScriptCompiler', () => {
     expect(result.narration).toBe('Hello world');
     expect(result.estimatedDurationSeconds).toBe(10);
     const vp = result.viewport as { x: number; y: number; zoom: number; rotation?: number };
-    expect(vp.x).toBe(100);
-    expect(vp.y).toBe(200);
+    // Viewport is auto-centered: no visualScript → defaults to canvas center (800, 450)
+    expect(vp.x).toBe(800);
+    expect(vp.y).toBe(450);
     expect(vp.zoom).toBe(1.5);
     expect(vp.rotation ?? 0).toBe(0);
 
-    // Should start with panTo and zoomTo at t=0
-    const panCmd = result.agentCommands.find((c) => c.method === 'panTo');
-    expect(panCmd).toBeDefined();
-    expect(panCmd!.timing).toBe(0);
-
-    const zoomCmd = result.agentCommands.find((c) => c.method === 'zoomTo');
-    expect(zoomCmd).toBeDefined();
-    expect(zoomCmd!.timing).toBe(0);
+    // Should start with setViewport at t=0 (instant snap, not panTo/zoomTo)
+    const setVpCmd = result.agentCommands.find((c) => c.method === 'setViewport');
+    expect(setVpCmd).toBeDefined();
+    expect(setVpCmd!.timing).toBe(0);
 
     // Should include the reveal command
     const showCmd = result.agentCommands.find((c) => c.method === 'showElement');

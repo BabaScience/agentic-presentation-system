@@ -399,6 +399,25 @@ export class EnvironmentAPI {
     });
   }
 
+  /** Instant viewport snap — no animation. Cancels existing viewport spring animations first.
+   *  Used for scene-start positioning so content appears centered from the first frame. */
+  setViewportDirect(vp: Partial<ViewportState>): void {
+    // Cancel only viewport animations to avoid interrupting element animations
+    const toRemove: string[] = [];
+    for (const [animId, anim] of this.animations) {
+      if (anim.targetType === 'viewport') {
+        toRemove.push(animId);
+      }
+    }
+    for (const animId of toRemove) {
+      const anim = this.animations.get(animId)!;
+      this.animations.delete(animId);
+      this.animationKeyIndex.delete(animationKey(anim));
+      anim.resolve();
+    }
+    this.sceneGraph.setViewport(vp);
+  }
+
   focusOn(elementId: string, _padding?: number): Promise<void> {
     const element = this.sceneGraph.getElementById(elementId);
     if (!element) throw new Error(`Element "${elementId}" not found`);

@@ -10,12 +10,13 @@ import type {
   StoryboardScene,
   WordTimestamp,
   Vector2,
+  ViewportState,
   ConnectionStyle,
   AnchorPosition,
   ExecutionResult,
   CommandResult,
+  SpringConfig,
 } from '@shared/types';
-import type { SpringConfig } from '@shared/types';
 import { SYNC_MARKER_TOLERANCE_MS } from '@shared/constants';
 import { EnvironmentAPI } from './EnvironmentAPI';
 import { getMapper } from './MapperRegistry';
@@ -33,7 +34,7 @@ export interface SceneExecutorOptions {
 const ALLOWED_METHODS = new Set([
   'createElement', 'destroyElement', 'showElement', 'hideElement', 'updateElement',
   'moveTo', 'moveBy', 'scaleTo', 'rotateTo', 'fadeIn', 'fadeOut',
-  'zoomTo', 'panTo', 'focusOn', 'resetView', 'highlight', 'addLabel',
+  'zoomTo', 'panTo', 'focusOn', 'resetView', 'setViewport', 'highlight', 'addLabel',
   'drawConnection', 'removeAnnotation', 'createCheckpoint', 'restoreCheckpoint',
   'setParameter', 'defineParameter', 'bindElementToParameter',
 ]);
@@ -386,6 +387,12 @@ export class SceneExecutor {
       case 'resetView':
         await this.env.resetView(
           args['spring'] as Partial<SpringConfig> | undefined,
+        );
+        return;
+
+      case 'setViewport':
+        this.env.setViewportDirect(
+          args['viewport'] as Partial<ViewportState>,
         );
         return;
 
