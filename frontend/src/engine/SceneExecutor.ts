@@ -66,6 +66,7 @@ export class SceneExecutor {
   private executedCommands = 0;
   private sequentialDone = false;
   private wordTimestamps: WordTimestamp[] = [];
+  private currentNarrationTimeMs = 0;
 
   /** Tracks element IDs created during the current scene for cross-scene cleanup. */
   private currentSceneElementIds: Set<string> = new Set();
@@ -108,6 +109,7 @@ export class SceneExecutor {
     this.sequentialQueue = [];
     this.syncMarkerQueue = [];
     this.wordTimestamps = wordTimestamps ?? [];
+    this.currentNarrationTimeMs = 0;
     this.currentSceneId = scene.id;
     this.currentSceneElementIds = new Set();
 
@@ -168,21 +170,19 @@ export class SceneExecutor {
 
   updateNarrationTime(currentTimeMs: number): void {
     if (this.state !== 'executing') return;
-
-    for (const entry of this.syncMarkerQueue) {
-      if (entry.fired) continue;
-
-      // Look up the start time for this word
-      const wordStartMs = this.getWordStartMs(entry.wordIndex);
-      if (wordStartMs === undefined) continue;
-
-      if (currentTimeMs >= wordStartMs - SYNC_MARKER_TOLERANCE_MS) {
-        entry.fired = true;
-        void this.dispatchCommand(entry.command);
-      }
-    }
-
+    this.currentNarrationTimeMs = currentTimeMs;
+    this.sweepSyncMarkers(currentTimeMs);
     this.checkCompletion();
+  }
+
+  /** Update word timestamps — call when agent_audio_meta arrives after scene_change. */
+  setWordTimestamps(timestamps: WordTimestamp[]): void {
+    this.wordTimestamps = timestamps;
+    // Retroactive sweep: fire pending sync markers whose words
+    // have already been passed by the current narration time.
+    if (this.currentNarrationTimeMs > 0 && timestamps.length > 0) {
+      this.sweepSyncMarkers(this.currentNarrationTimeMs);
+    }
   }
 
   abort(): void {
@@ -472,6 +472,20 @@ export class SceneExecutor {
       }
     }
     this.currentSceneElementIds.clear();
+  }
+
+  // ── Private: Sync marker sweep ──────────────────────────────
+
+  private sweepSyncMarkers(currentTimeMs: number): void {
+    for (const entry of this.syncMarkerQueue) {
+      if (entry.fired) continue;
+      const wordStartMs = this.getWordStartMs(entry.wordIndex);
+      if (wordStartMs === undefined) continue;
+      if (currentTimeMs >= wordStartMs - SYNC_MARKER_TOLERANCE_MS) {
+        entry.fired = true;
+        void this.dispatchCommand(entry.command);
+      }
+    }
   }
 
   // ── Private: Helpers ───────────────────────────────────────

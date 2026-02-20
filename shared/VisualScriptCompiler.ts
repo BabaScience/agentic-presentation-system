@@ -611,11 +611,16 @@ export function compileStoryboardScene(
   }
   commands.push(...bindingCommands);
 
-  // Re-run sync marker extraction to include binding commands
+  // Re-run sync marker extraction to include binding commands.
+  // Sync markers require wordTimestamps which may arrive after execute().
+  // Keep first-frame entity pairs (timing < 50ms) in the timed queue
+  // so they fire immediately regardless of wordTimestamp arrival timing.
+  // Only promote later-frame commands (t >= 50ms) to sync markers.
+  const SYNC_MARKER_MIN_OFFSET_MS = 50;
   const syncMarkersFinal: SyncMarker[] = [];
   const timedCommandsFinal: AgentCommand[] = [];
   for (const cmd of commands) {
-    if (typeof cmd.timing === 'number' && cmd.timing > 0 && wordTimestamps.length > 0) {
+    if (typeof cmd.timing === 'number' && cmd.timing >= SYNC_MARKER_MIN_OFFSET_MS && wordTimestamps.length > 0) {
       const wordIdx = timingToWordIndex(cmd.timing, wordTimestamps);
       syncMarkersFinal.push({ wordIndex: wordIdx, command: { ...cmd, timing: 'immediate' as const } });
     } else {

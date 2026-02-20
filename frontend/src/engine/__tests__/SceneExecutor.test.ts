@@ -460,6 +460,94 @@ describe('SceneExecutor', () => {
     expect(result.completedCommands[1].status).toBe('skipped');
   });
 
+  // ── Test: setWordTimestamps forward — sync markers fire after late timestamp arrival ──
+  it('setWordTimestamps allows sync markers to fire after late timestamp arrival', async () => {
+    const { env } = makeEnv();
+    const executor = new SceneExecutor(env);
+
+    const syncMarkers: SyncMarker[] = [
+      {
+        wordIndex: 1,
+        command: {
+          method: 'createElement',
+          args: {
+            id: 'late-el',
+            type: 'box',
+            position: { x: 0, y: 0 },
+            properties: { width: 50, height: 50 },
+          },
+          timing: 'immediate',
+        },
+      },
+    ];
+
+    const scene = makeScene({ id: 'late-ts-test' });
+
+    // Execute with empty word timestamps (simulates scene_change arriving before agent_audio_meta)
+    executor.execute(scene, syncMarkers, []);
+    await flushMicrotasks();
+
+    // Advance narration time — but sync marker can't fire yet (no timestamps to resolve)
+    executor.updateNarrationTime(500);
+    expect(env.getElementById('late-el')).toBeNull();
+
+    // Word timestamps arrive late (simulates agent_audio_meta arriving after scene_change)
+    const wordTimestamps: WordTimestamp[] = [
+      { word: 'hello', start: 0, end: 200 },
+      { word: 'world', start: 200, end: 500 },
+    ];
+    executor.setWordTimestamps(wordTimestamps);
+
+    // Now advance narration time past word 1 — sync marker should fire
+    executor.updateNarrationTime(300);
+    await flushMicrotasks();
+
+    expect(env.getElementById('late-el')).not.toBeNull();
+  });
+
+  // ── Test: setWordTimestamps retroactive — fires markers for words already passed ──
+  it('setWordTimestamps fires pending markers retroactively when narration already advanced', async () => {
+    const { env } = makeEnv();
+    const executor = new SceneExecutor(env);
+
+    const syncMarkers: SyncMarker[] = [
+      {
+        wordIndex: 1,
+        command: {
+          method: 'createElement',
+          args: {
+            id: 'retro-el',
+            type: 'box',
+            position: { x: 0, y: 0 },
+            properties: { width: 50, height: 50 },
+          },
+          timing: 'immediate',
+        },
+      },
+    ];
+
+    const scene = makeScene({ id: 'retro-ts-test' });
+
+    // Execute with empty timestamps
+    executor.execute(scene, syncMarkers, []);
+    await flushMicrotasks();
+
+    // Narration advances past where word 1 would be — but no timestamps yet
+    executor.updateNarrationTime(5000);
+    expect(env.getElementById('retro-el')).toBeNull();
+
+    // Word timestamps arrive after narration has already passed word 1
+    const wordTimestamps: WordTimestamp[] = [
+      { word: 'hello', start: 0, end: 200 },
+      { word: 'world', start: 200, end: 500 },
+    ];
+    executor.setWordTimestamps(wordTimestamps);
+    await flushMicrotasks();
+
+    // Marker should have fired retroactively (no additional updateNarrationTime needed)
+    expect(env.getElementById('retro-el')).not.toBeNull();
+  });
+
   // ── Test 11: 50 immediate createElement commands within perf budget ──
   it(`50 immediate createElement commands execute within ${AGENT_COMMAND_MS}ms`, async () => {
     const { env } = makeEnv();

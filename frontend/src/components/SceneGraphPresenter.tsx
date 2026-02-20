@@ -52,6 +52,12 @@ export function SceneGraphPresenter({
     executor.execute(currentScene, currentScene.syncMarkers ?? [], wordTimestamps);
   }, [currentScene?.id]); // re-run only on scene identity change
 
+  // Update word timestamps when agent_audio_meta arrives (after scene_change).
+  // This lets sync markers fire retroactively once timestamps become available.
+  useEffect(() => {
+    executor.setWordTimestamps(wordTimestamps);
+  }, [wordTimestamps, executor]);
+
   // Drive sync-marker commands with the narration clock.
   useEffect(() => {
     executor.updateNarrationTime(currentAudioTime);
